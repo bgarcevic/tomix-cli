@@ -1,28 +1,29 @@
-using Mdl.App.Info;
+using Mdl.App.Ls;
 using Mdl.Core.Models;
 
 namespace Mdl.App.Tests;
 
-public sealed class InfoModelHandlerTests
+public sealed class LsModelHandlerTests
 {
     [Fact]
     public async Task HandleAsync_ReturnsSuccess_WhenProviderCanOpen()
     {
-        var handler = new InfoModelHandler([new StubModelProvider()]);
+        var handler = new LsModelHandler([new StubModelProvider()]);
         var result  = await handler.HandleAsync(
-            new InfoModelRequest(new ModelReference("any")),
+            new LsModelRequest(new ModelReference("any")),
             CancellationToken.None);
 
         Assert.True(result.Success);
-        Assert.Equal("stub", result.Data!.Summary.Name);
+        Assert.Equal("stub", result.Data!.Inventory.Name);
+        Assert.Single(result.Data.Inventory.TableDetails);
     }
 
     [Fact]
     public async Task HandleAsync_ReturnsFail_WhenNoProviderMatches()
     {
-        var handler = new InfoModelHandler([]);
+        var handler = new LsModelHandler([]);
         var result  = await handler.HandleAsync(
-            new InfoModelRequest(new ModelReference("any")),
+            new LsModelRequest(new ModelReference("any")),
             CancellationToken.None);
 
         Assert.False(result.Success);
@@ -43,7 +44,16 @@ public sealed class InfoModelHandlerTests
             => Task.FromResult(new ModelSummary("stub", 1601, 3, 12, 4, 2, 0));
 
         public Task<ModelInventory> GetInventoryAsync(CancellationToken _)
-            => Task.FromResult(new ModelInventory("stub", 1601, 3, 12, 4, 2, 0, 0, []));
+            => Task.FromResult(new ModelInventory(
+                "stub",
+                1601,
+                1,
+                3,
+                2,
+                0,
+                0,
+                0,
+                [new ModelTableInfo("Sales", 3, 2, false, false)]));
 
         public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
