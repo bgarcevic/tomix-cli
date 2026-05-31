@@ -1,12 +1,18 @@
 using System.CommandLine;
 using Mdl.App.Connect;
+using Mdl.App.Info;
 using Mdl.App.State;
 using Mdl.Cli.Output;
+using Mdl.Core.Models;
 
 namespace Mdl.Cli.Commands;
 
 internal sealed class ConnectCommand : ICommandModule
 {
+    private readonly IReadOnlyList<IModelProvider> _providers;
+
+    public ConnectCommand(IReadOnlyList<IModelProvider> providers) => _providers = providers;
+
     public Command Build()
     {
         var serverArgument = new Argument<string>("server")
@@ -58,7 +64,7 @@ internal sealed class ConnectCommand : ICommandModule
             workspaceAuthOption
         };
 
-        command.SetAction(parseResult =>
+        command.SetAction(async (parseResult, cancellationToken) =>
         {
             var format = GlobalOptions.OutputFormatValue(parseResult);
             if (!CommandOutput.TryValidateFormat(format))
@@ -85,21 +91,65 @@ internal sealed class ConnectCommand : ICommandModule
                 return CommandOutput.Render(handler.Show(), format, RenderShow);
             }
 
+            var isRemoteEndpoint = ModelReference.IsRemoteEndpoint(server);
             var model = !string.IsNullOrWhiteSpace(globalModel)
                 ? globalModel
-                : LooksLikeLocalModelPath(server) ? server : null;
+                : (!isRemoteEndpoint && LooksLikeLocalModelPath(server)) ? server : null;
             var remoteServer = model is null ? server : null;
+            var auth = GlobalOptions.AuthValue(parseResult);
+            var local = parseResult.GetValue(GlobalOptions.Local);
 
-            return CommandOutput.Render(
-                handler.Set(new ConnectSetRequest(
-                    remoteServer,
-                    database,
-                    model,
-                    GlobalOptions.AuthValue(parseResult),
-                    parseResult.GetValue(GlobalOptions.Local),
-                    profile)),
-                format,
-                result => RenderConnection(result.Connection));
+            // Validate by opening before storing: local model paths always, and remote XMLA
+            // endpoints when a dataset is given (so we open that specific catalog, not the whole
+            // workspace). A bare workspace name or a remote endpoint without a dataset is stored
+            // as-is without opening.
+            ModelReference? validation = null;
+            if (string.IsNullOrWhiteSpace(profile))
+            {
+                if (!string.IsNullOrWhiteSpace(model))
+                    validation = new ModelReference(model);
+                else if (isRemoteEndpoint && !string.IsNullOrWhiteSpace(database))
+                    validation = ModelReference.Remote(remoteServer!, database);
+            }
+
+            if (validation is not null)
+            {
+                var infoHandler = new InfoModelHandler(_providers);
+                var infoResult = await infoHandler.HandleAsync(
+                    new InfoModelRequest(validation),
+                    cancellationToken);
+
+                if (!infoResult.Success)
+                {
+                    foreach (var diag in infoResult.Diagnostics)
+                        Console.Error.WriteLine($"Error: {diag.Message}");
+                    return infoResult.ExitCode == 0 ? 1 : infoResult.ExitCode;
+                }
+
+                handler.Set(new ConnectSetRequest(remoteServer, database, model, auth, Local: model is not null, profile));
+
+                if (format != OutputFormats.Text)
+                    return CommandOutput.Render(infoResult, format, _ => { });
+
+                var s = infoResult.Data!.Summary;
+                var name = string.IsNullOrWhiteSpace(s.Name) ? "(unnamed)" : s.Name;
+                Console.WriteLine($"Model: {name}");
+                Console.WriteLine($"  CL: {s.CompatibilityLevel}");
+                Console.WriteLine($"  tables: {s.Tables}  measures: {s.Measures}  relationships: {s.Relationships}  roles: {s.Roles}");
+                Console.WriteLine();
+                Console.WriteLine(model is not null
+                    ? $"Active: {Path.GetFullPath(model)}"
+                    : $"Active: {remoteServer}{(string.IsNullOrWhiteSpace(database) ? "" : $" / {database}")}");
+                return 0;
+            }
+
+            var setResult = handler.Set(new ConnectSetRequest(remoteServer, database, model, auth, local, profile));
+
+            if (format != OutputFormats.Text)
+                return CommandOutput.Render(setResult, format, _ => { });
+
+            RenderConnection(setResult.Data!.Connection);
+            return setResult.ExitCode;
         });
 
         return command;
@@ -117,7 +167,14 @@ internal sealed class ConnectCommand : ICommandModule
             return;
         }
 
-        RenderConnection(result.Connection);
+        var connection = result.Connection;
+        if (!string.IsNullOrWhiteSpace(connection.Model))
+        {
+            Console.WriteLine($"Active: {connection.Model}");
+            return;
+        }
+
+        RenderConnection(connection);
     }
 
     private static void RenderConnection(CliConnectionState connection)

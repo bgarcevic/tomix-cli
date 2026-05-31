@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Mdl.App\Mdl.App.csproj" />
+    <ProjectReference Include="..\Mdl.Auth\Mdl.Auth.csproj" />
     <ProjectReference Include="..\Mdl.Core\Mdl.Core.csproj" />
     <ProjectReference Include="..\Mdl.Provider.Tom\Mdl.Provider.Tom.csproj" />
     <ProjectReference Include="..\Mdl.Provider.Tmdl\Mdl.Provider.Tmdl.csproj" />

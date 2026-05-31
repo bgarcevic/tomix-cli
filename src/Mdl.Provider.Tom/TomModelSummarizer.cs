@@ -47,13 +47,16 @@ public static class TomModelSummarizer
 
         children.AddRange(table.Columns
             .Where(c => c.Type != ColumnType.RowNumber)
-            .Select(c => Leaf(
+            .Select(c => new ModelObject(
                 c.Name,
                 ModelObjectKind.Column,
                 $"{path}/{Segment(c.Name)}",
-                detail: ColumnDetail(c),
-                description: Desc(c.Description),
-                hidden: c.IsHidden)));
+                Detail: ColumnDetail(c),
+                Expression: null,
+                Description: Desc(c.Description),
+                Hidden: c.IsHidden,
+                SourceColumn: c is DataColumn dc ? dc.SourceColumn : null,
+                Children: [])));
 
         children.AddRange(table.Measures.Select(m => new ModelObject(
             m.Name,
@@ -63,15 +66,21 @@ public static class TomModelSummarizer
             Expression: m.Expression,
             Description: Desc(m.Description),
             Hidden: m.IsHidden,
+            SourceColumn: null,
             Children: [])));
 
         children.AddRange(table.Hierarchies.Select(h => BuildHierarchy(h, path)));
 
-        children.AddRange(table.Partitions.Select(p => Leaf(
+        children.AddRange(table.Partitions.Select(p => new ModelObject(
             p.Name,
             ModelObjectKind.Partition,
             $"{path}/{Segment(p.Name)}",
-            detail: PartitionDetail(p))));
+            Detail: PartitionDetail(p),
+            Expression: PartitionExpression(p),
+            Description: Desc(p.Description),
+            Hidden: false,
+            SourceColumn: null,
+            Children: [])));
 
         var tableDetail = table.Partitions.Any(p => p.SourceType == PartitionSourceType.Calculated)
             ? "calculated"
@@ -85,6 +94,7 @@ public static class TomModelSummarizer
             Expression: null,
             Description: Desc(table.Description),
             Hidden: table.IsHidden,
+            SourceColumn: null,
             Children: children);
     }
 
@@ -108,6 +118,7 @@ public static class TomModelSummarizer
             Expression: null,
             Description: Desc(hierarchy.Description),
             Hidden: hierarchy.IsHidden,
+            SourceColumn: null,
             Children: levels);
     }
 
@@ -130,6 +141,7 @@ public static class TomModelSummarizer
             Expression: null,
             Description: null,
             Hidden: false,
+            SourceColumn: null,
             Children: []);
     }
 
@@ -152,6 +164,7 @@ public static class TomModelSummarizer
             Expression: null,
             Description: Desc(role.Description),
             Hidden: false,
+            SourceColumn: null,
             Children: members);
     }
 
@@ -166,6 +179,13 @@ public static class TomModelSummarizer
             ? "calculated"
             : partition.Mode.ToString().ToLowerInvariant();
 
+    private static string? PartitionExpression(Partition partition) => partition.Source switch
+    {
+        MPartitionSource m => m.Expression,
+        CalculatedPartitionSource c => c.Expression,
+        _ => null
+    };
+
     private static string Cardinality(SingleColumnRelationship r) =>
         (r.FromCardinality, r.ToCardinality) switch
         {
@@ -179,7 +199,7 @@ public static class TomModelSummarizer
     private static ModelObject Leaf(
         string name, ModelObjectKind kind, string path, string? detail,
         string? description = null, bool hidden = false)
-        => new(name, kind, path, detail, Expression: null, description, hidden, Children: []);
+        => new(name, kind, path, detail, Expression: null, description, hidden, SourceColumn: null, Children: []);
 
     // Treat empty/whitespace descriptions as absent so they don't widen the output table.
     private static string? Desc(string? description)

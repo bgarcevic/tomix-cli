@@ -39,7 +39,7 @@ public sealed class ModelObjectSelectorTests
     }
 
     private static ModelObject Node(string name, ModelObjectKind kind, params ModelObject[] children)
-        => new(name, kind, name, Detail: null, Expression: null, Description: null, Hidden: false, Children: children);
+        => new(name, kind, name, Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: null, Children: children);
 
     private static string[] Names(string? path, ModelObjectKind? type = null)
         => ModelObjectSelector.Select(Snapshot(), path, type).Select(o => o.Name).ToArray();

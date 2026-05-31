@@ -20,4 +20,5 @@ public sealed record ModelObject(
     string? Expression,
     string? Description,
     bool Hidden,
+    string? SourceColumn,
     IReadOnlyList<ModelObject> Children);

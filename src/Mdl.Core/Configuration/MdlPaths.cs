@@ -25,4 +25,10 @@ public static class MdlPaths
 
     /// <summary>The local preferences file, <c>~/.mdl/config.json</c>.</summary>
     public static string ConfigFile => Path.Combine(ConfigDirectory, "config.json");
+
+    /// <summary>The directory holding the MSAL token cache and auth metadata, <c>~/.mdl/auth</c>.</summary>
+    public static string AuthDirectory => Path.Combine(ConfigDirectory, "auth");
+
+    /// <summary>Sidecar metadata for the cached login (method/account/tenant), <c>~/.mdl/auth/auth-state.json</c>.</summary>
+    public static string AuthStateFile => Path.Combine(AuthDirectory, "auth-state.json");
 }

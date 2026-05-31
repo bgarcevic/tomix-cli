@@ -15,17 +15,19 @@ internal static class Program
         foreach (var option in GlobalOptions.All())
             root.Options.Add(option);
 
-        IReadOnlyList<IModelProvider> providers = [new TmdlModelProvider(), new TomFileModelProvider()];
+        var tokenProvider = AuthSettingsFactory.CreateAuthenticator();
+        IReadOnlyList<IModelProvider> providers =
+            [new TmdlModelProvider(), new TomFileModelProvider(), new TomServerModelProvider(tokenProvider)];
         var stubs = CompatibilityStubCommand.All().ToDictionary(command => command.Name);
 
         var modules = new ICommandModule[]
         {
             new AddCommand(providers),
-            stubs["auth"],
+            new AuthCommand(),
             stubs["bpa"],
             new CompletionCommand(() => root.Subcommands.Select(command => command.Name).ToList()),
             new ConfigCommand(),
-            new ConnectCommand(),
+            new ConnectCommand(providers),
             stubs["deploy"],
             new DepsCommand(providers),
             new DiffCommand(providers),

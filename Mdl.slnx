@@ -1,6 +1,7 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/Mdl.App/Mdl.App.csproj" />
+    <Project Path="src/Mdl.Auth/Mdl.Auth.csproj" />
     <Project Path="src/Mdl.Cli/Mdl.Cli.csproj" />
     <Project Path="src/Mdl.Core/Mdl.Core.csproj" />
     <Project Path="src/Mdl.Provider.Tmdl/Mdl.Provider.Tmdl.csproj" />

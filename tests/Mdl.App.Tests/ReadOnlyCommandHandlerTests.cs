@@ -78,20 +78,24 @@ public sealed class ReadOnlyCommandHandlerTests
         {
             var amount = new ModelObject(
                 "Amount", ModelObjectKind.Column, "Sales/Amount",
-                Detail: "decimal", Expression: null, Description: null, Hidden: false, Children: []);
+                Detail: "decimal", Expression: null, Description: null, Hidden: false,
+                SourceColumn: "Amount", Children: []);
             var totalSales = new ModelObject(
                 "Total Sales", ModelObjectKind.Measure, "Sales/Total Sales",
-                Detail: null, Expression: "SUM(Sales[Amount])", Description: null, Hidden: false, Children: []);
+                Detail: null, Expression: "SUM(Sales[Amount])", Description: null, Hidden: false,
+                SourceColumn: null, Children: []);
             var orderCount = new ModelObject(
                 "Order Count", ModelObjectKind.Measure, "Sales/Order Count",
-                Detail: null, Expression: "COUNTROWS(Sales)", Description: null, Hidden: false, Children: []);
+                Detail: null, Expression: "COUNTROWS(Sales)", Description: null, Hidden: false,
+                SourceColumn: null, Children: []);
             var partition = new ModelObject(
                 "Sales", ModelObjectKind.Partition, "Sales/Sales",
-                Detail: "import", Expression: null, Description: null, Hidden: false, Children: []);
+                Detail: "import", Expression: null, Description: null, Hidden: false,
+                SourceColumn: null, Children: []);
             var table = new ModelObject(
                 "Sales", ModelObjectKind.Table, "Sales",
                 Detail: "regular", Expression: null, Description: null, Hidden: false,
-                Children: [amount, totalSales, orderCount, partition]);
+                SourceColumn: null, Children: [amount, totalSales, orderCount, partition]);
             var relationship = new ModelObject(
                 "Customers[CustomerKey] -> Sales[CustomerKey]",
                 ModelObjectKind.Relationship,
@@ -100,6 +104,7 @@ public sealed class ReadOnlyCommandHandlerTests
                 Expression: null,
                 Description: null,
                 Hidden: false,
+                SourceColumn: null,
                 Children: []);
 
             return Task.FromResult(new ModelSnapshot("(unnamed)", 1601, [table, relationship]));

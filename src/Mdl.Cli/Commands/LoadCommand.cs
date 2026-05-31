@@ -27,7 +27,9 @@ internal sealed class LoadCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var path = parseResult.GetValue(modelArgument);
-            var model = ModelSourceResolver.Resolve(GlobalOptions.ModelValue(parseResult) ?? path);
+            var reference = ModelSourceResolver.ResolveReference(
+                GlobalOptions.ModelValue(parseResult) ?? path,
+                parseResult.GetValue(GlobalOptions.Database));
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
@@ -35,7 +37,7 @@ internal sealed class LoadCommand : ICommandModule
 
             var handler = new InfoModelHandler(_providers);
             var result = await handler.HandleAsync(
-                new InfoModelRequest(new ModelReference(model)),
+                new InfoModelRequest(reference),
                 cancellationToken);
 
             return CommandOutput.Render(result, formatValue, Render, data => data.Summary);

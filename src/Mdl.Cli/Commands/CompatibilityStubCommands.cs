@@ -75,23 +75,6 @@ internal sealed class CompatibilityStubCommand : ICommandModule
                 Flag("--revert"),
                 Flag("--save")
             ]),
-        New("auth", "Manage authentication for remote workspaces",
-            subcommands:
-            [
-                New("login", "Log in to a Power BI / Fabric / Azure AS account",
-                    options:
-                    [
-                        Value("--username", "-u"),
-                        Value("--password", "-p"),
-                        Value("--tenant", "-t"),
-                        Flag("--identity", "-I"),
-                        Value("--certificate"),
-                        Value("--certificate-password"),
-                        Flag("--save")
-                    ]),
-                New("logout", "Clear cached authentication credentials"),
-                New("status", "Show authentication status")
-            ]),
         New("bpa", "Best Practice Analyzer: run rules and manage rule collections",
             subcommands:
             [

@@ -1,3 +1,5 @@
+using Mdl.App.Diagnostics;
+using Mdl.Core.Authentication;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -22,8 +24,22 @@ public sealed class InfoModelHandler
                 message: $"No provider can open model: {request.Model.Value}",
                 exitCode: 1);
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
-        var summary = await session.GetSummaryAsync(cancellationToken);
-        return MdlResult<InfoModelResult>.Ok(new InfoModelResult(summary));
+        try
+        {
+            await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+            var summary = await session.GetSummaryAsync(cancellationToken);
+            return MdlResult<InfoModelResult>.Ok(new InfoModelResult(summary));
+        }
+        catch (AuthenticationRequiredException ex)
+        {
+            return MdlResult<InfoModelResult>.Fail("MDL_AUTH_REQUIRED", ex.Message, exitCode: 1);
+        }
+        catch (Exception ex) when (request.Model.IsRemote && ex is not OperationCanceledException)
+        {
+            return MdlResult<InfoModelResult>.Fail(
+                "MDL_CONNECT_FAILED",
+                RemoteConnectError.Describe(request.Model.Value, ex),
+                exitCode: 1);
+        }
     }
 }

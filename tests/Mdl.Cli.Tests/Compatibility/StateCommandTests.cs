@@ -13,9 +13,9 @@ public sealed class StateCommandTests
             state.Environment,
             "connect", "samples\\basic-tmdl", "--output-format", "json");
         Assert.Equal(0, connect.ExitCode);
+        // connect validates the model before storing the session and emits its summary.
         var connectJson = JsonObject(connect);
-        Assert.True(connectJson["active"]!.GetValue<bool>());
-        Assert.Equal("samples\\basic-tmdl", connectJson["connection"]!["model"]!.GetValue<string>());
+        Assert.Equal(3, connectJson["summary"]!["tables"]!.GetValue<int>());
 
         var load = CliProcess.RunMdlWithEnvironment(
             state.Environment,

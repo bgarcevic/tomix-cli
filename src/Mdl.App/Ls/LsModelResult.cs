@@ -21,4 +21,5 @@ public sealed record LsObject(
     string? Expression,
     string? Description,
     bool Hidden,
+    string? SourceColumn,
     IReadOnlyDictionary<ModelObjectKind, int> ChildCounts);

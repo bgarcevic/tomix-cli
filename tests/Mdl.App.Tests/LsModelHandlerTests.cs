@@ -77,11 +77,12 @@ public sealed class LsModelHandlerTests
         {
             var measure = new ModelObject(
                 "Total Sales", ModelObjectKind.Measure, "Sales/Total Sales",
-                Detail: null, Expression: "SUM(Sales[Amount])", Description: null, Hidden: false, Children: []);
+                Detail: null, Expression: "SUM(Sales[Amount])", Description: null, Hidden: false,
+                SourceColumn: null, Children: []);
             var sales = new ModelObject(
                 "Sales", ModelObjectKind.Table, "Sales",
                 Detail: "regular", Expression: null, Description: "Sales fact table", Hidden: false,
-                Children: [measure]);
+                SourceColumn: null, Children: [measure]);
 
             return Task.FromResult(new ModelSnapshot("stub", 1601, [sales]));
         }

@@ -29,7 +29,7 @@ public sealed class CliStateStore
                 named = Environment.GetEnvironmentVariable("TE_SESSION");
 
             return string.IsNullOrWhiteSpace(named)
-                ? $"pid-{Environment.ProcessId}"
+                ? "default"
                 : named.Trim();
         }
     }

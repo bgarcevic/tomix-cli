@@ -58,14 +58,15 @@ internal sealed class LsCommand : ICommandModule
         {
             var modelValue = parseResult.GetValue(modelArgument);
             var globalModel = GlobalOptions.ModelValue(parseResult);
-            var activeModel = string.IsNullOrWhiteSpace(globalModel)
-                ? ModelSourceResolver.Resolve(null)
-                : "";
-            var hasContextModel = !string.IsNullOrWhiteSpace(globalModel) ||
-                                  !string.IsNullOrWhiteSpace(activeModel);
-            var path = !string.IsNullOrWhiteSpace(globalModel)
-                ? globalModel
-                : !string.IsNullOrWhiteSpace(activeModel) ? activeModel : modelValue ?? "";
+
+            // The active model is --model when given, otherwise the session (local path or remote endpoint).
+            var activeReference = string.IsNullOrWhiteSpace(globalModel)
+                ? ModelSourceResolver.ResolveReference(null)
+                : new ModelReference(globalModel);
+            var hasContextModel = !string.IsNullOrWhiteSpace(activeReference.Value);
+
+            // With an active model the bare positional argument is a path-filter, not a model path.
+            var reference = hasContextModel ? activeReference : new ModelReference(modelValue ?? "");
             var pathFilter = hasContextModel
                 ? parseResult.GetValue(pathArgument) ?? modelValue
                 : parseResult.GetValue(pathArgument);
@@ -93,7 +94,7 @@ internal sealed class LsCommand : ICommandModule
 
             var handler = new LsModelHandler(_providers);
             var result = await handler.HandleAsync(
-                new LsModelRequest(new ModelReference(path), pathFilter, type),
+                new LsModelRequest(reference, pathFilter, type),
                 cancellationToken);
 
             return CommandOutput.Render(
