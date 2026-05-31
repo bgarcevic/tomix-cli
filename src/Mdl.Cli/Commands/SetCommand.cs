@@ -99,12 +99,11 @@ internal sealed class SetCommand : ICommandModule
             IReadOnlyList<ModelPropertyAssignment> assignments = string.IsNullOrWhiteSpace(query)
                 ? Array.Empty<ModelPropertyAssignment>()
                 : [new ModelPropertyAssignment(query, value ?? "")];
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
-
             var result = await new SetModelPropertyHandler(_providers).HandleAsync(
                 new SetModelPropertyRequest(
-                    new ModelReference(model),
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(pathArgument) ?? "",
                     assignments,
                     type,

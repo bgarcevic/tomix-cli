@@ -107,8 +107,6 @@ internal sealed class AddCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
             var value = ResolveInputValue(
                 parseResult.GetValue(valueOption),
                 parseResult.GetValue(fileOption));
@@ -119,7 +117,9 @@ internal sealed class AddCommand : ICommandModule
 
             var result = await new AddModelObjectHandler(_providers).HandleAsync(
                 new AddModelObjectRequest(
-                    new ModelReference(model),
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(pathArgument) ?? "",
                     parseResult.GetValue(typeOption),
                     value,

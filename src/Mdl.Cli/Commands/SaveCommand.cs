@@ -73,23 +73,25 @@ internal sealed class SaveCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
             var outputPath = parseResult.GetValue(outputPathOption);
             var serialization = parseResult.GetValue(serializationOption) ?? "";
             var force = parseResult.GetValue(forceOption);
             var supportingFiles = parseResult.GetValue(supportingFilesOption);
 
+            var reference = ModelSourceResolver.ResolveReference(
+                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                parseResult.GetValue(GlobalOptions.Database));
+
             var result = await new SaveModelHandler(_providers).HandleAsync(
                 new SaveModelRequest(
-                    new ModelReference(model),
+                    reference,
                     outputPath,
                     serialization,
                     force,
                     supportingFiles),
                 cancellationToken);
 
-            return CommandOutput.Render(result, formatValue, data => Render(data, model));
+            return CommandOutput.Render(result, formatValue, data => Render(data, reference.Value));
         });
 
         return command;

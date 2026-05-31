@@ -47,8 +47,6 @@ internal sealed class GetCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var path = parseResult.GetValue(pathArgument) ?? "";
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
             var query = parseResult.GetValue(queryOption);
             var typeValue = parseResult.GetValue(typeOption);
@@ -69,7 +67,11 @@ internal sealed class GetCommand : ICommandModule
             }
 
             var result = await new GetModelHandler(_providers).HandleAsync(
-                new GetModelRequest(new ModelReference(model), path, query, type),
+                new GetModelRequest(
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
+                    path, query, type),
                 cancellationToken);
 
             return CommandOutput.Render(result, formatValue, Render);

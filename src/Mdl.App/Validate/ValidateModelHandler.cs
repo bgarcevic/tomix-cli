@@ -36,8 +36,7 @@ public sealed partial class ValidateModelHandler
             Valid: errors.Count == 0,
             DurationMs: Math.Max(0, stopwatch.ElapsedMilliseconds),
             Errors: errors,
-            Warnings: [],
-            Antipatterns: []);
+            Warnings: []);
 
         return MdlResult<ValidateModelResult>.Ok(result, exitCode: result.Valid ? 0 : 1);
     }
@@ -54,6 +53,13 @@ public sealed partial class ValidateModelHandler
                     .ToHashSet(StringComparer.OrdinalIgnoreCase),
                 StringComparer.OrdinalIgnoreCase);
 
+        var measureNames = snapshot.Objects
+            .Where(o => o.Kind == ModelObjectKind.Table)
+            .SelectMany(t => t.Children)
+            .Where(c => c.Kind == ModelObjectKind.Measure)
+            .Select(m => m.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         var issues = new List<ValidationIssue>();
         foreach (var obj in Flatten(snapshot.Objects))
         {
@@ -66,6 +72,9 @@ public sealed partial class ValidateModelHandler
                     continue;
 
                 if (columns.Contains(reference.Column))
+                    continue;
+
+                if (measureNames.Contains(reference.Column))
                     continue;
 
                 issues.Add(new ValidationIssue(

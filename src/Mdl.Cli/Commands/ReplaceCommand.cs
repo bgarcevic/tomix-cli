@@ -92,11 +92,11 @@ internal sealed class ReplaceCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
             var result = await new ReplaceModelTextHandler(_providers).HandleAsync(
                 new ReplaceModelTextRequest(
-                    new ModelReference(model),
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(patternArgument) ?? "",
                     parseResult.GetValue(replacementArgument) ?? "",
                     parseResult.GetValue(inOption) ?? "all",

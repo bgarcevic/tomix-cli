@@ -89,11 +89,11 @@ internal sealed class MvCommand : ICommandModule
                 type = parsed;
             }
 
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
             var result = await new MoveModelObjectHandler(_providers).HandleAsync(
                 new MoveModelObjectRequest(
-                    new ModelReference(model),
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(sourceArgument) ?? "",
                     parseResult.GetValue(destinationArgument) ?? "",
                     type,

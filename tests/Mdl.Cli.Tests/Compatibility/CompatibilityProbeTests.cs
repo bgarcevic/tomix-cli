@@ -568,6 +568,7 @@ public sealed class CompatibilityProbeTests
         var mdlJson = JsonNode.Parse(CompatibilityText.JsonPrefix(mdl.StdOut))!.AsObject();
 
         referenceJson.Remove("durationMs");
+        referenceJson.Remove("antipatterns");
         mdlJson.Remove("durationMs");
 
         Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");

@@ -4,8 +4,7 @@ public sealed record ValidateModelResult(
     bool Valid,
     long DurationMs,
     IReadOnlyList<ValidationIssue> Errors,
-    IReadOnlyList<ValidationIssue> Warnings,
-    IReadOnlyList<ValidationIssue> Antipatterns);
+    IReadOnlyList<ValidationIssue> Warnings);
 
 public sealed record ValidationIssue(
     string Code,

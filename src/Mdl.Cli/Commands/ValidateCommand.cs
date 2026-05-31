@@ -35,10 +35,6 @@ internal sealed class ValidateCommand : ICommandModule
         {
             Description = "Hide warnings from the semantic analyzer"
         };
-        var noAntipatternsOption = new Option<bool>("--no-antipatterns")
-        {
-            Description = "Hide anti-pattern suggestions"
-        };
         var noMultilineOption = new Option<bool>("--no-multiline")
         {
             Description = "Collapse multi-line cell content to a single line. Text output only."
@@ -55,7 +51,6 @@ internal sealed class ValidateCommand : ICommandModule
             trxOption,
             errorsOnlyOption,
             noWarningsOption,
-            noAntipatternsOption,
             noMultilineOption,
             serverOnlyOption
         };
@@ -66,13 +61,15 @@ internal sealed class ValidateCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(format))
                 return 2;
 
+            var errorsOnly = parseResult.GetValue(errorsOnlyOption);
+
             var result = await new ValidateModelHandler(_providers).HandleAsync(
                 new ValidateModelRequest(
-                    new ModelReference(ModelSourceResolver.Resolve(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument))),
-                    parseResult.GetValue(errorsOnlyOption),
-                    parseResult.GetValue(noWarningsOption) || parseResult.GetValue(errorsOnlyOption),
-                    parseResult.GetValue(noAntipatternsOption) || parseResult.GetValue(errorsOnlyOption),
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
+                    errorsOnly,
+                    parseResult.GetValue(noWarningsOption) || errorsOnly,
                     parseResult.GetValue(serverOnlyOption)),
                 cancellationToken);
 
@@ -88,13 +85,13 @@ internal sealed class ValidateCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => Render(data, parseResult.GetValue(noMultilineOption)));
+                data => Render(data, errorsOnly, parseResult.GetValue(noMultilineOption)));
         });
 
         return command;
     }
 
-    private static void Render(ValidateModelResult result, bool noMultiline)
+    private static void Render(ValidateModelResult result, bool errorsOnly, bool noMultiline)
     {
         Console.WriteLine("Validating...");
         Console.WriteLine("Validating: (unnamed)");
@@ -106,17 +103,67 @@ internal sealed class ValidateCommand : ICommandModule
             return;
         }
 
-        Console.WriteLine("Errors");
+        var allRows = new List<(string Kind, string Message, string Object, string Line)>();
+
         foreach (var error in result.Errors)
         {
             var message = noMultiline ? error.Message.ReplaceLineEndings(" ") : error.Message;
-            Console.WriteLine($"  {message} | {error.ObjectName}");
+            allRows.Add(("Error", message, error.ObjectName, error.Expression ?? ""));
+        }
+
+        if (!errorsOnly)
+        {
+            foreach (var warning in result.Warnings)
+            {
+                var message = noMultiline ? warning.Message.ReplaceLineEndings(" ") : warning.Message;
+                allRows.Add(("Warning", message, warning.ObjectName, warning.Expression ?? ""));
+            }
+        }
+
+        var hasErrors = result.Errors.Count > 0;
+        var hasWarnings = !errorsOnly && result.Warnings.Count > 0;
+
+        if (hasErrors)
+        {
+            Console.WriteLine("Errors");
+            RenderTable(allRows.Where(r => r.Kind == "Error").ToList());
+        }
+
+        if (hasWarnings)
+        {
+            Console.WriteLine("Warnings");
+            RenderTable(allRows.Where(r => r.Kind == "Warning").ToList());
         }
 
         Console.WriteLine();
         Console.WriteLine($"  Errors:        {result.Errors.Count}");
-        Console.WriteLine($"  Warnings:      {result.Warnings.Count}");
-        Console.WriteLine($"  Anti-patterns: {result.Antipatterns.Count}");
+
+        if (!errorsOnly)
+        {
+            Console.WriteLine($"  Warnings:      {result.Warnings.Count}");
+        }
+    }
+
+    private static void RenderTable(IReadOnlyList<(string Kind, string Message, string Object, string Line)> rows)
+    {
+        if (rows.Count == 0)
+            return;
+
+        var msgWidth = Math.Max("Message".Length, rows.Max(r => r.Message.Length));
+        var objWidth = Math.Max("Object".Length, rows.Max(r => r.Object.Length));
+        var lineHeader = "Line";
+
+        var header = $"  {"Message".PadRight(msgWidth)} │ {"Object".PadRight(objWidth)} │ {lineHeader}";
+        var separator = $"  {new string('─', msgWidth)}─┼─{new string('─', objWidth)}─┼─{new string('─', lineHeader.Length)}";
+
+        Console.WriteLine("                                                                            ");
+        Console.WriteLine(header);
+        Console.WriteLine(separator);
+
+        foreach (var row in rows)
+            Console.WriteLine($"  {row.Message.PadRight(msgWidth)} │ {row.Object.PadRight(objWidth)} │ {row.Line}");
+
+        Console.WriteLine("                                                                            ");
     }
 
     private static void EmitCi(string? ci, ValidateModelResult result)
@@ -124,12 +171,17 @@ internal sealed class ValidateCommand : ICommandModule
         if (string.IsNullOrWhiteSpace(ci) || result.Valid)
             return;
 
-        foreach (var error in result.Errors)
+        if (ci.Equals("github", StringComparison.OrdinalIgnoreCase))
         {
-            if (ci.Equals("github", StringComparison.OrdinalIgnoreCase))
+            foreach (var error in result.Errors)
                 Console.Error.WriteLine($"::error::{error.Message} [{error.ObjectName}] ({error.Code})");
-            else if (ci.Equals("vsts", StringComparison.OrdinalIgnoreCase))
-                Console.Error.WriteLine($"##vso[task.logissue type=error;code={error.Code}]{error.Message} [{error.ObjectName}]");
+        }
+        else if (ci.Equals("vsts", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var error in result.Errors)
+                Console.Error.WriteLine($"##vso[task.logissue type=error;]{error.Message} [{error.ObjectName}] ({error.Code})");
+
+            Console.Error.WriteLine("##vso[task.complete result=Failed;]Done.");
         }
     }
 

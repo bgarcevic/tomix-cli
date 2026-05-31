@@ -59,17 +59,32 @@ internal sealed class LsCommand : ICommandModule
             var modelValue = parseResult.GetValue(modelArgument);
             var globalModel = GlobalOptions.ModelValue(parseResult);
 
-            // The active model is --model when given, otherwise the session (local path or remote endpoint).
             var activeReference = string.IsNullOrWhiteSpace(globalModel)
                 ? ModelSourceResolver.ResolveReference(null)
                 : new ModelReference(globalModel);
             var hasContextModel = !string.IsNullOrWhiteSpace(activeReference.Value);
 
-            // With an active model the bare positional argument is a path-filter, not a model path.
-            var reference = hasContextModel ? activeReference : new ModelReference(modelValue ?? "");
-            var pathFilter = hasContextModel
-                ? parseResult.GetValue(pathArgument) ?? modelValue
-                : parseResult.GetValue(pathArgument);
+            var positionalIsModel = !string.IsNullOrWhiteSpace(modelValue)
+                && _providers.Any(p => p.CanOpen(new ModelReference(modelValue)));
+
+            ModelReference reference;
+            string? pathFilter;
+
+            if (positionalIsModel)
+            {
+                reference = new ModelReference(modelValue!);
+                pathFilter = parseResult.GetValue(pathArgument);
+            }
+            else if (hasContextModel)
+            {
+                reference = activeReference;
+                pathFilter = parseResult.GetValue(pathArgument) ?? modelValue;
+            }
+            else
+            {
+                reference = new ModelReference(modelValue ?? "");
+                pathFilter = parseResult.GetValue(pathArgument);
+            }
             var typeValue = parseResult.GetValue(typeOption);
             var pathsOnly = parseResult.GetValue(pathsOnlyOption);
             var noMultiline = parseResult.GetValue(noMultilineOption);

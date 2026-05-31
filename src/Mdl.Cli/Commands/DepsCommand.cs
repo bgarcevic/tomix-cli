@@ -69,8 +69,6 @@ internal sealed class DepsCommand : ICommandModule
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
             var typeValue = parseResult.GetValue(typeOption);
 
@@ -91,7 +89,9 @@ internal sealed class DepsCommand : ICommandModule
 
             var result = await new DepsModelHandler(_providers).HandleAsync(
                 new DepsModelRequest(
-                    new ModelReference(model),
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(pathArgument),
                     type,
                     parseResult.GetValue(upstreamOption),

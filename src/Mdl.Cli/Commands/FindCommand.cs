@@ -59,8 +59,6 @@ internal sealed class FindCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var pattern = parseResult.GetValue(patternArgument) ?? "";
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
@@ -68,7 +66,9 @@ internal sealed class FindCommand : ICommandModule
 
             var result = await new FindModelHandler(_providers).HandleAsync(
                 new FindModelRequest(
-                    new ModelReference(model),
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
                     pattern,
                     parseResult.GetValue(inOption) ?? "all",
                     parseResult.GetValue(regexOption),

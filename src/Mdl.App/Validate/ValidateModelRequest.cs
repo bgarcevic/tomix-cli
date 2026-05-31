@@ -6,5 +6,4 @@ public sealed record ValidateModelRequest(
     ModelReference Model,
     bool ErrorsOnly,
     bool NoWarnings,
-    bool NoAntipatterns,
     bool ServerOnly);

@@ -94,11 +94,11 @@ internal sealed class RmCommand : ICommandModule
                 type = parsed;
             }
 
-            var model = ModelSourceResolver.Resolve(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument));
             var result = await new RemoveModelObjectHandler(_providers).HandleAsync(
                 new RemoveModelObjectRequest(
-                    new ModelReference(model),
+                    ModelSourceResolver.ResolveReference(
+                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                        parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(pathArgument) ?? "",
                     type,
                     parseResult.GetValue(ifExistsOption),
