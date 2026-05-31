@@ -29,7 +29,7 @@ internal sealed class InfoCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var path = parseResult.GetValue(modelArgument) ?? "";
-            var formatValue = parseResult.GetValue(format) ?? OutputFormats.Human;
+            var formatValue = parseResult.GetValue(format) ?? OutputFormats.Text;
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;

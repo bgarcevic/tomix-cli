@@ -11,6 +11,10 @@ public static class MdlPaths
     {
         get
         {
+            var overrideDirectory = Environment.GetEnvironmentVariable("MDL_CONFIG_DIR");
+            if (!string.IsNullOrWhiteSpace(overrideDirectory))
+                return Path.GetFullPath(overrideDirectory);
+
             var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
 
             return string.IsNullOrWhiteSpace(home)

@@ -15,7 +15,8 @@ internal sealed class LsCommand : ICommandModule
     {
         var modelArgument = new Argument<string>("model")
         {
-            Description = "Path to the semantic model folder."
+            Description = "Path to model (if not using --model)",
+            Arity = ArgumentArity.ZeroOrOne
         };
 
         var pathArgument = new Argument<string?>("path-filter")
@@ -44,26 +45,34 @@ internal sealed class LsCommand : ICommandModule
                           "line and truncate. Text output only."
         };
 
-        var format = OutputFormats.CreateOption();
-
-        var command = new Command("ls", "List semantic model objects.")
+        var command = new Command("ls", "List model objects")
         {
             modelArgument,
             pathArgument,
             typeOption,
             pathsOnlyOption,
-            noMultilineOption,
-            format
+            noMultilineOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
-            var path = parseResult.GetValue(modelArgument) ?? "";
-            var pathFilter = parseResult.GetValue(pathArgument);
+            var modelValue = parseResult.GetValue(modelArgument);
+            var globalModel = GlobalOptions.ModelValue(parseResult);
+            var activeModel = string.IsNullOrWhiteSpace(globalModel)
+                ? ModelSourceResolver.Resolve(null)
+                : "";
+            var hasContextModel = !string.IsNullOrWhiteSpace(globalModel) ||
+                                  !string.IsNullOrWhiteSpace(activeModel);
+            var path = !string.IsNullOrWhiteSpace(globalModel)
+                ? globalModel
+                : !string.IsNullOrWhiteSpace(activeModel) ? activeModel : modelValue ?? "";
+            var pathFilter = hasContextModel
+                ? parseResult.GetValue(pathArgument) ?? modelValue
+                : parseResult.GetValue(pathArgument);
             var typeValue = parseResult.GetValue(typeOption);
             var pathsOnly = parseResult.GetValue(pathsOnlyOption);
             var noMultiline = parseResult.GetValue(noMultilineOption);
-            var formatValue = parseResult.GetValue(format) ?? OutputFormats.Human;
+            var formatValue = GlobalOptions.OutputFormatValue(parseResult);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
@@ -71,7 +80,7 @@ internal sealed class LsCommand : ICommandModule
             ModelObjectKind? type = null;
             if (!string.IsNullOrWhiteSpace(typeValue))
             {
-                if (!TryParseType(typeValue, out var parsed))
+                if (!ModelObjectKindParser.TryParse(typeValue, out var parsed))
                 {
                     Console.Error.WriteLine(
                         "Invalid --type value. Expected: table, measure, column, hierarchy, " +
@@ -87,26 +96,48 @@ internal sealed class LsCommand : ICommandModule
                 new LsModelRequest(new ModelReference(path), pathFilter, type),
                 cancellationToken);
 
-            return CommandOutput.Render(result, formatValue, data => LsRenderer.Render(data, pathsOnly, noMultiline));
+            return CommandOutput.Render(
+                result,
+                formatValue,
+                data => LsRenderer.Render(data, pathsOnly, noMultiline),
+                ToReferenceJson);
         });
 
         return command;
     }
 
-    private static bool TryParseType(string value, out ModelObjectKind kind)
+    private static IReadOnlyList<IReadOnlyDictionary<string, object?>> ToReferenceJson(LsModelResult data)
+        => data.Objects.Select(ToReferenceJson).ToList();
+
+    private static IReadOnlyDictionary<string, object?> ToReferenceJson(LsObject obj)
     {
-        switch (value.Trim().ToLowerInvariant())
+        if (obj.Kind == ModelObjectKind.Table)
         {
-            case "table": kind = ModelObjectKind.Table; return true;
-            case "measure": kind = ModelObjectKind.Measure; return true;
-            case "column": kind = ModelObjectKind.Column; return true;
-            case "hierarchy": kind = ModelObjectKind.Hierarchy; return true;
-            case "partition": kind = ModelObjectKind.Partition; return true;
-            case "relationship": kind = ModelObjectKind.Relationship; return true;
-            case "role": kind = ModelObjectKind.Role; return true;
-            case "perspective": kind = ModelObjectKind.Perspective; return true;
-            case "culture": kind = ModelObjectKind.Culture; return true;
-            default: kind = default; return false;
+            return new Dictionary<string, object?>
+            {
+                ["name"] = obj.Name,
+                ["description"] = obj.Description ?? "",
+                ["isHidden"] = obj.Hidden,
+                ["dataCategory"] = "",
+                ["lineageTag"] = "",
+                ["columns"] = obj.ChildCounts.GetValueOrDefault(ModelObjectKind.Column),
+                ["measures"] = obj.ChildCounts.GetValueOrDefault(ModelObjectKind.Measure),
+                ["hierarchies"] = obj.ChildCounts.GetValueOrDefault(ModelObjectKind.Hierarchy),
+                ["partitions"] = obj.ChildCounts.GetValueOrDefault(ModelObjectKind.Partition),
+                ["refreshPolicy"] = null,
+                ["defaultDetailRowsExpression"] = null
+            };
         }
+
+        return new Dictionary<string, object?>
+        {
+            ["type"] = obj.Kind.ToString(),
+            ["path"] = obj.Path,
+            ["name"] = obj.Name,
+            ["description"] = obj.Description ?? "",
+            ["isHidden"] = obj.Hidden,
+            ["detail"] = obj.Detail,
+            ["expression"] = obj.Expression
+        };
     }
 }

@@ -1,0 +1,110 @@
+using Mdl.App.Deps;
+using Mdl.App.Find;
+using Mdl.App.Get;
+using Mdl.Core.Models;
+
+namespace Mdl.App.Tests;
+
+public sealed class ReadOnlyCommandHandlerTests
+{
+    [Fact]
+    public async Task Get_PrefersExactPathOverChildWithSameName()
+    {
+        var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
+            new GetModelRequest(new ModelReference("any"), "Sales", Query: null, Type: null),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("Table", result.Data!.Type);
+        Assert.Equal("Sales", result.Data.Path);
+        Assert.Equal(1, result.Data.Properties["partitions"]);
+    }
+
+    [Fact]
+    public async Task Find_DefaultScopeOmitsPartitionsAndRelationships()
+    {
+        var result = await new FindModelHandler([new StubModelProvider()]).HandleAsync(
+            new FindModelRequest(
+                new ModelReference("any"),
+                "Sales",
+                Scope: "all",
+                Regex: false,
+                CaseSensitive: false),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(
+            ["Sales", "Sales/Total Sales", "Sales/Order Count"],
+            result.Data!.Matches.Select(m => m.Path).ToArray());
+    }
+
+    [Fact]
+    public async Task Deps_FindsColumnReferencesInMeasureExpression()
+    {
+        var result = await new DepsModelHandler([new StubModelProvider()]).HandleAsync(
+            new DepsModelRequest(
+                new ModelReference("any"),
+                "Sales/Total Sales",
+                Type: null,
+                UpstreamOnly: false,
+                DownstreamOnly: false,
+                Deep: false,
+                Unused: false,
+                HiddenOnly: false,
+                MaxDepth: 10),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        var dependency = Assert.Single(result.Data!.Upstream);
+        Assert.Equal("Sales/Amount", dependency.Path);
+        Assert.Equal("Column", dependency.Type);
+        Assert.Empty(result.Data.Downstream);
+    }
+
+    private sealed class StubModelProvider : IModelProvider
+    {
+        public bool CanOpen(ModelReference _) => true;
+
+        public Task<IModelSession> OpenAsync(ModelReference _, CancellationToken ct)
+            => Task.FromResult<IModelSession>(new StubSession());
+    }
+
+    private sealed class StubSession : IModelSession
+    {
+        public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
+            => Task.FromResult(new ModelSummary("(unnamed)", 1601, 1, 1, 2, 1, 0));
+
+        public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken _)
+        {
+            var amount = new ModelObject(
+                "Amount", ModelObjectKind.Column, "Sales/Amount",
+                Detail: "decimal", Expression: null, Description: null, Hidden: false, Children: []);
+            var totalSales = new ModelObject(
+                "Total Sales", ModelObjectKind.Measure, "Sales/Total Sales",
+                Detail: null, Expression: "SUM(Sales[Amount])", Description: null, Hidden: false, Children: []);
+            var orderCount = new ModelObject(
+                "Order Count", ModelObjectKind.Measure, "Sales/Order Count",
+                Detail: null, Expression: "COUNTROWS(Sales)", Description: null, Hidden: false, Children: []);
+            var partition = new ModelObject(
+                "Sales", ModelObjectKind.Partition, "Sales/Sales",
+                Detail: "import", Expression: null, Description: null, Hidden: false, Children: []);
+            var table = new ModelObject(
+                "Sales", ModelObjectKind.Table, "Sales",
+                Detail: "regular", Expression: null, Description: null, Hidden: false,
+                Children: [amount, totalSales, orderCount, partition]);
+            var relationship = new ModelObject(
+                "Customers[CustomerKey] -> Sales[CustomerKey]",
+                ModelObjectKind.Relationship,
+                "Relationships/rel-customers",
+                Detail: null,
+                Expression: null,
+                Description: null,
+                Hidden: false,
+                Children: []);
+
+            return Task.FromResult(new ModelSnapshot("(unnamed)", 1601, [table, relationship]));
+        }
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+    }
+}

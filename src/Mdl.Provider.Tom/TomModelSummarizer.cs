@@ -185,8 +185,7 @@ public static class TomModelSummarizer
     private static string? Desc(string? description)
         => string.IsNullOrWhiteSpace(description) ? null : description.Trim();
 
-    // Quote a path segment when its name contains a space or slash, so the emitted path can be
-    // copied back as an object-path filter.
+    // Quote slash-containing names so emitted object paths stay unambiguous.
     private static string Segment(string name)
-        => name.Contains(' ') || name.Contains('/') ? $"'{name}'" : name;
+        => name.Contains('/') ? $"'{name}'" : name;
 }

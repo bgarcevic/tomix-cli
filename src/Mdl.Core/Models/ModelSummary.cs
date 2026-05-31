@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Mdl.Core.Models;
 
 public sealed record ModelSummary(
@@ -7,4 +9,6 @@ public sealed record ModelSummary(
     int Columns,
     int Measures,
     int Relationships,
-    int Roles);
+    int Roles,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? DatabaseName = null);

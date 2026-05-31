@@ -11,7 +11,6 @@ namespace Mdl.Cli.Output;
 /// </summary>
 internal sealed partial class LsRenderer
 {
-    private const char Esc = (char)27;
     private const int MaxCollapsedDetail = 80;
 
     public static void Render(LsModelResult data, bool pathsOnly, bool noMultiline)
@@ -24,16 +23,10 @@ internal sealed partial class LsRenderer
             return;
         }
 
-        var cyan = $"{Esc}[36m";
-        var dim = $"{Esc}[2m";
-        var reset = $"{Esc}[0m";
-
         var allTables = data.Objects.Count > 0 && data.Objects.All(o => o.Kind == ModelObjectKind.Table);
 
-        Console.WriteLine($"{cyan}{data.ModelName}{reset}");
-        Console.WriteLine();
-        var noun = allTables ? "table" : "object";
-        Console.WriteLine($"{data.Objects.Count} {noun}{(data.Objects.Count == 1 ? "" : "s")}");
+        var noun = allTables ? "Tables" : "Objects";
+        Console.WriteLine($"{noun} ({data.Objects.Count})");
 
         if (data.Objects.Count == 0)
             return;
@@ -41,12 +34,12 @@ internal sealed partial class LsRenderer
         Console.WriteLine();
 
         if (allTables)
-            RenderTables(data.Objects, dim, reset);
+            RenderTables(data.Objects);
         else
-            RenderUniform(data.Objects, noMultiline, dim, reset);
+            RenderUniform(data.Objects, noMultiline);
     }
 
-    private static void RenderTables(IReadOnlyList<LsObject> objects, string dim, string reset)
+    private static void RenderTables(IReadOnlyList<LsObject> objects)
     {
         var showDescription = objects.Any(o => !string.IsNullOrEmpty(o.Description));
 
@@ -77,14 +70,13 @@ internal sealed partial class LsRenderer
             if (showDescription)
                 row.Append("  ").Append(obj.Description ?? "");
 
-            var line = row.ToString().TrimEnd();
-            Console.WriteLine(obj.Hidden ? $"{dim}{line}{reset}" : line);
+            Console.WriteLine(row.ToString().TrimEnd());
         }
     }
 
     // Uniform listing for non-table / mixed results: PATH, KIND, DETAIL, and a trailing DESCRIPTION
     // column only when at least one object has a description.
-    private static void RenderUniform(IReadOnlyList<LsObject> objects, bool noMultiline, string dim, string reset)
+    private static void RenderUniform(IReadOnlyList<LsObject> objects, bool noMultiline)
     {
         var showDescription = objects.Any(o => !string.IsNullOrEmpty(o.Description));
 
@@ -106,8 +98,7 @@ internal sealed partial class LsRenderer
             var head = $"{obj.Path.PadRight(pathWidth)}  {KindLabel(obj.Kind).PadRight(kindWidth)}  {firstDetail}";
             if (showDescription)
                 head += $"  {obj.Description ?? ""}";
-            head = head.TrimEnd();
-            Console.WriteLine(obj.Hidden ? $"{dim}{head}{reset}" : head);
+            Console.WriteLine(head.TrimEnd());
 
             for (var i = 1; i < detailLines.Count; i++)
                 Console.WriteLine($"{continuation}{detailLines[i]}");
@@ -153,7 +144,7 @@ internal sealed partial class LsRenderer
     {
         var single = Whitespace().Replace(text, " ").Trim();
         return single.Length > MaxCollapsedDetail
-            ? single[..(MaxCollapsedDetail - 1)] + "…"
+            ? single[..(MaxCollapsedDetail - 3)] + "..."
             : single;
     }
 

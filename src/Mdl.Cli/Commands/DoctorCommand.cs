@@ -22,7 +22,7 @@ internal sealed class DoctorCommand : ICommandModule
 
         command.SetAction(parseResult =>
         {
-            var formatValue = parseResult.GetValue(format) ?? OutputFormats.Human;
+            var formatValue = parseResult.GetValue(format) ?? OutputFormats.Text;
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;

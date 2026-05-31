@@ -8,20 +8,27 @@ namespace Mdl.Cli.Output;
 /// </summary>
 internal static class OutputFormats
 {
-    public const string Human = "human";
+    public const string Auto = "auto";
+    public const string Text = "text";
     public const string Json = "json";
+    public const string Csv = "csv";
+    public const string Tmsl = "tmsl";
+    public const string Bim = "bim";
+    public const string Tmdl = "tmdl";
 
     public static Option<string> CreateOption()
     {
-        var option = new Option<string>("--format")
+        var option = new Option<string>("--output-format")
         {
-            Description = "Output format: human or json.",
-            DefaultValueFactory = _ => Human
+            Description = "Stdout format: text (default), json, csv, tmsl (alias: bim), tmdl. Not all formats are supported by every command.",
+            DefaultValueFactory = _ => Text
         };
 
-        option.Aliases.Add("-f");
         return option;
     }
 
-    public static bool IsValid(string format) => format is Human or Json;
+    public static bool IsValid(string format)
+        => format is Auto or Text or Json or Csv or Tmsl or Bim or Tmdl;
+
+    public static bool IsJson(string format) => format == Json;
 }

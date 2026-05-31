@@ -4,7 +4,7 @@ using Mdl.Provider.Tom;
 
 namespace Mdl.Provider.Tmdl;
 
-public sealed class TmdlModelSession : IModelSession
+public sealed class TmdlModelSession : IModelSession, IModelExportSession, IModelMutationSession
 {
     private readonly string _path;
     private Database? _database;
@@ -15,14 +15,15 @@ public sealed class TmdlModelSession : IModelSession
     {
         cancellationToken.ThrowIfCancellationRequested();
         var database = GetDatabase();
-        return Task.FromResult(TomModelSummarizer.Summarize(database, Path.GetFileName(_path)));
+        return Task.FromResult(TomModelSummarizer.Summarize(database, ModelName(database))
+            with { DatabaseName = string.IsNullOrWhiteSpace(database.Name) ? null : database.Name });
     }
 
     public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         var database = GetDatabase();
-        return Task.FromResult(TomModelSummarizer.Snapshot(database, Path.GetFileName(_path)));
+        return Task.FromResult(TomModelSummarizer.Snapshot(database, ModelName(database)));
     }
 
     public ValueTask DisposeAsync()
@@ -31,5 +32,39 @@ public sealed class TmdlModelSession : IModelSession
         return ValueTask.CompletedTask;
     }
 
+    public Task<ModelExportResult> ExportAsync(
+        ModelExportRequest request,
+        CancellationToken cancellationToken)
+        => TomModelExporter.ExportAsync(GetDatabase(), request, cancellationToken);
+
+    public ModelObjectMutationResult AddObject(ModelObjectAddRequest request)
+        => new TomModelMutator(GetDatabase()).AddObject(request);
+
+    public ModelObjectMutationResult SetProperty(ModelObjectSetRequest request)
+        => new TomModelMutator(GetDatabase()).SetProperty(request);
+
+    public ModelObjectMutationResult RemoveObject(ModelObjectRemoveRequest request)
+        => new TomModelMutator(GetDatabase()).RemoveObject(request);
+
+    public ModelReplaceResult ReplaceText(ModelReplaceRequest request)
+        => new TomModelMutator(GetDatabase()).ReplaceText(request);
+
+    public Task<ModelExportResult> SaveAsync(
+        string? outputPath,
+        string serialization,
+        bool force,
+        CancellationToken cancellationToken)
+        => TomModelExporter.ExportAsync(
+            GetDatabase(),
+            new ModelExportRequest(
+                string.IsNullOrWhiteSpace(outputPath) ? _path : outputPath,
+                string.IsNullOrWhiteSpace(serialization) ? "tmdl" : serialization,
+                Force: true,
+                SupportingFiles: false),
+            cancellationToken);
+
     private Database GetDatabase() => _database ??= TmdlSerializer.DeserializeDatabaseFromFolder(_path);
+
+    private static string ModelName(Database database)
+        => string.IsNullOrWhiteSpace(database.Name) ? "(unnamed)" : database.Name;
 }

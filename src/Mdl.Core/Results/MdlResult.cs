@@ -8,13 +8,13 @@ public sealed record MdlResult<T>(
     IReadOnlyList<MdlDiagnostic> Diagnostics,
     int ExitCode)
 {
-    public static MdlResult<T> Ok(T data)
+    public static MdlResult<T> Ok(T data, int exitCode = 0)
     {
         return new MdlResult<T>(
             Success: true,
             Data: data,
             Diagnostics: Array.Empty<MdlDiagnostic>(),
-            ExitCode: 0);
+            ExitCode: exitCode);
     }
 
     public static MdlResult<T> Fail(

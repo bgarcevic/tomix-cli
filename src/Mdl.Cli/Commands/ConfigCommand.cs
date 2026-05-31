@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Mdl.App.Config;
 using Mdl.Cli.Output;
+using Mdl.Core.Configuration;
 
 namespace Mdl.Cli.Commands;
 
@@ -8,27 +9,42 @@ internal sealed class ConfigCommand : ICommandModule
 {
     public Command Build()
     {
-        var command = new Command("config", "Manage local MDL configuration.");
+        var command = new Command("config", "View and manage CLI configuration");
 
+        command.Subcommands.Add(BuildInit());
         command.Subcommands.Add(BuildList());
         command.Subcommands.Add(BuildGet());
+        command.Subcommands.Add(BuildPaths());
         command.Subcommands.Add(BuildSet());
+        command.Subcommands.Add(BuildShow());
+
+        return command;
+    }
+
+    private static Command BuildInit()
+    {
+        var command = new Command("init", "Create a default config.json.");
+
+        command.SetAction(_ =>
+        {
+            Directory.CreateDirectory(MdlPaths.ConfigDirectory);
+            if (!File.Exists(MdlPaths.ConfigFile))
+                File.WriteAllText(MdlPaths.ConfigFile, "{\n}\n");
+
+            Console.WriteLine(MdlPaths.ConfigFile);
+            return 0;
+        });
 
         return command;
     }
 
     private static Command BuildList()
     {
-        var format = OutputFormats.CreateOption();
-
-        var command = new Command("list", "List all configuration values.")
-        {
-            format
-        };
+        var command = new Command("list", "List all configuration values.");
 
         command.SetAction(parseResult =>
         {
-            var formatValue = parseResult.GetValue(format) ?? OutputFormats.Human;
+            var formatValue = GlobalOptions.OutputFormatValue(parseResult);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
@@ -43,17 +59,15 @@ internal sealed class ConfigCommand : ICommandModule
     private static Command BuildGet()
     {
         var keyArgument = new Argument<string>("key") { Description = "Configuration key." };
-        var format = OutputFormats.CreateOption();
 
         var command = new Command("get", "Get a configuration value.")
         {
-            keyArgument,
-            format
+            keyArgument
         };
 
         command.SetAction(parseResult =>
         {
-            var formatValue = parseResult.GetValue(format) ?? OutputFormats.Human;
+            var formatValue = GlobalOptions.OutputFormatValue(parseResult);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
@@ -70,18 +84,16 @@ internal sealed class ConfigCommand : ICommandModule
     {
         var keyArgument = new Argument<string>("key") { Description = "Configuration key." };
         var valueArgument = new Argument<string>("value") { Description = "Configuration value." };
-        var format = OutputFormats.CreateOption();
 
         var command = new Command("set", "Set a configuration value.")
         {
             keyArgument,
-            valueArgument,
-            format
+            valueArgument
         };
 
         command.SetAction(parseResult =>
         {
-            var formatValue = parseResult.GetValue(format) ?? OutputFormats.Human;
+            var formatValue = GlobalOptions.OutputFormatValue(parseResult);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
@@ -90,6 +102,38 @@ internal sealed class ConfigCommand : ICommandModule
             var value = parseResult.GetValue(valueArgument) ?? "";
             var result = new ConfigHandler().Set(key, value);
             return CommandOutput.Render(result, formatValue, RenderSet);
+        });
+
+        return command;
+    }
+
+    private static Command BuildPaths()
+    {
+        var command = new Command("paths", "Show resolved paths for local CLI files.");
+
+        command.SetAction(_ =>
+        {
+            Console.WriteLine($"configDir   {MdlPaths.ConfigDirectory}");
+            Console.WriteLine($"configFile  {MdlPaths.ConfigFile}");
+            return 0;
+        });
+
+        return command;
+    }
+
+    private static Command BuildShow()
+    {
+        var command = new Command("show", "Show current CLI configuration.");
+
+        command.SetAction(parseResult =>
+        {
+            var formatValue = GlobalOptions.OutputFormatValue(parseResult);
+
+            if (!CommandOutput.TryValidateFormat(formatValue))
+                return 2;
+
+            var result = new ConfigHandler().List();
+            return CommandOutput.Render(result, formatValue, RenderList);
         });
 
         return command;

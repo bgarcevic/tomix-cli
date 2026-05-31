@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Reflection;
 using Mdl.Cli.Commands;
 using Mdl.Core.Models;
+using Mdl.Provider.Tom;
 using Mdl.Provider.Tmdl;
 
 namespace Mdl.Cli;
@@ -10,18 +11,48 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
-        var version = ResolveVersion();
-        var root = new RootCommand("MDL - the open semantic model CLI");
+        var root = new RootCommand("mdl - Tabular Editor CLI for semantic models");
+        foreach (var option in GlobalOptions.All())
+            root.Options.Add(option);
 
-        IReadOnlyList<IModelProvider> providers = [new TmdlModelProvider()];
+        IReadOnlyList<IModelProvider> providers = [new TmdlModelProvider(), new TomFileModelProvider()];
+        var stubs = CompatibilityStubCommand.All().ToDictionary(command => command.Name);
 
         var modules = new ICommandModule[]
         {
-            new DoctorCommand(version),
-            new ConfigCommand(),
+            new AddCommand(providers),
+            stubs["auth"],
+            stubs["bpa"],
             new CompletionCommand(() => root.Subcommands.Select(command => command.Name).ToList()),
-            new InfoCommand(providers),
-            new LsCommand(providers)
+            new ConfigCommand(),
+            new ConnectCommand(),
+            stubs["deploy"],
+            new DepsCommand(providers),
+            new DiffCommand(providers),
+            new FindCommand(providers),
+            stubs["format"],
+            new GetCommand(providers),
+            stubs["incremental-refresh"],
+            new InitCommand(),
+            stubs["interactive"],
+            new LoadCommand(providers),
+            new LsCommand(providers),
+            stubs["macro"],
+            stubs["migrate"],
+            new MvCommand(providers),
+            stubs["open"],
+            new ProfileCommand(),
+            stubs["query"],
+            stubs["refresh"],
+            new ReplaceCommand(providers),
+            new RmCommand(providers),
+            new SaveCommand(providers),
+            stubs["script"],
+            new SessionCommand(),
+            new SetCommand(providers),
+            stubs["test"],
+            new ValidateCommand(providers),
+            stubs["vertipaq"]
         };
 
         foreach (var module in modules)

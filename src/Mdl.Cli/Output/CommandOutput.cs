@@ -18,7 +18,7 @@ internal static class CommandOutput
         if (OutputFormats.IsValid(format))
             return true;
 
-        Console.Error.WriteLine("Invalid --format value. Expected: human or json.");
+        Console.Error.WriteLine("Invalid --output-format value. Expected: auto, text, json, csv, tmsl, bim, or tmdl.");
         return false;
     }
 
@@ -28,6 +28,13 @@ internal static class CommandOutput
     /// render their report while signalling a non-zero exit code.
     /// </summary>
     public static int Render<T>(MdlResult<T> result, string format, Action<T> renderHuman)
+        => Render(result, format, renderHuman, data => data);
+
+    public static int Render<T, TJson>(
+        MdlResult<T> result,
+        string format,
+        Action<T> renderHuman,
+        Func<T, TJson> projectJson)
     {
         if (result.Data is null)
         {
@@ -37,8 +44,8 @@ internal static class CommandOutput
             return result.ExitCode == 0 ? 1 : result.ExitCode;
         }
 
-        if (format == OutputFormats.Json)
-            JsonOutput.Write(result.Data);
+        if (OutputFormats.IsJson(format))
+            JsonOutput.Write(projectJson(result.Data));
         else
             renderHuman(result.Data);
 

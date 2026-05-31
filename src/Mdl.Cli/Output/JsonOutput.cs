@@ -16,7 +16,11 @@ internal static class JsonOutput
 
     private static JsonSerializerOptions CreateOptions()
     {
-        var options = new JsonSerializerOptions { WriteIndented = true };
+        var options = new JsonSerializerOptions
+        {
+            WriteIndented = true,
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
         options.Converters.Add(new JsonStringEnumConverter());
         return options;
     }
