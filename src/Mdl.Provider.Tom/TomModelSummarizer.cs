@@ -5,6 +5,31 @@ namespace Mdl.Provider.Tom;
 
 public static class TomModelSummarizer
 {
+    private const string PropDataType = "DataType";
+    private const string PropColumnType = "ColumnType";
+    private const string PropIsKey = "IsKey";
+    private const string PropIsAvailableInMdx = "IsAvailableInMdx";
+    private const string PropSummarizeBy = "SummarizeBy";
+    private const string PropFormatString = "FormatString";
+    private const string PropDataCategory = "DataCategory";
+    private const string PropSortByColumn = "SortByColumn";
+    private const string PropTableDataCategory = "TableDataCategory";
+    private const string PropTableHasRls = "TableHasRls";
+    private const string PropTableIsCalc = "TableIsCalc";
+    private const string PropFromColumn = "FromColumn";
+    private const string PropToColumn = "ToColumn";
+    private const string PropFromTable = "FromTable";
+    private const string PropToTable = "ToTable";
+    private const string PropFromCardinality = "FromCardinality";
+    private const string PropToCardinality = "ToCardinality";
+    private const string PropCrossFilteringBehavior = "CrossFilteringBehavior";
+    private const string PropIsActive = "IsActive";
+    private const string PropPartitionSourceType = "PartitionSourceType";
+    private const string PropPartitionMode = "PartitionMode";
+    private const string PropRlsExpression = "RlsExpression";
+    private const string PropUsedInRelationships = "UsedInRelationships";
+    private const string PropObjectType = "ObjectType";
+
     public static ModelSummary Summarize(Database database, string name)
     {
         var model = database.Model;
@@ -18,18 +43,18 @@ public static class TomModelSummarizer
             Roles: model.Roles.Count);
     }
 
-    /// <summary>
-    /// Builds a provider-agnostic, navigable snapshot of the model: tables (with their columns,
-    /// measures, hierarchies/levels and partitions) plus the model-level relationships, roles
-    /// (with members), perspectives and cultures. Every node carries its fully qualified path.
-    /// </summary>
     public static ModelSnapshot Snapshot(Database database, string name)
     {
         var model = database.Model;
 
+        var relIndex = BuildRelationshipIndex(model);
+        var rlsIndex = BuildRlsIndex(model);
+
         var objects = new List<ModelObject>();
-        objects.AddRange(model.Tables.Select(BuildTable));
-        objects.AddRange(model.Relationships.Select(BuildRelationship));
+        foreach (var table in model.Tables)
+            objects.Add(BuildTable(table, relIndex, rlsIndex));
+
+        objects.AddRange(model.Relationships.Select(r => BuildRelationship(r)));
         objects.AddRange(model.Roles.Select(BuildRole));
         objects.AddRange(model.Perspectives.Select(p =>
             Leaf(p.Name, ModelObjectKind.Perspective, $"Perspectives/{Segment(p.Name)}", detail: null,
@@ -40,47 +65,31 @@ public static class TomModelSummarizer
         return new ModelSnapshot(name, database.CompatibilityLevel, objects);
     }
 
-    private static ModelObject BuildTable(Table table)
+    private static ModelObject BuildTable(
+        Table table,
+        Dictionary<string, HashSet<RelationshipEntry>> relIndex,
+        Dictionary<string, List<string>> rlsIndex)
     {
         var path = Segment(table.Name);
         var children = new List<ModelObject>();
 
-        children.AddRange(table.Columns
-            .Where(c => c.Type != ColumnType.RowNumber)
-            .Select(c => new ModelObject(
-                c.Name,
-                ModelObjectKind.Column,
-                $"{path}/{Segment(c.Name)}",
-                Detail: ColumnDetail(c),
-                Expression: null,
-                Description: Desc(c.Description),
-                Hidden: c.IsHidden,
-                SourceColumn: c is DataColumn dc ? dc.SourceColumn : null,
-                Children: [])));
+        var tableProps = new Dictionary<string, string>
+        {
+            [PropDataCategory] = table.DataCategory ?? "",
+            [PropTableHasRls] = rlsIndex.ContainsKey(table.Name).ToString().ToLowerInvariant(),
+            [PropTableIsCalc] = (table.Partitions.Any(p => p.SourceType == PartitionSourceType.Calculated)).ToString().ToLowerInvariant(),
+            [PropObjectType] = "Table"
+        };
 
-        children.AddRange(table.Measures.Select(m => new ModelObject(
-            m.Name,
-            ModelObjectKind.Measure,
-            $"{path}/{Segment(m.Name)}",
-            Detail: null,
-            Expression: m.Expression,
-            Description: Desc(m.Description),
-            Hidden: m.IsHidden,
-            SourceColumn: null,
-            Children: [])));
+        foreach (var column in table.Columns.Where(c => c.Type != ColumnType.RowNumber))
+            children.Add(BuildColumn(column, path, relIndex));
+
+        children.AddRange(table.Measures.Select(m => BuildMeasure(m, path)));
 
         children.AddRange(table.Hierarchies.Select(h => BuildHierarchy(h, path)));
 
-        children.AddRange(table.Partitions.Select(p => new ModelObject(
-            p.Name,
-            ModelObjectKind.Partition,
-            $"{path}/{Segment(p.Name)}",
-            Detail: PartitionDetail(p),
-            Expression: PartitionExpression(p),
-            Description: Desc(p.Description),
-            Hidden: false,
-            SourceColumn: null,
-            Children: [])));
+        foreach (var partition in table.Partitions)
+            children.Add(BuildPartition(partition, path));
 
         var tableDetail = table.Partitions.Any(p => p.SourceType == PartitionSourceType.Calculated)
             ? "calculated"
@@ -95,7 +104,76 @@ public static class TomModelSummarizer
             Description: Desc(table.Description),
             Hidden: table.IsHidden,
             SourceColumn: null,
-            Children: children);
+            Children: children,
+            Properties: tableProps);
+    }
+
+    private static ModelObject BuildColumn(
+        Column column, string tablePath,
+        Dictionary<string, HashSet<RelationshipEntry>> relIndex)
+    {
+        var colPath = $"{tablePath}/{Segment(column.Name)}";
+        var tableName = column.Table.Name;
+        var fullyQualified = $"{tableName}[{column.Name}]";
+
+        relIndex.TryGetValue(fullyQualified, out var rels);
+        var usedInRels = rels?.Count > 0;
+
+        var props = new Dictionary<string, string>
+        {
+            [PropDataType] = column.DataType.ToString(),
+            [PropColumnType] = column.Type.ToString(),
+            [PropIsKey] = column.IsKey.ToString().ToLowerInvariant(),
+            [PropIsAvailableInMdx] = column.IsAvailableInMDX.ToString().ToLowerInvariant(),
+            [PropSummarizeBy] = column.SummarizeBy.ToString(),
+            [PropFormatString] = column.FormatString ?? "",
+            [PropDataCategory] = column.DataCategory ?? "",
+            [PropSortByColumn] = column.SortByColumn?.Name ?? "",
+            [PropUsedInRelationships] = usedInRels.ToString().ToLowerInvariant(),
+            [PropTableDataCategory] = column.Table.DataCategory ?? "",
+            [PropObjectType] = column.Type == ColumnType.Calculated ? "CalculatedColumn" : "DataColumn"
+        };
+
+        if (column is CalculatedTableColumn ctc)
+        {
+            props[PropColumnType] = "CalculatedTableColumn";
+            props[PropObjectType] = "CalculatedTableColumn";
+        }
+
+        return new ModelObject(
+            column.Name,
+            ModelObjectKind.Column,
+            colPath,
+            Detail: ColumnDetail(column),
+            Expression: column.Type == ColumnType.Calculated
+                ? ((CalculatedColumn)column).Expression
+                : null,
+            Description: Desc(column.Description),
+            Hidden: column.IsHidden,
+            SourceColumn: column is DataColumn dc ? dc.SourceColumn : null,
+            Children: [],
+            Properties: props);
+    }
+
+    private static ModelObject BuildMeasure(Measure measure, string tablePath)
+    {
+        var props = new Dictionary<string, string>
+        {
+            [PropFormatString] = measure.FormatString ?? "",
+            [PropObjectType] = "Measure"
+        };
+
+        return new ModelObject(
+            measure.Name,
+            ModelObjectKind.Measure,
+            $"{tablePath}/{Segment(measure.Name)}",
+            Detail: null,
+            Expression: measure.Expression,
+            Description: Desc(measure.Description),
+            Hidden: measure.IsHidden,
+            SourceColumn: null,
+            Children: [],
+            Properties: props);
     }
 
     private static ModelObject BuildHierarchy(Hierarchy hierarchy, string tablePath)
@@ -122,6 +200,28 @@ public static class TomModelSummarizer
             Children: levels);
     }
 
+    private static ModelObject BuildPartition(Partition partition, string tablePath)
+    {
+        var props = new Dictionary<string, string>
+        {
+            [PropPartitionSourceType] = partition.SourceType.ToString(),
+            [PropPartitionMode] = partition.Mode.ToString(),
+            [PropObjectType] = "Partition"
+        };
+
+        return new ModelObject(
+            partition.Name,
+            ModelObjectKind.Partition,
+            $"{tablePath}/{Segment(partition.Name)}",
+            Detail: PartitionDetail(partition),
+            Expression: PartitionExpression(partition),
+            Description: Desc(partition.Description),
+            Hidden: false,
+            SourceColumn: null,
+            Children: [],
+            Properties: props);
+    }
+
     private static ModelObject BuildRelationship(Relationship relationship)
     {
         var path = $"Relationships/{Segment(relationship.Name)}";
@@ -133,6 +233,19 @@ public static class TomModelSummarizer
                    $"{single.ToColumn.Table.Name}[{single.ToColumn.Name}]";
         var detail = $"{name} ({Cardinality(single)}, {(single.IsActive ? "active" : "inactive")})";
 
+        var props = new Dictionary<string, string>
+        {
+            [PropFromColumn] = single.FromColumn.Table.Name + "[" + single.FromColumn.Name + "]",
+            [PropToColumn] = single.ToColumn.Table.Name + "[" + single.ToColumn.Name + "]",
+            [PropFromTable] = single.FromColumn.Table.Name,
+            [PropToTable] = single.ToColumn.Table.Name,
+            [PropFromCardinality] = single.FromCardinality.ToString(),
+            [PropToCardinality] = single.ToCardinality.ToString(),
+            [PropCrossFilteringBehavior] = single.CrossFilteringBehavior.ToString(),
+            [PropIsActive] = single.IsActive.ToString().ToLowerInvariant(),
+            [PropObjectType] = "Relationship"
+        };
+
         return new ModelObject(
             name,
             ModelObjectKind.Relationship,
@@ -142,7 +255,8 @@ public static class TomModelSummarizer
             Description: null,
             Hidden: false,
             SourceColumn: null,
-            Children: []);
+            Children: [],
+            Properties: props);
     }
 
     private static ModelObject BuildRole(ModelRole role)
@@ -156,6 +270,19 @@ public static class TomModelSummarizer
                 detail: null))
             .ToList();
 
+        var rlsExpressions = new List<string>();
+        foreach (var tp in role.TablePermissions)
+        {
+            if (!string.IsNullOrWhiteSpace(tp.FilterExpression))
+                rlsExpressions.Add($"{tp.Table.Name}: {tp.FilterExpression}");
+        }
+
+        var props = new Dictionary<string, string>
+        {
+            [PropRlsExpression] = string.Join("\n", rlsExpressions),
+            [PropObjectType] = "ModelRole"
+        };
+
         return new ModelObject(
             role.Name,
             ModelObjectKind.Role,
@@ -165,7 +292,62 @@ public static class TomModelSummarizer
             Description: Desc(role.Description),
             Hidden: false,
             SourceColumn: null,
-            Children: members);
+            Children: members,
+            Properties: props);
+    }
+
+    private static Dictionary<string, HashSet<RelationshipEntry>> BuildRelationshipIndex(Model model)
+    {
+        var index = new Dictionary<string, HashSet<RelationshipEntry>>();
+
+        foreach (var rel in model.Relationships)
+        {
+            if (rel is not SingleColumnRelationship single) continue;
+
+            var fromKey = $"{single.FromColumn.Table.Name}[{single.FromColumn.Name}]";
+            var toKey = $"{single.ToColumn.Table.Name}[{single.ToColumn.Name}]";
+            var entry = new RelationshipEntry(
+                single.FromColumn.Table.Name, single.FromColumn.Name,
+                single.ToColumn.Table.Name, single.ToColumn.Name,
+                single.FromCardinality.ToString(), single.ToCardinality.ToString(),
+                single.CrossFilteringBehavior.ToString(), single.IsActive);
+
+            AddToIndex(index, fromKey, entry);
+            AddToIndex(index, toKey, entry);
+        }
+
+        return index;
+    }
+
+    private static void AddToIndex(Dictionary<string, HashSet<RelationshipEntry>> index, string key, RelationshipEntry entry)
+    {
+        if (!index.TryGetValue(key, out var set))
+        {
+            set = [];
+            index[key] = set;
+        }
+        set.Add(entry);
+    }
+
+    private static Dictionary<string, List<string>> BuildRlsIndex(Model model)
+    {
+        var index = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var role in model.Roles)
+        {
+            foreach (var tp in role.TablePermissions)
+            {
+                if (string.IsNullOrWhiteSpace(tp.FilterExpression)) continue;
+                if (!index.TryGetValue(tp.Table.Name, out var list))
+                {
+                    list = [];
+                    index[tp.Table.Name] = list;
+                }
+                list.Add(tp.FilterExpression);
+            }
+        }
+
+        return index;
     }
 
     private static string ColumnDetail(Column column)
@@ -201,11 +383,15 @@ public static class TomModelSummarizer
         string? description = null, bool hidden = false)
         => new(name, kind, path, detail, Expression: null, description, hidden, SourceColumn: null, Children: []);
 
-    // Treat empty/whitespace descriptions as absent so they don't widen the output table.
     private static string? Desc(string? description)
         => string.IsNullOrWhiteSpace(description) ? null : description.Trim();
 
-    // Quote slash-containing names so emitted object paths stay unambiguous.
     private static string Segment(string name)
         => name.Contains('/') ? $"'{name}'" : name;
+
+    private sealed record RelationshipEntry(
+        string FromTable, string FromColumn,
+        string ToTable, string ToColumn,
+        string FromCardinality, string ToCardinality,
+        string CrossFilteringBehavior, bool IsActive);
 }

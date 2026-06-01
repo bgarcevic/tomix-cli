@@ -40,12 +40,12 @@ public sealed class TomServerModelProvider : IModelProvider
         }
 
         server.Connect(BuildConnectionString(reference));
-        return new TomServerModelSession(server, ResolveDatabase(server, reference.Database));
+        return new TomServerModelSession(server, ResolveDatabase(server, reference.Database), _tokenProvider);
     }
 
     private static string BuildConnectionString(ModelReference reference)
     {
-        var connectionString = $"Data Source={reference.Value}";
+        var connectionString = $"Data Source={TomModelDeployer.ResolveEndpoint(reference.Value)}";
         return string.IsNullOrWhiteSpace(reference.Database)
             ? connectionString
             : $"{connectionString};Initial Catalog={reference.Database}";
@@ -66,15 +66,17 @@ public sealed class TomServerModelProvider : IModelProvider
     }
 }
 
-internal sealed class TomServerModelSession : IModelSession
+internal sealed class TomServerModelSession : IModelSession, IModelDeploySession
 {
     private readonly TabularServer _server;
     private readonly TabularDatabase _database;
+    private readonly IAccessTokenProvider? _tokenProvider;
 
-    public TomServerModelSession(TabularServer server, TabularDatabase database)
+    public TomServerModelSession(TabularServer server, TabularDatabase database, IAccessTokenProvider? tokenProvider)
     {
         _server = server;
         _database = database;
+        _tokenProvider = tokenProvider;
     }
 
     public Task<ModelSummary> GetSummaryAsync(CancellationToken cancellationToken)
@@ -99,6 +101,14 @@ internal sealed class TomServerModelSession : IModelSession
         _server.Dispose();
         return ValueTask.CompletedTask;
     }
+
+    public Task<ModelDeployResult> DeployAsync(
+        ModelDeployRequest request,
+        CancellationToken cancellationToken)
+        => TomModelDeployer.DeployAsync(_database, request, _tokenProvider, cancellationToken);
+
+    public string GenerateScript(ModelDeployRequest request)
+        => TomModelDeployer.GenerateScript(_database, request);
 
     private string ModelName()
         => string.IsNullOrWhiteSpace(_database.Name) ? _database.ID : _database.Name;

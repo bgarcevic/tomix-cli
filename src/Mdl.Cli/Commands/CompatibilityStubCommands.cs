@@ -93,28 +93,6 @@ internal sealed class CompatibilityStubCommand : ICommandModule
                 Value("--workspace-format"),
                 Value("--workspace-auth")
             ]),
-        New("deploy", "Deploy a semantic model to a workspace (--xmla for script-only, --skip-bpa to bypass)",
-            args: [Optional("model")],
-            options:
-            [
-                Value("--server", "-s"),
-                Value("--database", "-d"),
-                Value("--profile"),
-                Flag("--xmla"),
-                Flag("--force"),
-                Flag("--skip-bpa"),
-                Flag("--fix-bpa"),
-                Value("--bpa-rules"),
-                Flag("--ci"),
-                Flag("--create-only"),
-                Flag("--skip-refresh-policy"),
-                Flag("--deploy-full"),
-                Flag("--deploy-connections"),
-                Flag("--deploy-partitions"),
-                Flag("--deploy-role-members"),
-                Flag("--deploy-roles"),
-                Flag("--deploy-shared-expressions")
-            ]),
         New("diff", "Compare two semantic models and show structural differences. Exit codes: 0 = identical, 1 = differences found, 2 = error",
             args: [Required("left"), Required("right")]),
         New("format", "Format DAX or M/Power Query expressions (-e inline, -p object path, or all)",

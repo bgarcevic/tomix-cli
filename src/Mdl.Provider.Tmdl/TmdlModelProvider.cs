@@ -1,3 +1,4 @@
+using Mdl.Core.Authentication;
 using Mdl.Core.Models;
 using System.Text.Json;
 
@@ -5,6 +6,10 @@ namespace Mdl.Provider.Tmdl;
 
 public sealed class TmdlModelProvider : IModelProvider
 {
+    private readonly IAccessTokenProvider? _tokenProvider;
+
+    public TmdlModelProvider(IAccessTokenProvider? tokenProvider = null) => _tokenProvider = tokenProvider;
+
     public bool CanOpen(ModelReference reference) => TryResolveFolder(reference.Value, out _);
 
     public Task<IModelSession> OpenAsync(ModelReference reference, CancellationToken cancellationToken)
@@ -13,7 +18,7 @@ public sealed class TmdlModelProvider : IModelProvider
         if (!TryResolveFolder(reference.Value, out var folder))
             throw new DirectoryNotFoundException($"No TMDL model folder found for '{reference.Value}'.");
 
-        return Task.FromResult<IModelSession>(new TmdlModelSession(folder));
+        return Task.FromResult<IModelSession>(new TmdlModelSession(folder, _tokenProvider));
     }
 
     private static bool TryResolveFolder(string value, out string folder)

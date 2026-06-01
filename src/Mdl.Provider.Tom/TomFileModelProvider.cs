@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Microsoft.AnalysisServices.Tabular;
+using Mdl.Core.Authentication;
 using Mdl.Core.Models;
 using CompatibilityMode = Microsoft.AnalysisServices.CompatibilityMode;
 using TabularDatabase = Microsoft.AnalysisServices.Tabular.Database;
@@ -9,13 +10,17 @@ namespace Mdl.Provider.Tom;
 
 public sealed class TomFileModelProvider : IModelProvider
 {
+    private readonly IAccessTokenProvider? _tokenProvider;
+
+    public TomFileModelProvider(IAccessTokenProvider? tokenProvider = null) => _tokenProvider = tokenProvider;
+
     public bool CanOpen(ModelReference reference)
         => File.Exists(reference.Value) && IsSupportedExtension(reference.Value);
 
     public Task<IModelSession> OpenAsync(ModelReference reference, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        return Task.FromResult<IModelSession>(new TomFileModelSession(reference.Value));
+        return Task.FromResult<IModelSession>(new TomFileModelSession(reference.Value, _tokenProvider));
     }
 
     private static bool IsSupportedExtension(string path)
@@ -26,12 +31,17 @@ public sealed class TomFileModelProvider : IModelProvider
     }
 }
 
-internal sealed class TomFileModelSession : IModelSession, IModelExportSession, IModelMutationSession
+internal sealed class TomFileModelSession : IModelSession, IModelExportSession, IModelMutationSession, IModelDeploySession
 {
     private readonly string _path;
+    private readonly IAccessTokenProvider? _tokenProvider;
     private TabularDatabase? _database;
 
-    public TomFileModelSession(string path) => _path = path;
+    public TomFileModelSession(string path, IAccessTokenProvider? tokenProvider = null)
+    {
+        _path = path;
+        _tokenProvider = tokenProvider;
+    }
 
     public Task<ModelSummary> GetSummaryAsync(CancellationToken cancellationToken)
     {
@@ -84,6 +94,14 @@ internal sealed class TomFileModelSession : IModelSession, IModelExportSession, 
                 Force: true,
                 SupportingFiles: false),
             cancellationToken);
+
+    public Task<ModelDeployResult> DeployAsync(
+        ModelDeployRequest request,
+        CancellationToken cancellationToken)
+        => TomModelDeployer.DeployAsync(GetDatabase(), request, _tokenProvider, cancellationToken);
+
+    public string GenerateScript(ModelDeployRequest request)
+        => TomModelDeployer.GenerateScript(GetDatabase(), request);
 
     private TabularDatabase GetDatabase()
         => _database ??= TabularJsonSerializer.DeserializeDatabase(

@@ -1,15 +1,21 @@
 using Microsoft.AnalysisServices.Tabular;
+using Mdl.Core.Authentication;
 using Mdl.Core.Models;
 using Mdl.Provider.Tom;
 
 namespace Mdl.Provider.Tmdl;
 
-public sealed class TmdlModelSession : IModelSession, IModelExportSession, IModelMutationSession
+public sealed class TmdlModelSession : IModelSession, IModelExportSession, IModelMutationSession, IModelDeploySession
 {
     private readonly string _path;
+    private readonly IAccessTokenProvider? _tokenProvider;
     private Database? _database;
 
-    public TmdlModelSession(string path) => _path = path;
+    public TmdlModelSession(string path, IAccessTokenProvider? tokenProvider = null)
+    {
+        _path = path;
+        _tokenProvider = tokenProvider;
+    }
 
     public Task<ModelSummary> GetSummaryAsync(CancellationToken cancellationToken)
     {
@@ -62,6 +68,14 @@ public sealed class TmdlModelSession : IModelSession, IModelExportSession, IMode
                 Force: true,
                 SupportingFiles: false),
             cancellationToken);
+
+    public Task<ModelDeployResult> DeployAsync(
+        ModelDeployRequest request,
+        CancellationToken cancellationToken)
+        => TomModelDeployer.DeployAsync(GetDatabase(), request, _tokenProvider, cancellationToken);
+
+    public string GenerateScript(ModelDeployRequest request)
+        => TomModelDeployer.GenerateScript(GetDatabase(), request);
 
     private Database GetDatabase() => _database ??= TmdlSerializer.DeserializeDatabaseFromFolder(_path);
 

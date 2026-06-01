@@ -21,4 +21,9 @@ public sealed record ModelObject(
     string? Description,
     bool Hidden,
     string? SourceColumn,
-    IReadOnlyList<ModelObject> Children);
+    IReadOnlyList<ModelObject> Children,
+    IReadOnlyDictionary<string, string>? Properties = null)
+{
+    public string? Property(string key)
+        => Properties is not null && Properties.TryGetValue(key, out var value) ? value : null;
+}

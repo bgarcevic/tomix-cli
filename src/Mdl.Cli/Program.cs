@@ -18,7 +18,7 @@ internal static class Program
 
         var tokenProvider = AuthSettingsFactory.CreateAuthenticator();
         IReadOnlyList<IModelProvider> providers =
-            [new TmdlModelProvider(), new TomFileModelProvider(), new TomServerModelProvider(tokenProvider)];
+            [new TmdlModelProvider(tokenProvider), new TomFileModelProvider(tokenProvider), new TomServerModelProvider(tokenProvider)];
         var formatter = new CompositeExpressionFormatterClient(
             [
                 new DaxFormatterApiClient(),
@@ -30,11 +30,11 @@ internal static class Program
         {
             new AddCommand(providers),
             new AuthCommand(),
-            stubs["bpa"],
+            new BpaCommand(providers),
             new CompletionCommand(() => root.Subcommands.Select(command => command.Name).ToList()),
             new ConfigCommand(),
             new ConnectCommand(providers),
-            stubs["deploy"],
+            new DeployCommand(providers),
             new DepsCommand(providers),
             new DiffCommand(providers),
             new FindCommand(providers),

@@ -1,0 +1,166 @@
+using System.CommandLine;
+using Mdl.App.Deploy;
+using Mdl.Cli.Output;
+using Mdl.Core.Models;
+
+namespace Mdl.Cli.Commands;
+
+internal sealed class DeployCommand : ICommandModule
+{
+    private readonly IReadOnlyList<IModelProvider> _providers;
+
+    public DeployCommand(IReadOnlyList<IModelProvider> providers) => _providers = providers;
+
+    public Command Build()
+    {
+        var modelArgument = new Argument<string>("model")
+        {
+            Description = "Path to model (if not using --model)",
+            Arity = ArgumentArity.ZeroOrOne
+        };
+
+        var profileOption = new Option<string?>("--profile")
+        {
+            Description = "Use a saved connection profile for this deploy (one-shot, does not persist as active connection)"
+        };
+        profileOption.Aliases.Add("-p");
+
+        var deployFullOption = new Option<bool>("--deploy-full")
+        {
+            Description = "Full deploy: overwrite + connections + partitions + shared expressions + roles + role members"
+        };
+        var createOnlyOption = new Option<bool>("--create-only")
+        {
+            Description = "Only create new model; fail if it already exists"
+        };
+        var deployConnectionsOption = new Option<bool>("--deploy-connections")
+        {
+            Description = "Deploy data source connections"
+        };
+        var deployPartitionsOption = new Option<bool>("--deploy-partitions")
+        {
+            Description = "Deploy partition definitions"
+        };
+        var skipRefreshPolicyOption = new Option<bool>("--skip-refresh-policy")
+        {
+            Description = "Skip overwriting partitions with Incremental Refresh Policies (use with --deploy-partitions)"
+        };
+        var deploySharedExpressionsOption = new Option<bool>("--deploy-shared-expressions")
+        {
+            Description = "Deploy (overwrite) shared expressions"
+        };
+        var deployRolesOption = new Option<bool>("--deploy-roles")
+        {
+            Description = "Deploy security roles"
+        };
+        var deployRoleMembersOption = new Option<bool>("--deploy-role-members")
+        {
+            Description = "Deploy role members"
+        };
+        var xmlaOption = new Option<string?>("--xmla")
+        {
+            Description = "Generate XMLA/TMSL script to file instead of deploying. Use '-' for stdout."
+        };
+        var skipBpaOption = new Option<bool>("--skip-bpa")
+        {
+            Description = "Skip BPA gate check (configured via .te-bpa.json)"
+        };
+        var fixBpaOption = new Option<bool>("--fix-bpa")
+        {
+            Description = "Auto-fix BPA violations before deploying (applies FixExpressions where available)"
+        };
+        var bpaRulesOption = new Option<string[]>("--bpa-rules")
+        {
+            Description = "Path(s) to BPA rule file(s) for this deploy. Overrides bpa.rules in CLI config.",
+            Arity = ArgumentArity.ZeroOrMore
+        };
+        var forceOption = new Option<bool>("--force")
+        {
+            Description = "Skip interactive confirmation prompt before deploying"
+        };
+        var ciOption = new Option<string?>("--ci")
+        {
+            Description = "Emit CI logging commands to stderr: vsts (Azure DevOps), github (GitHub Actions)"
+        };
+
+        var command = new Command("deploy", "Deploy a semantic model to a workspace (--xmla for script-only, --skip-bpa to bypass)")
+        {
+            modelArgument,
+            profileOption,
+            deployFullOption,
+            createOnlyOption,
+            deployConnectionsOption,
+            deployPartitionsOption,
+            skipRefreshPolicyOption,
+            deploySharedExpressionsOption,
+            deployRolesOption,
+            deployRoleMembersOption,
+            xmlaOption,
+            skipBpaOption,
+            fixBpaOption,
+            bpaRulesOption,
+            forceOption,
+            ciOption
+        };
+
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var format = GlobalOptions.OutputFormatValue(parseResult);
+            if (!CommandOutput.TryValidateFormat(format))
+                return 2;
+
+            var reference = ModelSourceResolver.ResolveReference(
+                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                parseResult.GetValue(GlobalOptions.Database));
+
+            var server = parseResult.GetValue(GlobalOptions.Server);
+            var database = parseResult.GetValue(GlobalOptions.Database);
+
+            var result = await new DeployModelHandler(_providers).HandleAsync(
+                new DeployModelRequest(
+                    reference,
+                    server,
+                    database,
+                    parseResult.GetValue(profileOption),
+                    parseResult.GetValue(deployFullOption),
+                    parseResult.GetValue(createOnlyOption),
+                    parseResult.GetValue(skipBpaOption),
+                    parseResult.GetValue(fixBpaOption),
+                    parseResult.GetValue(bpaRulesOption),
+                    parseResult.GetValue(xmlaOption),
+                    parseResult.GetValue(forceOption),
+                    parseResult.GetValue(ciOption)),
+                cancellationToken);
+
+            if (result.Data is not null && result.Data.ScriptPath == "-" && result.Data.Script is not null)
+            {
+                if (OutputFormats.IsJson(format))
+                    JsonOutput.Write(result.Data);
+                else
+                    Console.WriteLine(result.Data.Script);
+                return result.ExitCode;
+            }
+
+            return CommandOutput.Render(
+                result,
+                format,
+                data => Render(data, reference.Value));
+        });
+
+        return command;
+    }
+
+    private static void Render(DeployModelResult result, string source)
+    {
+        if (result.Status == "script")
+        {
+            Console.WriteLine($"Source: {source}");
+            Console.WriteLine($"Script: {result.ScriptPath}");
+            return;
+        }
+
+        var name = string.IsNullOrWhiteSpace(result.Database) ? source : result.Database;
+        Console.WriteLine($"Deploying {name} to {result.Server} / {result.Database}...");
+        Console.WriteLine($"Deployed: {result.Status} ({result.DurationMs}ms)");
+    }
+}
