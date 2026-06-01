@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Reflection;
+using Mdl.App.Format;
 using Mdl.Cli.Commands;
 using Mdl.Core.Models;
 using Mdl.Provider.Tom;
@@ -18,6 +19,11 @@ internal static class Program
         var tokenProvider = AuthSettingsFactory.CreateAuthenticator();
         IReadOnlyList<IModelProvider> providers =
             [new TmdlModelProvider(), new TomFileModelProvider(), new TomServerModelProvider(tokenProvider)];
+        var formatter = new CompositeExpressionFormatterClient(
+            [
+                new DaxFormatterApiClient(),
+                new PowerQueryFormatterApiClient(new HttpClient())
+            ]);
         var stubs = CompatibilityStubCommand.All().ToDictionary(command => command.Name);
 
         var modules = new ICommandModule[]
@@ -32,7 +38,7 @@ internal static class Program
             new DepsCommand(providers),
             new DiffCommand(providers),
             new FindCommand(providers),
-            stubs["format"],
+            new FormatCommand(providers, formatter),
             new GetCommand(providers),
             stubs["incremental-refresh"],
             new InitCommand(),

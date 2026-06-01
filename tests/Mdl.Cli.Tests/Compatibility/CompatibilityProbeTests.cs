@@ -148,8 +148,9 @@ public sealed class CompatibilityProbeTests
             var salesTable = Path.Combine(right, "tables", "Sales.tmdl");
             File.WriteAllText(
                 salesTable,
-                File.ReadAllText(salesTable)
-                    .Replace("SUM(Sales[Amount])", "SUMX(Sales, Sales[Amount])", StringComparison.Ordinal));
+                ReplaceTotalSalesExpression(
+                    File.ReadAllText(salesTable),
+                    "SUMX(Sales, Sales[Amount])"));
 
             AssertJsonEqual(
                 CliProcess.RunReference("diff", left, right, "--output-format", "json"),
@@ -730,8 +731,21 @@ public sealed class CompatibilityProbeTests
         var salesTable = Path.Combine(model, "tables", "Sales.tmdl");
         File.WriteAllText(
             salesTable,
-            File.ReadAllText(salesTable)
-                .Replace("SUM(Sales[Amount])", "SUM(Sales[Missing])", StringComparison.Ordinal));
+            ReplaceTotalSalesExpression(
+                File.ReadAllText(salesTable),
+                "SUM(Sales[Missing])"));
+    }
+
+    private static string ReplaceTotalSalesExpression(string text, string replacement)
+    {
+        var updated = text
+            .Replace("SUM(Sales[Amount])", replacement, StringComparison.Ordinal)
+            .Replace("SUM ( Sales[Amount] )", replacement, StringComparison.Ordinal);
+
+        if (updated == text)
+            throw new InvalidOperationException("The Total Sales sample expression was not found.");
+
+        return updated;
     }
 
     private const string BasicBim = """
