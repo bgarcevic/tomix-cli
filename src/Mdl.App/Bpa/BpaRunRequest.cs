@@ -8,4 +8,6 @@ public sealed record BpaRunRequest(
     bool NoDefaults = false,
     string? PathFilter = null,
     IReadOnlyList<string>? RuleIds = null,
-    bool Fix = false);
+    bool Fix = false,
+    string? Ruleset = null,
+    string? FailOn = null);

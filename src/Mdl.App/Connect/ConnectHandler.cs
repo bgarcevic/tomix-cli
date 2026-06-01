@@ -36,7 +36,7 @@ public sealed class ConnectHandler
             if (!profiles.TryGetValue(request.Profile, out var profile))
                 return MdlResult<ConnectSetResult>.Fail(
                     "MDL_PROFILE_NOT_FOUND",
-                    $"Profile not found: {request.Profile}",
+                    $"Profile '{request.Profile}' not found",
                     exitCode: 1);
 
             state = new CliConnectionState(
@@ -49,15 +49,42 @@ public sealed class ConnectHandler
         }
         else if (!string.IsNullOrWhiteSpace(request.Model))
         {
-            state = new CliConnectionState(null, null, request.Model, request.Auth, Local: true, Profile: null);
+            state = new CliConnectionState(
+                null,
+                request.Database,
+                request.Model,
+                request.Auth,
+                Local: true,
+                Profile: null,
+                request.Workspace,
+                request.WorkspaceFormat,
+                request.WorkspaceAuth);
         }
         else if (request.Local)
         {
-            state = new CliConnectionState(null, request.Database, null, request.Auth, Local: true, Profile: null);
+            state = new CliConnectionState(
+                null,
+                request.Database,
+                null,
+                request.Auth,
+                Local: true,
+                Profile: null,
+                request.Workspace,
+                request.WorkspaceFormat,
+                request.WorkspaceAuth);
         }
         else
         {
-            state = new CliConnectionState(request.Server, request.Database, null, request.Auth, Local: false, Profile: null);
+            state = new CliConnectionState(
+                request.Server,
+                request.Database,
+                null,
+                request.Auth,
+                Local: false,
+                Profile: null,
+                request.Workspace,
+                request.WorkspaceFormat,
+                request.WorkspaceAuth);
         }
 
         _store.SaveCurrentSession(state);
@@ -71,4 +98,7 @@ public sealed record ConnectSetRequest(
     string? Model,
     string? Auth,
     bool Local,
-    string? Profile);
+    string? Profile,
+    string? Workspace = null,
+    string? WorkspaceFormat = null,
+    string? WorkspaceAuth = null);

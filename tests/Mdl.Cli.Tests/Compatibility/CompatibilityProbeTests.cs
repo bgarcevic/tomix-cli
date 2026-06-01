@@ -84,6 +84,14 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
+    public void LsBasicTmdlCsv_MatchesReferenceCsv()
+    {
+        AssertCsvEqual(
+            CliProcess.RunReference("ls", "samples\\basic-tmdl", "--output-format", "csv"),
+            CliProcess.RunMdl("ls", "samples\\basic-tmdl", "--output-format", "csv"));
+    }
+
+    [Fact]
     public void LsGlobalModelJson_MatchesReferenceJson()
     {
         AssertJsonEqual(
@@ -97,6 +105,27 @@ public sealed class CompatibilityProbeTests
         AssertJsonEqual(
             CliProcess.RunReference("get", "Sales", "samples\\basic-tmdl", "--output-format", "json"),
             CliProcess.RunMdl("get", "Sales", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void GetSalesCsv_MatchesReferenceCsv()
+    {
+        AssertCsvEqual(
+            CliProcess.RunReference("get", "Sales", "samples\\basic-tmdl", "--output-format", "csv"),
+            CliProcess.RunMdl("get", "Sales", "samples\\basic-tmdl", "--output-format", "csv"));
+    }
+
+    [Fact]
+    public void GetMissingObjectJsonError_MatchesReferenceErrorFormat()
+    {
+        var reference = CliProcess.RunReference("get", "Nope", "samples\\basic-tmdl", "--error-format", "json");
+        var mdl = CliProcess.RunMdl("get", "Nope", "samples\\basic-tmdl", "--error-format", "json");
+
+        Assert.Equal(1, reference.ExitCode);
+        Assert.Equal(1, mdl.ExitCode);
+        Assert.Equal(
+            CompatibilityText.WithoutPreviewFooter(reference.StdErr),
+            mdl.StdErr.Trim());
     }
 
     [Fact]
@@ -124,6 +153,14 @@ public sealed class CompatibilityProbeTests
         Assert.Contains("Sales/Amount", mdl.StdOut);
         Assert.Contains("Upstream", mdl.StdOut);
         Assert.Contains("Downstream", mdl.StdOut);
+    }
+
+    [Fact]
+    public void DepsTotalSalesJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--output-format", "json"),
+            CliProcess.RunMdl("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--output-format", "json"));
     }
 
     [Fact]
@@ -573,6 +610,15 @@ public sealed class CompatibilityProbeTests
         mdlJson.Remove("durationMs");
 
         Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
+    }
+
+    private static void AssertCsvEqual(CliRun reference, CliRun mdl, int expectedExitCode = 0)
+    {
+        Assert.Equal(expectedExitCode, reference.ExitCode);
+        Assert.Equal(expectedExitCode, mdl.ExitCode);
+        Assert.Equal(
+            CompatibilityText.WithoutPreviewFooter(reference.StdOut),
+            mdl.StdOut.Trim());
     }
 
     private static void AssertAddSavedJson(CliRun reference, CliRun mdl, string added)

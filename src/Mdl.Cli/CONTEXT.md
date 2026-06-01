@@ -32,6 +32,7 @@ CLI entry point for `mdl`.
 - Do not access TOM, Power BI, XMLA, BIM, or TMDL APIs directly.
 - Do not hand-roll JSON output inside commands; serialize through `Output/JsonOutput`.
 - Add a new command as its own `ICommandModule` in `Commands/`; reuse `Output/` rather than re-deriving format handling.
+- CLI help, JSON field names, diagnostics, and human output must avoid versioned third-party product names or abbreviations for licensing-sensitive compatibility work. 
 
 ## Test
 

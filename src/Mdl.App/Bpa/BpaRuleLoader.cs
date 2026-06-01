@@ -6,11 +6,28 @@ namespace Mdl.App.Bpa;
 
 public sealed class BpaRuleLoader
 {
+    public const string StandardRuleset = "standard";
+
+    private const string BundledRulesFileName = "bpa-rules.json";
+    private const string MicrosoftRulesUrl = "https://raw.githubusercontent.com/microsoft/Analysis-Services/master/BestPracticeRules/BPARules.json";
+    private const string MicrosoftItalianRulesUrl = "https://raw.githubusercontent.com/microsoft/Analysis-Services/master/BestPracticeRules/Italian/BPARules.json";
+    private const string MicrosoftJapaneseRulesUrl = "https://raw.githubusercontent.com/microsoft/Analysis-Services/master/BestPracticeRules/Japanese/BPARules.json";
+    private const string MicrosoftSpanishRulesUrl = "https://raw.githubusercontent.com/microsoft/Analysis-Services/master/BestPracticeRules/Spanish/BPARules.json";
+
     private static readonly JsonSerializerOptions Options = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
         WriteIndented = false
     };
+
+    public static IReadOnlyList<string> KnownRulesets { get; } =
+    [
+        StandardRuleset,
+        "microsoft",
+        "microsoft-it",
+        "microsoft-ja",
+        "microsoft-es"
+    ];
 
     public static IReadOnlyList<BpaRule> LoadFromFile(string path)
     {
@@ -25,20 +42,38 @@ public sealed class BpaRuleLoader
         => ParseRules(json);
 
     public static IReadOnlyList<BpaRule> LoadDefaultRules()
-    {
-        var candidates = new[]
-        {
-            Path.Combine(Directory.GetCurrentDirectory(), "bpa-rules.json"),
-            Path.Combine(Directory.GetCurrentDirectory(), "src", "bpa-rules.json"),
-        };
+        => LoadBundledRules();
 
-        foreach (var candidate in candidates)
+    public static Task<IReadOnlyList<BpaRule>> LoadDefaultRulesAsync(CancellationToken cancellationToken)
+        => LoadRulesetAsync(StandardRuleset, cancellationToken);
+
+    public static async Task<IReadOnlyList<BpaRule>> LoadRulesetAsync(
+        string? ruleset,
+        CancellationToken cancellationToken)
+    {
+        var source = ResolveRulesetSource(ruleset);
+        if (source == StandardRuleset)
+            return LoadBundledRules();
+
+        return await LoadFromSourceAsync(source, cancellationToken).ConfigureAwait(false);
+    }
+
+    public static async Task<IReadOnlyList<BpaRule>> LoadFromSourceAsync(
+        string source,
+        CancellationToken cancellationToken)
+    {
+        if (TryCreateHttpUri(source, out var uri))
         {
-            if (File.Exists(candidate))
-                return LoadFromFile(candidate);
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.UserAgent.ParseAdd("mdl-cli");
+            var json = await http.GetStringAsync(uri, cancellationToken).ConfigureAwait(false);
+            return ParseRules(json);
         }
 
-        return BuiltInRules();
+        if (!File.Exists(source))
+            throw new FileNotFoundException($"BPA rules file not found: {source}", source);
+
+        return LoadFromFile(source);
     }
 
     private static IReadOnlyList<BpaRule> ParseRules(string json)
@@ -71,6 +106,75 @@ public sealed class BpaRuleLoader
         return scope.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
             .Select(s => s.Trim())
             .ToList();
+    }
+
+    private static string ResolveRulesetSource(string? ruleset)
+    {
+        var key = string.IsNullOrWhiteSpace(ruleset)
+            ? StandardRuleset
+            : ruleset.Trim();
+
+        if (key.Equals("default", StringComparison.OrdinalIgnoreCase)
+            || key.Equals("bundled", StringComparison.OrdinalIgnoreCase)
+            || key.Equals(StandardRuleset, StringComparison.OrdinalIgnoreCase))
+            return StandardRuleset;
+
+        return key.ToLowerInvariant() switch
+        {
+            "microsoft" or "microsoft-en" => MicrosoftRulesUrl,
+            "microsoft-it" or "microsoft-italian" => MicrosoftItalianRulesUrl,
+            "microsoft-ja" or "microsoft-japanese" => MicrosoftJapaneseRulesUrl,
+            "microsoft-es" or "microsoft-spanish" => MicrosoftSpanishRulesUrl,
+            _ => throw new ArgumentException(
+                $"Unknown BPA ruleset '{key}'. Known rulesets: {string.Join(", ", KnownRulesets)}. Use --rules for a custom file or URL.",
+                nameof(ruleset))
+        };
+    }
+
+    private static bool TryCreateHttpUri(string source, out Uri? uri)
+    {
+        if (Uri.TryCreate(source, UriKind.Absolute, out uri)
+            && (uri.Scheme == Uri.UriSchemeHttp || uri.Scheme == Uri.UriSchemeHttps))
+            return true;
+
+        uri = null;
+        return false;
+    }
+
+    private static IReadOnlyList<BpaRule> LoadBundledRules()
+    {
+        foreach (var path in CandidateBundledRulePaths())
+        {
+            if (File.Exists(path))
+                return LoadFromFile(path);
+        }
+
+        return BuiltInRules();
+    }
+
+    private static IEnumerable<string> CandidateBundledRulePaths()
+    {
+        yield return Path.Combine(AppContext.BaseDirectory, "Bpa", "Rules", BundledRulesFileName);
+        yield return Path.Combine(Directory.GetCurrentDirectory(), "Bpa", "Rules", BundledRulesFileName);
+
+        foreach (var root in Ancestors(AppContext.BaseDirectory).Concat(Ancestors(Directory.GetCurrentDirectory())))
+            yield return Path.Combine(root, "src", "Mdl.App", "Bpa", "Rules", BundledRulesFileName);
+
+        yield return Path.Combine(AppContext.BaseDirectory, BundledRulesFileName);
+        yield return Path.Combine(Directory.GetCurrentDirectory(), BundledRulesFileName);
+    }
+
+    private static IEnumerable<string> Ancestors(string path)
+    {
+        var directory = new DirectoryInfo(path);
+        if (File.Exists(path))
+            directory = directory.Parent!;
+
+        while (directory is not null)
+        {
+            yield return directory.FullName;
+            directory = directory.Parent;
+        }
     }
 
     private sealed class JsonRule

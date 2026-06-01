@@ -12,7 +12,7 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
-        var root = new RootCommand("mdl - Tabular Editor CLI for semantic models");
+        var root = new RootCommand("mdl - CLI for semantic models");
         foreach (var option in GlobalOptions.All())
             root.Options.Add(option);
 

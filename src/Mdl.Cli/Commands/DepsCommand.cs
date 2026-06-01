@@ -102,7 +102,7 @@ internal sealed class DepsCommand : ICommandModule
                     parseResult.GetValue(maxDepthOption)),
                 cancellationToken);
 
-            return CommandOutput.Render(result, formatValue, Render);
+            return CommandOutput.Render(result, formatValue, Render, ToReferenceJson);
         });
 
         return command;
@@ -131,4 +131,21 @@ internal sealed class DepsCommand : ICommandModule
         foreach (var dependency in dependencies)
             Console.WriteLine($"    {dependency.Type,-18} {dependency.Reference,-30} {dependency.Path}");
     }
+
+    private static object ToReferenceJson(DepsModelResult result)
+        => new
+        {
+            path = result.Path,
+            objectType = result.Type,
+            upstream = result.Upstream.Select(ToReferenceJson).ToList(),
+            downstream = result.Downstream.Select(ToReferenceJson).ToList()
+        };
+
+    private static object ToReferenceJson(DependencyObject dependency)
+        => new
+        {
+            objectName = dependency.Reference,
+            objectType = dependency.Type,
+            path = dependency.Path
+        };
 }

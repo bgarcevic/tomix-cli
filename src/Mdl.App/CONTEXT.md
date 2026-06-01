@@ -21,6 +21,12 @@ Application use cases and command handlers.
 - Do not write console output directly.
 - Keep provider-specific details behind interfaces.
 - One command should usually have one handler.
+- Formatting behavior uses external formatter APIs:
+  - DAX formatting uses the SQLBI DaxFormatter API/client from https://github.com/sql-bi/DaxFormatter.
+  - Power Query formatting uses the Power Query Formatter API from https://www.powerqueryformatter.com/api.
+- BPA default rules should use the bundled `src/Mdl.App/Bpa/Rules/bpa-rules.json` catalog as the offline standard rules.
+- BPA rule loading may support selectable upstream Microsoft Analysis Services BestPracticeRules catalogs from https://github.com/microsoft/Analysis-Services/tree/master/BestPracticeRules.
+- Keep licensing-sensitive compatibility work free of versioned third-party product names or abbreviations in source, docs, help, and output.
 
 ## Naming
 

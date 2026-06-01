@@ -114,10 +114,43 @@ internal sealed class CompatibilityStubCommand : ICommandModule
         New("incremental-refresh", "Configure incremental refresh policy on a table",
             subcommands:
             [
-                New("apply", "Apply incremental refresh policy"),
-                New("rm", "Remove incremental refresh policy"),
-                New("set", "Set incremental refresh policy"),
-                New("show", "Show incremental refresh policy")
+                New("apply", "Apply incremental refresh policy",
+                    args: [Required("table")],
+                    options:
+                    [
+                        Value("--effective-date")
+                    ]),
+                New("rm", "Remove incremental refresh policy",
+                    args: [Required("table")],
+                    options:
+                    [
+                        Flag("--force"),
+                        Flag("--stage"),
+                        Flag("--revert"),
+                        Flag("--save")
+                    ]),
+                New("set", "Set incremental refresh policy",
+                    args: [Required("table")],
+                    options:
+                    [
+                        Value("--mode"),
+                        Value("--rolling-window-periods"),
+                        Value("--rolling-window-granularity"),
+                        Value("--incremental-periods"),
+                        Value("--incremental-granularity"),
+                        Value("--incremental-offset"),
+                        Value("--polling-expression"),
+                        Value("--polling-expression-file"),
+                        Value("--source-expression"),
+                        Value("--source-expression-file"),
+                        Flag("--force"),
+                        Flag("--stage"),
+                        Flag("--revert"),
+                        Flag("--save"),
+                        Value("--save-to")
+                    ]),
+                New("show", "Show incremental refresh policy",
+                    args: [Required("table")])
             ]),
         New("init", "Create a new empty semantic model", args: [Optional("output-path")]),
         New("interactive", "Start an interactive REPL session for running multiple commands against a model",
@@ -126,15 +159,45 @@ internal sealed class CompatibilityStubCommand : ICommandModule
             options: [Value("--macros")],
             subcommands:
             [
-                New("add", "Add a macro"),
-                New("init", "Initialize macro storage"),
+                New("add", "Add a macro",
+                    args: [Required("name")],
+                    options:
+                    [
+                        Value("--expression", "-e"),
+                        Value("--tooltip"),
+                        Value("--contexts"),
+                        Flag("--enabled")
+                    ]),
+                New("init", "Initialize macro storage",
+                    options:
+                    [
+                        Flag("--force")
+                    ]),
                 New("list", "List macros"),
-                New("rm", "Remove a macro"),
-                New("run", "Run a macro"),
-                New("set", "Set a macro property"),
+                New("rm", "Remove a macro",
+                    args: [Required("name-or-id")]),
+                New("run", "Run a macro",
+                    args: [Required("name-or-id"), Optional("model")],
+                    options:
+                    [
+                        Value("--on"),
+                        Flag("--force"),
+                        Flag("--stage"),
+                        Flag("--revert"),
+                        Flag("--save"),
+                        Value("--save-to"),
+                        Value("--serialization")
+                    ]),
+                New("set", "Set a macro property",
+                    args: [Required("name-or-id")],
+                    options:
+                    [
+                        Value("-q"),
+                        Value("-i")
+                    ]),
                 New("sort", "Sort macros")
             ]),
-        New("migrate", "Reference guide for migrating from Tabular Editor 2 CLI to te3. Shows equivalent commands, renamed options, and not-yet-implemented features.",
+        New("migrate", "Reference guide for migrating from previous CLI usage. Shows equivalent commands, renamed options, and not-yet-implemented features.",
             args: [Optional("flag")]),
         New("mv", "Move or rename a model object",
             args: [Required("source"), Required("destination"), Optional("model")],
@@ -148,7 +211,7 @@ internal sealed class CompatibilityStubCommand : ICommandModule
                 Value("--save-to"),
                 Value("--serialization")
             ]),
-        New("open", "Open a model in Tabular Editor 3 desktop", args: [Optional("model")]),
+        New("open", "Open a model in the desktop model editor", args: [Optional("model")]),
         New("profile", "Manage named connection profiles for quick environment switching",
             subcommands:
             [
@@ -217,7 +280,7 @@ internal sealed class CompatibilityStubCommand : ICommandModule
             args: [Optional("model")],
             options:
             [
-                Value("--script"),
+                Value("--script", "-S"),
                 Value("--expression", "-e"),
                 Flag("--dry-run"),
                 Flag("--force"),
@@ -252,13 +315,55 @@ internal sealed class CompatibilityStubCommand : ICommandModule
         New("test", "Regression testing: DAX assertions, snapshots, and A/B model comparison",
             subcommands:
             [
-                New("compare", "Compare test output"),
-                New("init", "Initialize test files"),
-                New("list", "List tests"),
-                New("run", "Run tests"),
-                New("snapshot", "Manage snapshots"),
-                New("spec", "Show test specification"),
-                New("use", "Select test profile")
+                New("compare", "Compare test output",
+                    options:
+                    [
+                        Value("--source-a", "-a"),
+                        Value("--source-b", "-b"),
+                        Value("--auth-a"),
+                        Value("--auth-b"),
+                        Value("--suite"),
+                        Value("--tolerance")
+                    ]),
+                New("init", "Initialize test files",
+                    options:
+                    [
+                        Value("--path"),
+                        Value("--from-model"),
+                        Value("--example")
+                    ]),
+                New("list", "List tests",
+                    options:
+                    [
+                        Value("--suite"),
+                        Value("--tag")
+                    ]),
+                New("run", "Run tests",
+                    options:
+                    [
+                        Value("--suite"),
+                        Value("--tag"),
+                        Value("--fail-on"),
+                        Flag("--ci"),
+                        Value("--trx")
+                    ]),
+                New("snapshot", "Manage snapshots",
+                    options:
+                    [
+                        Value("--suite"),
+                        Value("--table"),
+                        Value("--measures"),
+                        Value("--tolerance"),
+                        Flag("--save"),
+                        Flag("--diff")
+                    ]),
+                New("spec", "Show test specification",
+                    options:
+                    [
+                        Flag("--json-schema")
+                    ]),
+                New("use", "Select test profile",
+                    args: [Optional("suite")])
             ]),
         New("validate", "Validate DAX expressions and relationship integrity (--ci for CI output, --trx for VSTEST)",
             args: [Optional("model")],

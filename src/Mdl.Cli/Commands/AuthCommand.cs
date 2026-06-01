@@ -24,11 +24,6 @@ internal sealed class AuthCommand : ICommandModule
 
     private static Command BuildLogin()
     {
-        var serverArgument = new Argument<string?>("server")
-        {
-            Description = "Target endpoint (powerbi://..., asazure://...). Defaults to the active connection.",
-            Arity = ArgumentArity.ZeroOrOne
-        };
         var usernameOption = new Option<string?>("--username") { Description = "Service-principal application (client) id" };
         usernameOption.Aliases.Add("-u");
         var passwordOption = new Option<string?>("--password") { Description = "Service-principal client secret" };
@@ -41,10 +36,10 @@ internal sealed class AuthCommand : ICommandModule
         var certificatePasswordOption = new Option<string?>("--certificate-password") { Description = "Password for the certificate file" };
         var deviceCodeOption = new Option<bool>("--device-code") { Description = "Use the device-code flow instead of a local browser" };
         var clientIdOption = new Option<string?>("--client-id") { Description = "Override the Azure AD client id used for interactive/device-code sign-in" };
+        var saveOption = new Option<bool?>("--save") { Description = "Persist credentials when supported" };
 
         var command = new Command("login", "Log in to a Power BI / Fabric / Azure AS account")
         {
-            serverArgument,
             usernameOption,
             passwordOption,
             tenantOption,
@@ -52,7 +47,8 @@ internal sealed class AuthCommand : ICommandModule
             certificateOption,
             certificatePasswordOption,
             deviceCodeOption,
-            clientIdOption
+            clientIdOption,
+            saveOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -69,7 +65,7 @@ internal sealed class AuthCommand : ICommandModule
             var useDeviceCode = parseResult.GetValue(deviceCodeOption);
 
             var method = ResolveMethod(useIdentity, certificate, username, password, useDeviceCode);
-            var endpoint = parseResult.GetValue(serverArgument)
+            var endpoint = parseResult.GetValue(GlobalOptions.Server)
                 ?? new CliStateStore().LoadCurrentSession()?.Server;
 
             var options = new AuthLoginOptions(

@@ -48,6 +48,7 @@ internal sealed class GetCommand : ICommandModule
         {
             var path = parseResult.GetValue(pathArgument) ?? "";
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
+            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
             var query = parseResult.GetValue(queryOption);
             var typeValue = parseResult.GetValue(typeOption);
 
@@ -74,7 +75,7 @@ internal sealed class GetCommand : ICommandModule
                     path, query, type),
                 cancellationToken);
 
-            return CommandOutput.Render(result, formatValue, Render);
+            return CommandOutput.Render(result, formatValue, errorFormat, Render, RenderCsv);
         });
 
         return command;
@@ -86,4 +87,102 @@ internal sealed class GetCommand : ICommandModule
         foreach (var (key, value) in result.Properties)
             Console.WriteLine($"{key}: {value}");
     }
+
+    private static void RenderCsv(GetModelResult result)
+    {
+        if (result.Properties.Count == 1)
+        {
+            CsvOutput.WriteValue(result.Properties.Values.First());
+            return;
+        }
+
+        if (string.Equals(result.Type, "Table", StringComparison.Ordinal))
+        {
+            CsvOutput.Write(
+                [
+                    "Name",
+                    "Description",
+                    "Hidden",
+                    "DataCategory",
+                    "LineageTag",
+                    "Columns",
+                    "Measures",
+                    "Hierarchies",
+                    "Partitions",
+                    "RefreshPolicy",
+                    "DefaultDetailRowsExpression"
+                ],
+                [TableRow(result.Properties)]);
+            return;
+        }
+
+        if (string.Equals(result.Type, "Measure", StringComparison.Ordinal))
+        {
+            CsvOutput.Write(
+                [
+                    "Name",
+                    "Description",
+                    "Expression",
+                    "FormatString",
+                    "Hidden",
+                    "DisplayFolder",
+                    "DataType",
+                    "DetailRowsExpression",
+                    "FormatStringExpression",
+                    "KPI",
+                    "LineageTag"
+                ],
+                [MeasureRow(result.Properties)]);
+            return;
+        }
+
+        CsvOutput.Write(
+            ["Name", "Description", "Hidden", "Detail", "Expression"],
+            [GenericRow(result.Properties)]);
+    }
+
+    private static IReadOnlyList<object?> TableRow(IReadOnlyDictionary<string, object?> properties)
+        =>
+        [
+            Value(properties, "name"),
+            Value(properties, "description"),
+            Value(properties, "isHidden"),
+            Value(properties, "dataCategory"),
+            Value(properties, "lineageTag"),
+            Value(properties, "columns"),
+            Value(properties, "measures"),
+            Value(properties, "hierarchies"),
+            Value(properties, "partitions"),
+            Value(properties, "refreshPolicy"),
+            Value(properties, "defaultDetailRowsExpression")
+        ];
+
+    private static IReadOnlyList<object?> MeasureRow(IReadOnlyDictionary<string, object?> properties)
+        =>
+        [
+            Value(properties, "name"),
+            Value(properties, "description"),
+            Value(properties, "expression"),
+            Value(properties, "formatString"),
+            Value(properties, "isHidden"),
+            Value(properties, "displayFolder"),
+            Value(properties, "dataType"),
+            Value(properties, "detailRowsExpression"),
+            Value(properties, "formatStringExpression"),
+            Value(properties, "kpi"),
+            Value(properties, "lineageTag")
+        ];
+
+    private static IReadOnlyList<object?> GenericRow(IReadOnlyDictionary<string, object?> properties)
+        =>
+        [
+            Value(properties, "name"),
+            Value(properties, "description"),
+            Value(properties, "isHidden"),
+            Value(properties, "detail"),
+            Value(properties, "expression")
+        ];
+
+    private static object? Value(IReadOnlyDictionary<string, object?> properties, string key)
+        => properties.TryGetValue(key, out var value) ? value : "";
 }

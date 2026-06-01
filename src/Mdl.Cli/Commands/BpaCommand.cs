@@ -30,8 +30,13 @@ internal sealed class BpaCommand : ICommandModule
 
         var rulesOption = new Option<string[]>("--rules", "-r")
         {
-            Description = "Path(s) to BPA rule file(s) in JSON format",
+            Description = "Path(s) or URL(s) to BPA rule file(s) in JSON format",
             AllowMultipleArgumentsPerToken = true
+        };
+
+        var rulesetOption = new Option<string?>("--ruleset")
+        {
+            Description = $"Standard BPA ruleset to use ({string.Join(", ", BpaRuleLoader.KnownRulesets)})"
         };
 
         var noModelRulesOption = new Option<bool>("--no-model-rules")
@@ -41,7 +46,7 @@ internal sealed class BpaCommand : ICommandModule
 
         var noDefaultsOption = new Option<bool>("--no-defaults")
         {
-            Description = "Exclude built-in default BPA rules"
+            Description = "Exclude the selected standard BPA ruleset"
         };
 
         var failOnOption = new Option<string?>("--fail-on")
@@ -49,9 +54,34 @@ internal sealed class BpaCommand : ICommandModule
             Description = "Failure threshold: error (default) or warning"
         };
 
+        var vpaxOption = new Option<string?>("--vpax")
+        {
+            Description = "Load VertiPaq Analyzer stats from a .vpax file to enable VPA-aware rules"
+        };
+
+        var vpaRulesOption = new Option<bool>("--vpa-rules")
+        {
+            Description = "Include built-in VPA-aware rules"
+        };
+
         var fixOption = new Option<bool>("--fix")
         {
             Description = "Apply fix expressions to auto-fix violations where possible"
+        };
+
+        var saveOption = new Option<bool>("--save")
+        {
+            Description = "Save model back to source after applying fixes"
+        };
+
+        var saveToOption = new Option<string?>("--save-to")
+        {
+            Description = "Save model to a different path after applying fixes"
+        };
+
+        var serializationOption = new Option<string?>("--serialization")
+        {
+            Description = "Model serialization: tmdl, bim, te-folder"
         };
 
         var ruleOption = new Option<string[]>("--rule")
@@ -63,6 +93,16 @@ internal sealed class BpaCommand : ICommandModule
         var ciOption = new Option<string?>("--ci")
         {
             Description = "Emit CI logging commands to stderr: vsts or github"
+        };
+
+        var trxOption = new Option<string?>("--trx")
+        {
+            Description = "Write results as a VSTEST .trx file to the specified path"
+        };
+
+        var allowExternalRulesOption = new Option<bool>("--allow-external-rules")
+        {
+            Description = "Allow fetching BPA rule files from URLs embedded in model annotations"
         };
 
         var pathOption = new Option<string?>("--path")
@@ -79,12 +119,20 @@ internal sealed class BpaCommand : ICommandModule
         {
             modelArgument,
             rulesOption,
+            rulesetOption,
             noModelRulesOption,
             noDefaultsOption,
+            vpaxOption,
+            vpaRulesOption,
             failOnOption,
             fixOption,
+            saveOption,
+            saveToOption,
+            serializationOption,
             ruleOption,
             ciOption,
+            trxOption,
+            allowExternalRulesOption,
             pathOption,
             noMultilineOption
         };
@@ -107,7 +155,9 @@ internal sealed class BpaCommand : ICommandModule
                     parseResult.GetValue(noDefaultsOption),
                     parseResult.GetValue(pathOption),
                     ruleIds,
-                    parseResult.GetValue(fixOption)),
+                    parseResult.GetValue(fixOption),
+                    parseResult.GetValue(rulesetOption),
+                    parseResult.GetValue(failOnOption)),
                 cancellationToken);
 
             var ci = parseResult.GetValue(ciOption);
@@ -121,7 +171,8 @@ internal sealed class BpaCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => RenderRun(data, parseResult.GetValue(noMultilineOption)));
+                data => RenderRun(data, parseResult.GetValue(noMultilineOption)),
+                ProjectRunJson);
         });
 
         return runCommand;
@@ -134,9 +185,39 @@ internal sealed class BpaCommand : ICommandModule
             Description = "Path to a BPA rules JSON file"
         };
 
+        var modelRulesOption = new Option<bool>("--model-rules")
+        {
+            Description = "Operate on rules embedded in the model annotation instead of a file"
+        };
+
+        var rulesetOption = new Option<string?>("--ruleset")
+        {
+            Description = $"Standard BPA ruleset to use ({string.Join(", ", BpaRuleLoader.KnownRulesets)})"
+        };
+
+        var noDefaultsOption = new Option<bool>("--no-defaults")
+        {
+            Description = "Suppress built-in rules from output"
+        };
+
+        var ignoredOption = new Option<bool>("--ignored")
+        {
+            Description = "Show only ignored rules"
+        };
+
+        var disabledOption = new Option<bool>("--disabled")
+        {
+            Description = "Show only disabled rules"
+        };
+
         var allOption = new Option<bool>("--all")
         {
-            Description = "Include disabled/ignored rules"
+            Description = "Show all rules including disabled and ignored"
+        };
+
+        var noMultilineOption = new Option<bool>("--no-multiline")
+        {
+            Description = "Collapse multi-line cell content in text output"
         };
 
         var modelArgument = new Argument<string>("model")
@@ -145,16 +226,20 @@ internal sealed class BpaCommand : ICommandModule
             Arity = ArgumentArity.ZeroOrOne
         };
 
-        var rulesCommand = new Command("rules", "Manage BPA rule collections (model annotations or local files)")
+        var rulesCommand = new Command("rules", "Manage BPA rule collections")
         {
             rulesFileOption,
-            allOption,
-            modelArgument
+            modelRulesOption
         };
 
         var listCommand = new Command("list", "List BPA rules from all sources with status")
         {
             modelArgument,
+            rulesetOption,
+            noDefaultsOption,
+            ignoredOption,
+            disabledOption,
+            noMultilineOption,
             allOption
         };
 
@@ -166,17 +251,185 @@ internal sealed class BpaCommand : ICommandModule
 
             var result = await new BpaRulesListHandler().HandleAsync(
                 new BpaRulesListRequest(
-                    All: parseResult.GetValue(allOption)),
+                    All: parseResult.GetValue(allOption),
+                    RulesFile: parseResult.GetValue(rulesFileOption),
+                    Ruleset: parseResult.GetValue(rulesetOption),
+                    NoDefaults: parseResult.GetValue(noDefaultsOption),
+                    IgnoredOnly: parseResult.GetValue(ignoredOption),
+                    DisabledOnly: parseResult.GetValue(disabledOption)),
                 cancellationToken);
 
             return CommandOutput.Render(
                 result,
                 format,
-                RenderRulesList);
+                RenderRulesList,
+                ProjectRulesListJson);
         });
 
+        rulesCommand.Subcommands.Add(BuildRulesAddCommand());
+        rulesCommand.Subcommands.Add(BuildRulesFlagCommand("disable", "Disable a built-in BPA rule for the current user"));
+        rulesCommand.Subcommands.Add(BuildRulesFlagCommand("enable", "Re-enable a previously disabled built-in BPA rule"));
+        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("ignore", "Add a rule to the model's ignore list"));
+        rulesCommand.Subcommands.Add(BuildRulesInitCommand());
         rulesCommand.Subcommands.Add(listCommand);
+        rulesCommand.Subcommands.Add(BuildRulesRemoveCommand());
+        rulesCommand.Subcommands.Add(BuildRulesSetCommand());
+        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("unignore", "Remove a rule from the model's ignore list"));
         return rulesCommand;
+    }
+
+    private static Command BuildRulesAddCommand()
+    {
+        var command = new Command("add", "Add a new BPA rule")
+        {
+            new Argument<string>("id") { Description = "Rule ID" },
+            OptionalModelArgument(),
+            new Option<string?>("--name") { Description = "Rule display name" },
+            new Option<string?>("--expression") { Description = "Dynamic LINQ expression" },
+            new Option<string?>("--scope") { Description = "Comma-separated scopes" },
+            new Option<string?>("--category") { Description = "Rule category" },
+            new Option<string?>("--severity") { Description = "Severity: 1, 2, or 3" },
+            new Option<string?>("--description") { Description = "Rule description" },
+            new Option<string?>("--fix-expression") { Description = "Dynamic LINQ fix expression" },
+            new Option<bool>("--save") { Description = "Save model after adding rule" }
+        };
+        command.SetAction(_ => UnsupportedRulesAction("add"));
+        return command;
+    }
+
+    private static Command BuildRulesSetCommand()
+    {
+        var queryOption = new Option<string?>("-q")
+        {
+            Description = "Property: name, expression, scope, category, severity, description, fixExpression"
+        };
+        var valueOption = new Option<string?>("-i")
+        {
+            Description = "New value"
+        };
+
+        var command = new Command("set", "Update a BPA rule's properties")
+        {
+            new Argument<string>("rule-id") { Description = "Rule ID to update" },
+            OptionalModelArgument(),
+            queryOption,
+            valueOption,
+            new Option<bool>("--save") { Description = "Save model after updating rule" }
+        };
+        command.SetAction(_ => UnsupportedRulesAction("set"));
+        return command;
+    }
+
+    private static Command BuildRulesRemoveCommand()
+    {
+        var command = new Command("rm", "Remove a BPA rule")
+        {
+            new Argument<string>("rule-id") { Description = "Rule ID to remove" },
+            OptionalModelArgument(),
+            new Option<bool>("--save") { Description = "Save model after removing rule" }
+        };
+        command.SetAction(_ => UnsupportedRulesAction("rm"));
+        return command;
+    }
+
+    private static Command BuildRulesFlagCommand(string name, string description)
+    {
+        var command = new Command(name, description)
+        {
+            new Argument<string>("rule-id") { Description = "Rule ID" }
+        };
+        command.SetAction(_ => UnsupportedRulesAction(name));
+        return command;
+    }
+
+    private static Command BuildRulesIgnoreCommand(string name, string description)
+    {
+        var command = new Command(name, description)
+        {
+            new Argument<string>("rule-id") { Description = "Rule ID" },
+            OptionalModelArgument(),
+            new Option<bool>("--save") { Description = "Save changes to model" }
+        };
+        command.SetAction(_ => UnsupportedRulesAction(name));
+        return command;
+    }
+
+    private static Command BuildRulesInitCommand()
+    {
+        var command = new Command("init", "Create an empty BPA rules file at the resolved path")
+        {
+            new Option<bool>("--force") { Description = "Overwrite an existing rules file" }
+        };
+        command.SetAction(_ => UnsupportedRulesAction("init"));
+        return command;
+    }
+
+    private static Argument<string?> OptionalModelArgument()
+        => new("model")
+        {
+            Description = "Path to model",
+            Arity = ArgumentArity.ZeroOrOne
+        };
+
+    private static int UnsupportedRulesAction(string command)
+    {
+        Console.Error.WriteLine($"Command 'bpa rules {command}' is not implemented yet.");
+        return 1;
+    }
+
+    private static object ProjectRunJson(BpaRunResult result)
+        => new
+        {
+            rulesEvaluated = result.RulesEvaluated,
+            violations = result.Violations.Count,
+            ruleErrors = 0,
+            ignoredRules = 0,
+            results = result.Violations.Select(v => new
+            {
+                ruleId = v.RuleId,
+                ruleName = v.RuleName,
+                category = v.Category,
+                severity = (int)v.Severity,
+                severityLabel = v.Severity.ToString(),
+                objectName = v.ObjectName,
+                objectType = v.ObjectType,
+                canFix = v.CanFix
+            }),
+            errors = Array.Empty<string>()
+        };
+
+    private static object ProjectRulesListJson(BpaRulesListResult result)
+        => new
+        {
+            rules = result.Rules.Select(ProjectRuleInfo),
+            summary = result.Summary
+        };
+
+    private static Dictionary<string, object?> ProjectRuleInfo(BpaRuleInfo rule)
+    {
+        var json = new Dictionary<string, object?>
+        {
+            ["source"] = rule.Source,
+            ["status"] = rule.Status,
+            ["id"] = rule.Id,
+            ["name"] = rule.Name,
+            ["category"] = rule.Category,
+            ["severity"] = (int)rule.Severity,
+            ["severityLabel"] = rule.Severity.ToString(),
+            ["scope"] = rule.Scope
+        };
+
+        AddIfNotEmpty(json, "description", rule.Description);
+        AddIfNotEmpty(json, "expression", rule.Expression);
+        AddIfNotEmpty(json, "fixExpression", rule.FixExpression);
+
+        return json;
+    }
+
+    private static void AddIfNotEmpty(Dictionary<string, object?> json, string name, string? value)
+    {
+        if (!string.IsNullOrWhiteSpace(value))
+            json[name] = value;
     }
 
     private static void RenderRun(BpaRunResult result, bool noMultiline)
@@ -270,7 +523,7 @@ internal sealed class BpaCommand : ICommandModule
             return;
         }
 
-        var rows = result.Rules.Select(r => (r.Id, r.Name, r.Category, r.Severity, r.Scope)).ToList();
+        var rows = result.Rules.Select(r => (r.Id, r.Name, r.Category, Severity: r.Severity.ToString(), r.Scope)).ToList();
 
         var idWidth = Math.Max("ID".Length, rows.Max(r => Math.Min(r.Id.Length, 45)));
         var nameWidth = Math.Max("Name".Length, rows.Max(r => Math.Min(r.Name.Length, 55)));
@@ -321,5 +574,5 @@ internal sealed class BpaCommand : ICommandModule
     }
 
     private static string Truncate(string value, int maxLength)
-        => value.Length <= maxLength ? value : value[..(maxLength - 1)] + "…";
+        => value.Length <= maxLength ? value : value[..Math.Max(0, maxLength - 3)] + "...";
 }

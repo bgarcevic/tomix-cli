@@ -116,7 +116,8 @@ internal sealed class LsCommand : ICommandModule
                 result,
                 formatValue,
                 data => LsRenderer.Render(data, pathsOnly, noMultiline),
-                ToReferenceJson);
+                ToReferenceJson,
+                RenderCsv);
         });
 
         return command;
@@ -155,5 +156,66 @@ internal sealed class LsCommand : ICommandModule
             ["detail"] = obj.Detail,
             ["expression"] = obj.Expression
         };
+    }
+
+    private static void RenderCsv(LsModelResult data)
+    {
+        var objects = data.Objects;
+        if (objects.Count > 0 && objects.All(o => o.Kind == ModelObjectKind.Table))
+        {
+            CsvOutput.Write(
+                ["Name", "Columns", "Measures", "Partitions", "Hidden", "Description"],
+                objects.Select(o => (IReadOnlyList<object?>)
+                [
+                    o.Name,
+                    o.ChildCounts.GetValueOrDefault(ModelObjectKind.Column),
+                    o.ChildCounts.GetValueOrDefault(ModelObjectKind.Measure),
+                    o.ChildCounts.GetValueOrDefault(ModelObjectKind.Partition),
+                    o.Hidden,
+                    o.Description ?? ""
+                ]));
+            return;
+        }
+
+        if (objects.Count > 0 && objects.All(o => o.Kind == ModelObjectKind.Column))
+        {
+            CsvOutput.Write(
+                ["Name", "SourceColumn", "DataType", "Description", "Hidden"],
+                objects.Select(o => (IReadOnlyList<object?>)
+                [
+                    o.Name,
+                    o.SourceColumn ?? "",
+                    o.Detail ?? "",
+                    o.Description ?? "",
+                    o.Hidden
+                ]));
+            return;
+        }
+
+        if (objects.Count > 0 && objects.All(o => o.Kind == ModelObjectKind.Measure))
+        {
+            CsvOutput.Write(
+                ["Name", "Description", "Hidden", "Expression", "FormatString"],
+                objects.Select(o => (IReadOnlyList<object?>)
+                [
+                    o.Name,
+                    o.Description ?? "",
+                    o.Hidden,
+                    o.Expression ?? "",
+                    ""
+                ]));
+            return;
+        }
+
+        CsvOutput.Write(
+            ["Name", "Description", "Hidden", "Detail", "Expression"],
+            objects.Select(o => (IReadOnlyList<object?>)
+            [
+                o.Name,
+                o.Description ?? "",
+                o.Hidden,
+                o.Detail ?? "",
+                o.Expression ?? ""
+            ]));
     }
 }

@@ -8,4 +8,5 @@ public sealed record BpaViolation(
     string ObjectType,
     string ObjectName,
     string ObjectPath,
-    string? Description = null);
+    string? Description = null,
+    bool CanFix = false);

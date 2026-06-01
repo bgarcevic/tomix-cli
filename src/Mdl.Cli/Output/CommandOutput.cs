@@ -30,22 +30,46 @@ internal static class CommandOutput
     public static int Render<T>(MdlResult<T> result, string format, Action<T> renderHuman)
         => Render(result, format, renderHuman, data => data);
 
+    public static int Render<T>(
+        MdlResult<T> result,
+        string format,
+        string? errorFormat,
+        Action<T> renderHuman)
+        => Render(result, format, renderHuman, data => data, renderCsv: null, errorFormat);
+
+    public static int Render<T>(
+        MdlResult<T> result,
+        string format,
+        Action<T> renderHuman,
+        Action<T> renderCsv)
+        => Render(result, format, renderHuman, data => data, renderCsv);
+
+    public static int Render<T>(
+        MdlResult<T> result,
+        string format,
+        string? errorFormat,
+        Action<T> renderHuman,
+        Action<T> renderCsv)
+        => Render(result, format, renderHuman, data => data, renderCsv, errorFormat);
+
     public static int Render<T, TJson>(
         MdlResult<T> result,
         string format,
         Action<T> renderHuman,
-        Func<T, TJson> projectJson)
+        Func<T, TJson> projectJson,
+        Action<T>? renderCsv = null,
+        string? errorFormat = null)
     {
         if (result.Data is null)
         {
-            foreach (var diagnostic in result.Diagnostics)
-                Console.Error.WriteLine(diagnostic.Message);
-
+            ErrorOutput.Write(result.Diagnostics, errorFormat);
             return result.ExitCode == 0 ? 1 : result.ExitCode;
         }
 
         if (OutputFormats.IsJson(format))
             JsonOutput.Write(projectJson(result.Data));
+        else if (OutputFormats.IsCsv(format) && renderCsv is not null)
+            renderCsv(result.Data);
         else
             renderHuman(result.Data);
 

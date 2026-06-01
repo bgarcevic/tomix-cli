@@ -23,12 +23,17 @@ internal sealed class ConfigCommand : ICommandModule
 
     private static Command BuildInit()
     {
-        var command = new Command("init", "Create a default config.json.");
+        var forceOption = new Option<bool>("--force") { Description = "Overwrite existing config file" };
 
-        command.SetAction(_ =>
+        var command = new Command("init", "Create a default config.json.")
+        {
+            forceOption
+        };
+
+        command.SetAction(parseResult =>
         {
             Directory.CreateDirectory(MdlPaths.ConfigDirectory);
-            if (!File.Exists(MdlPaths.ConfigFile))
+            if (parseResult.GetValue(forceOption) || !File.Exists(MdlPaths.ConfigFile))
                 File.WriteAllText(MdlPaths.ConfigFile, "{\n}\n");
 
             Console.WriteLine(MdlPaths.ConfigFile);

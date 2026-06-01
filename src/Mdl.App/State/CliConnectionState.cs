@@ -13,7 +13,13 @@ public sealed record CliConnectionState(
     string? Auth,
     bool Local,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? Profile);
+    string? Profile,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? Workspace = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? WorkspaceFormat = null,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    string? WorkspaceAuth = null);
 
 public sealed record CliProfile(
     string Name,

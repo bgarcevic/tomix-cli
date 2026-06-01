@@ -30,7 +30,10 @@ public sealed class GetModelHandler
         if (matches.Count == 0)
             return MdlResult<GetModelResult>.Fail(
                 code: "MDL_OBJECT_NOT_FOUND",
-                message: $"Object not found: {request.Path}",
+                message:
+                    $"Object '{request.Path}' not found. Expected: table name, '.', or container " +
+                    "(Tables, Measures, Columns, Hierarchies, Relationships, Roles, Perspectives, " +
+                    "Cultures, DataSources, CalculationGroups, Expressions, Functions, Annotations)",
                 exitCode: 1);
 
         if (matches.Count > 1)

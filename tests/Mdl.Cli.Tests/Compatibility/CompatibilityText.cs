@@ -31,19 +31,25 @@ internal static partial class CompatibilityText
 
     public static IReadOnlySet<string> CommandSpecificLongOptions(string helpText)
     {
-        var lines = helpText.Split('\n');
-        var start = Array.FindIndex(lines, line => line.Trim() == "Options:");
-        if (start < 0)
-            return new HashSet<string>(StringComparer.Ordinal);
-
-        var optionLines = lines[(start + 1)..]
-            .TakeWhile(line =>
-                line.Trim().Length == 0 ||
-                (char.IsWhiteSpace(line[0]) && !line.TrimStart().StartsWith("-?", StringComparison.Ordinal)));
-
-        return LongOption().Matches(string.Join('\n', optionLines))
+        return LongOption().Matches(string.Join('\n', CommandSpecificOptionRows(helpText)))
             .Select(match => match.Value)
             .ToHashSet(StringComparer.Ordinal);
+    }
+
+    public static IReadOnlySet<string> CommandSpecificOptionTokens(string helpText)
+    {
+        return OptionToken().Matches(string.Join('\n', CommandSpecificOptionRows(helpText)))
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
+    public static IReadOnlyList<string> ArgumentNames(string helpText)
+    {
+        return Section(helpText, "Arguments:")
+            .Select(line => ArgumentName().Match(line.Trim()))
+            .Where(match => match.Success)
+            .Select(match => match.Groups["name"].Value)
+            .ToArray();
     }
 
     public static string JsonPrefix(string text)
@@ -104,6 +110,25 @@ internal static partial class CompatibilityText
             char.IsWhiteSpace(line[0]));
     }
 
+    private static IEnumerable<string> CommandSpecificOptionRows(string helpText)
+    {
+        var lines = helpText.Split('\n');
+        var start = Array.FindIndex(lines, line => line.Trim() == "Options:");
+        if (start < 0)
+            return [];
+
+        return lines[(start + 1)..]
+            .TakeWhile(line =>
+                line.Trim().Length == 0 ||
+                (char.IsWhiteSpace(line[0]) && !line.TrimStart().StartsWith("-?", StringComparison.Ordinal)));
+    }
+
     [GeneratedRegex("--[A-Za-z0-9-]+")]
     private static partial Regex LongOption();
+
+    [GeneratedRegex(@"(?<!-)--[A-Za-z0-9-]+|(?<!-)-[A-Za-z](?![A-Za-z0-9-])")]
+    private static partial Regex OptionToken();
+
+    [GeneratedRegex(@"^<?(?<name>[A-Za-z0-9_-]+)>?")]
+    private static partial Regex ArgumentName();
 }

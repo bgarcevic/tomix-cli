@@ -31,4 +31,6 @@ internal static class OutputFormats
         => format is Auto or Text or Json or Csv or Tmsl or Bim or Tmdl;
 
     public static bool IsJson(string format) => format == Json;
+
+    public static bool IsCsv(string format) => format == Csv;
 }
