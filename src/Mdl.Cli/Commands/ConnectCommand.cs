@@ -83,6 +83,7 @@ internal sealed class ConnectCommand : ICommandModule
             var workspace = parseResult.GetValue(workspaceOption);
             var workspaceFormat = parseResult.GetValue(workspaceFormatOption);
             var workspaceAuth = parseResult.GetValue(workspaceAuthOption);
+            var force = parseResult.GetValue(forceOption);
             var auth = GlobalOptions.AuthValue(parseResult);
             var local = parseResult.GetValue(GlobalOptions.Local);
 
@@ -192,9 +193,34 @@ internal sealed class ConnectCommand : ICommandModule
                         new InfoModelRequest(ModelReference.Remote(workspace, database)),
                         cancellationToken);
 
-                    if (!workspaceResult.Success)
+                    if (workspaceResult.Success)
                     {
-                        RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database);
+                        if (!force)
+                        {
+                            if (Console.IsInputRedirected)
+                            {
+                                RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
+                                Console.Error.WriteLine($"Error: Workspace target '{database}' already exists on {workspace}. Use --force to overwrite.");
+                                return 1;
+                            }
+
+                            Console.Write($"Workspace target {database} already exists on {workspace}. Overwrite? [y/n] (n): ");
+                            var answer = Console.ReadLine()?.Trim().ToLowerInvariant();
+                            if (answer != "y" && answer != "yes")
+                            {
+                                RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
+                                Console.WriteLine("Workspace setup cancelled.");
+                                return 1;
+                            }
+                        }
+                    }
+                    else if (workspaceResult.Diagnostics.Any(d => d.Code == "MDL_DATABASE_NOT_FOUND"))
+                    {
+                        // Server reachable, target database does not exist yet — OK for new mirror.
+                    }
+                    else
+                    {
+                        RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
                         foreach (var diag in workspaceResult.Diagnostics)
                             Console.Error.WriteLine($"Error: Could not reach workspace server: {WorkspaceConnectMessage(workspace, diag.Message)}");
                         return workspaceResult.ExitCode == 0 ? 1 : workspaceResult.ExitCode;
@@ -217,9 +243,9 @@ internal sealed class ConnectCommand : ICommandModule
                         infoResult,
                         format,
                         _ => { },
-                        data => ProjectConnectedModelJson(data, model, remoteServer, database));
+                        data => ProjectConnectedModelJson(data, model, remoteServer, database, workspace));
 
-                RenderConnectedModelText(infoResult.Data!, model, remoteServer, database);
+                RenderConnectedModelText(infoResult.Data!, model, remoteServer, database, workspace);
                 return 0;
             }
 
@@ -270,19 +296,21 @@ internal sealed class ConnectCommand : ICommandModule
         string format,
         string? model,
         string? remoteServer,
-        string? database)
+        string? database,
+        string? workspace)
     {
         if (OutputFormats.IsJson(format))
-            JsonOutput.Write(ProjectConnectedModelJson(result, model, remoteServer, database));
+            JsonOutput.Write(ProjectConnectedModelJson(result, model, remoteServer, database, workspace));
         else
-            RenderConnectedModelText(result, model, remoteServer, database);
+            RenderConnectedModelText(result, model, remoteServer, database, workspace);
     }
 
     private static void RenderConnectedModelText(
         InfoModelResult result,
         string? model,
         string? remoteServer,
-        string? database)
+        string? database,
+        string? workspace)
     {
         var s = result.Summary;
         var name = string.IsNullOrWhiteSpace(s.Name) ? "(unnamed)" : s.Name;
@@ -293,6 +321,10 @@ internal sealed class ConnectCommand : ICommandModule
         Console.WriteLine(model is not null
             ? $"Active: {Path.GetFullPath(model)}"
             : $"Active: {remoteServer}{(string.IsNullOrWhiteSpace(database) ? "" : $" / {database}")}");
+        if (!string.IsNullOrWhiteSpace(workspace))
+            Console.WriteLine(!string.IsNullOrWhiteSpace(database)
+                ? $"Mirror: {workspace} / {database}"
+                : $"Mirror: {workspace}");
     }
 
     private static IReadOnlyList<string> DiscoverPowerBiDesktopEndpoints()
@@ -332,9 +364,14 @@ internal sealed class ConnectCommand : ICommandModule
         InfoModelResult result,
         string? model,
         string? remoteServer,
-        string? database)
+        string? database,
+        string? workspace)
     {
         var summary = result.Summary;
+        var mirror = !string.IsNullOrWhiteSpace(workspace)
+            ? new { workspace, database = string.IsNullOrWhiteSpace(database) ? (string?)null : database }
+            : null;
+
         var shared = new
         {
             compatibilityLevel = summary.CompatibilityLevel,
@@ -350,6 +387,7 @@ internal sealed class ConnectCommand : ICommandModule
             {
                 kind = "local",
                 path = Path.GetFullPath(model),
+                mirror,
                 shared.compatibilityLevel,
                 shared.tables,
                 shared.measures,
@@ -363,6 +401,7 @@ internal sealed class ConnectCommand : ICommandModule
             kind = ModelReference.IsLocalInstanceEndpoint(remoteServer) ? "local" : "remote",
             server = remoteServer,
             database = string.IsNullOrWhiteSpace(database) ? summary.DatabaseName : database,
+            mirror,
             shared.compatibilityLevel,
             shared.tables,
             shared.measures,
@@ -382,11 +421,23 @@ internal sealed class ConnectCommand : ICommandModule
         var connection = result.Connection;
         if (!string.IsNullOrWhiteSpace(connection.Model))
         {
-            Console.WriteLine($"Active: {connection.Model}");
-            return;
+            Console.WriteLine("Active: local model");
+            Console.WriteLine($"Path: {Path.GetFullPath(connection.Model)}");
+        }
+        else
+        {
+            Console.WriteLine(string.IsNullOrWhiteSpace(connection.Database)
+                ? $"Active: {connection.Server}"
+                : $"Active: {connection.Server} / {connection.Database}");
         }
 
-        RenderConnection(connection);
+        if (!string.IsNullOrWhiteSpace(connection.Workspace))
+        {
+            var mirrorDatabase = !string.IsNullOrWhiteSpace(connection.Database) ? connection.Database : null;
+            Console.WriteLine(mirrorDatabase is not null
+                ? $"Mirror: {connection.Workspace} / {mirrorDatabase}"
+                : $"Mirror: {connection.Workspace}");
+        }
     }
 
     private static void RenderConnection(CliConnectionState connection)

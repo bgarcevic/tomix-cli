@@ -30,6 +30,11 @@ public sealed class InfoModelHandler
             var summary = await session.GetSummaryAsync(cancellationToken);
             return MdlResult<InfoModelResult>.Ok(new InfoModelResult(summary));
         }
+        catch (InvalidOperationException ex)
+            when (request.Model.IsRemote && ex.Message.Contains("Database not found on endpoint"))
+        {
+            return MdlResult<InfoModelResult>.Fail("MDL_DATABASE_NOT_FOUND", ex.Message, exitCode: 1);
+        }
         catch (AuthenticationRequiredException ex)
         {
             return MdlResult<InfoModelResult>.Fail("MDL_AUTH_REQUIRED", ex.Message, exitCode: 1);

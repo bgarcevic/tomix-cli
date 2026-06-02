@@ -314,6 +314,92 @@ public sealed class StateCommandTests
     }
 
     [Fact]
+    public void ConnectLocalModelWithLocalWorkspace_ShowDisplaysActivePathMirror()
+    {
+        using var state = TempState();
+
+        var connect = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "connect", "samples\\basic-tmdl", "Sales", "--workspace", ".\\workspace", "--output-format", "json");
+
+        Assert.Equal(0, connect.ExitCode);
+        var json = JsonObject(connect);
+        Assert.Equal("local", json["kind"]!.GetValue<string>());
+        Assert.Equal(".\\workspace", json["mirror"]!["workspace"]!.GetValue<string>());
+        Assert.Equal("Sales", json["mirror"]!["database"]!.GetValue<string>());
+
+        var show = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "connect");
+
+        Assert.Equal(0, show.ExitCode);
+        Assert.Contains("Active: local model", show.StdOut);
+        Assert.Contains("Path:", show.StdOut);
+        Assert.Contains("Mirror: .\\workspace / Sales", show.StdOut);
+    }
+
+    [Fact]
+    public void ConnectRemotePrimaryWithWorkspace_ShowDisplaysActiveMirror()
+    {
+        using var state = TempState();
+
+        var connect = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "connect", "my-workspace", "Sales", "--workspace", ".\\workspace", "--output-format", "json");
+
+        Assert.Equal(0, connect.ExitCode);
+
+        var show = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "connect");
+
+        Assert.Equal(0, show.ExitCode);
+        Assert.Contains("Active: my-workspace / Sales", show.StdOut);
+        Assert.Contains("Mirror: .\\workspace / Sales", show.StdOut);
+    }
+
+    [Fact]
+    public void ConnectWorkspaceForce_PersistsSession()
+    {
+        using var state = TempState();
+
+        var connect = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "connect", "my-workspace", "Sales", "--workspace", ".\\workspace", "--force", "--output-format", "json");
+
+        Assert.Equal(0, connect.ExitCode);
+        var json = JsonObject(connect);
+        Assert.Equal(".\\workspace", json["connection"]!["workspace"]!.GetValue<string>());
+
+        var show = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "connect", "--output-format", "json");
+
+        Assert.Equal(0, show.ExitCode);
+        Assert.True(JsonObject(show)["active"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void ConnectLocalModelWithoutWorkspace_ShowDoesNotDisplayMirror()
+    {
+        using var state = TempState();
+
+        var connect = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "connect", "samples\\basic-tmdl", "--output-format", "json");
+
+        Assert.Equal(0, connect.ExitCode);
+
+        var show = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "connect");
+
+        Assert.Equal(0, show.ExitCode);
+        Assert.Contains("Active: local model", show.StdOut);
+        Assert.DoesNotContain("Mirror:", show.StdOut);
+    }
+
+    [Fact]
     public void ConnectLocalPrimaryWorkspaceRemoteEndpointFailure_DoesNotPersistSession()
     {
         using var state = TempState();
