@@ -84,7 +84,8 @@ public sealed partial class BpaEngine
             ReferenceObjectName(obj),
             obj.Path,
             rule.Description,
-            !string.IsNullOrWhiteSpace(rule.FixExpression));
+            !string.IsNullOrWhiteSpace(rule.FixExpression),
+            obj.Kind);
 
     private static bool MatchesScope(IReadOnlyList<string> scope, ModelObject obj)
     {

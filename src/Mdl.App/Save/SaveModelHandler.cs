@@ -1,3 +1,5 @@
+using Mdl.App.Bpa;
+using Mdl.Core.Bpa;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -36,6 +38,20 @@ public sealed class SaveModelHandler
             : request.Serialization;
 
         await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+
+        if (request.FixBpa)
+        {
+            if (session is not IModelMutationSession mutationSession)
+                return MdlResult<SaveModelResult>.Fail(
+                    code: "MDL_SAVE_FIX_UNSUPPORTED",
+                    message: "The model provider does not support applying BPA fixes.",
+                    exitCode: 2);
+
+            var bpaResult = await ApplyBpaFixes(session, mutationSession, request, cancellationToken);
+            if (bpaResult is not null)
+                return bpaResult;
+        }
+
         if (session is not IModelExportSession exporter)
             return MdlResult<SaveModelResult>.Fail(
                 code: "MDL_SAVE_UNSUPPORTED_PROVIDER",
@@ -58,6 +74,49 @@ public sealed class SaveModelHandler
         {
             return MdlResult<SaveModelResult>.Fail("MDL_SAVE_OUTPUT_EXISTS", ex.Message, exitCode: 2);
         }
+    }
+
+    private async Task<MdlResult<SaveModelResult>?> ApplyBpaFixes(
+        IModelSession session,
+        IModelMutationSession mutationSession,
+        SaveModelRequest request,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyList<BpaRule> rules;
+        try
+        {
+            rules = await BpaRuleLoader.LoadRulesetAsync(null, cancellationToken).ConfigureAwait(false);
+            if (request.BpaRules is not null)
+            {
+                foreach (var file in request.BpaRules)
+                {
+                    if (!string.IsNullOrWhiteSpace(file))
+                        rules = [.. rules, .. await BpaRuleLoader.LoadFromSourceAsync(file, cancellationToken).ConfigureAwait(false)];
+                }
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or FileNotFoundException or HttpRequestException)
+        {
+            return MdlResult<SaveModelResult>.Fail("MDL_BPA_RULES_LOAD_FAILED", ex.Message, exitCode: 2);
+        }
+
+        var snapshot = await session.GetSnapshotAsync(cancellationToken);
+        var engine = new BpaEngine();
+        var result = engine.Evaluate(snapshot, new BpaEngineOptions(rules, null, null));
+
+        if (result.Violations.Count == 0)
+            return null;
+
+        var fixer = new BpaFixer();
+        var fixResult = fixer.ApplyFixes(mutationSession, result.Violations, rules);
+
+        if (fixResult.FixesApplied == 0 && result.Violations.Any(v => v.Severity == BpaSeverity.Error))
+            return MdlResult<SaveModelResult>.Fail(
+                "MDL_BPA_VIOLATIONS",
+                $"BPA check found {result.Violations.Count} violation(s) that could not be auto-fixed. Use --skip-bpa to bypass.",
+                exitCode: 1);
+
+        return null;
     }
 
     private static string InferSerialization(string modelPath)

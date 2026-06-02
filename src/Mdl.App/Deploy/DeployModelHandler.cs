@@ -1,6 +1,7 @@
 using Mdl.App.Bpa;
 using Mdl.App.State;
 using Mdl.Core.Authentication;
+using Mdl.Core.Bpa;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -34,7 +35,7 @@ public sealed class DeployModelHandler
 
         if (!request.SkipBpa)
         {
-            var bpaResult = await RunBpaGate(request, cancellationToken);
+            var bpaResult = await RunBpaGate(session, request, cancellationToken);
             if (bpaResult is not null)
                 return bpaResult;
         }
@@ -100,30 +101,49 @@ public sealed class DeployModelHandler
     }
 
     private async Task<MdlResult<DeployModelResult>?> RunBpaGate(
+        IModelSession session,
         DeployModelRequest request,
         CancellationToken cancellationToken)
     {
-        var bpaHandler = new BpaRunHandler(_providers);
-        var bpaResult = await bpaHandler.HandleAsync(
-            new BpaRunRequest(
-                request.Model,
-                request.BpaRules,
-                NoDefaults: false,
-                PathFilter: null,
-                RuleIds: null,
-                Fix: request.FixBpa),
-            cancellationToken);
-
-        if (!bpaResult.Success)
+        IReadOnlyList<BpaRule> rules;
+        try
+        {
+            rules = await BpaRuleLoader.LoadRulesetAsync(null, cancellationToken).ConfigureAwait(false);
+            if (request.BpaRules is not null)
+            {
+                foreach (var file in request.BpaRules)
+                {
+                    if (!string.IsNullOrWhiteSpace(file))
+                        rules = [.. rules, .. await BpaRuleLoader.LoadFromSourceAsync(file, cancellationToken).ConfigureAwait(false)];
+                }
+            }
+        }
+        catch (Exception ex) when (ex is ArgumentException or FileNotFoundException or HttpRequestException)
+        {
             return MdlResult<DeployModelResult>.Fail(
-                bpaResult.Diagnostics[0].Code,
-                bpaResult.Diagnostics[0].Message,
-                bpaResult.ExitCode);
+                "MDL_BPA_RULES_LOAD_FAILED",
+                ex.Message,
+                exitCode: 2);
+        }
 
-        if (bpaResult.Data is not null && bpaResult.Data.Violations.Count > 0 && !request.FixBpa)
+        var snapshot = await session.GetSnapshotAsync(cancellationToken);
+        var engine = new BpaEngine();
+        var result = engine.Evaluate(snapshot, new BpaEngineOptions(rules, null, null));
+
+        if (request.FixBpa && result.Violations.Any(v => v.CanFix))
+        {
+            if (session is IModelMutationSession mutationSession)
+            {
+                var fixer = new BpaFixer();
+                fixer.ApplyFixes(mutationSession, result.Violations, rules);
+            }
+        }
+
+        var remaining = result.Violations.Where(v => !v.CanFix || !request.FixBpa).ToList();
+        if (remaining.Count > 0 && !request.FixBpa)
             return MdlResult<DeployModelResult>.Fail(
                 "MDL_BPA_VIOLATIONS",
-                $"BPA check found {bpaResult.Data.Violations.Count} violation(s). Use --skip-bpa to bypass or --fix-bpa to auto-fix.",
+                $"BPA check found {remaining.Count} violation(s). Use --skip-bpa to bypass or --fix-bpa to auto-fix.",
                 exitCode: 1);
 
         return null;

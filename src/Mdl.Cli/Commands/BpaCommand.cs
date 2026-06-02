@@ -157,7 +157,10 @@ internal sealed class BpaCommand : ICommandModule
                     ruleIds,
                     parseResult.GetValue(fixOption),
                     parseResult.GetValue(rulesetOption),
-                    parseResult.GetValue(failOnOption)),
+                    parseResult.GetValue(failOnOption),
+                    parseResult.GetValue(saveOption),
+                    parseResult.GetValue(saveToOption),
+                    parseResult.GetValue(serializationOption)),
                 cancellationToken);
 
             var ci = parseResult.GetValue(ciOption);
@@ -384,6 +387,10 @@ internal sealed class BpaCommand : ICommandModule
             violations = result.Violations.Count,
             ruleErrors = 0,
             ignoredRules = 0,
+            fixesApplied = result.FixesApplied,
+            fixesSkipped = result.FixesSkipped,
+            fixErrors = result.FixErrors ?? Array.Empty<string>(),
+            saved = result.Saved,
             results = result.Violations.Select(v => new
             {
                 ruleId = v.RuleId,
@@ -482,6 +489,27 @@ internal sealed class BpaCommand : ICommandModule
 
         if (result.DurationMs > 0)
             Console.WriteLine($"  Duration:         {result.DurationMs}ms");
+
+        if (result.FixesApplied > 0)
+        {
+            Console.WriteLine($"  Fixes applied:    {result.FixesApplied}");
+            if (result.FixesSkipped > 0)
+                Console.WriteLine($"  Fixes skipped:    {result.FixesSkipped}");
+            if (result.Saved)
+                Console.WriteLine("  Model saved.");
+        }
+        else if (result.FixesSkipped > 0)
+        {
+            Console.WriteLine($"  Fixes skipped:    {result.FixesSkipped}");
+        }
+
+        if (result.FixErrors is { Count: > 0 })
+        {
+            Console.WriteLine();
+            Console.WriteLine("  Fix errors:");
+            foreach (var err in result.FixErrors)
+                Console.WriteLine($"    {err}");
+        }
     }
 
     private static string CollapseDescription(string? description)

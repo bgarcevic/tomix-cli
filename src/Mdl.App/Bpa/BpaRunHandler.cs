@@ -55,6 +55,42 @@ public sealed class BpaRunHandler
 
         var runResult = result with { DurationMs = sw.ElapsedMilliseconds };
 
+        if (request.Fix && runResult.Violations.Any(v => v.CanFix))
+        {
+            if (session is not IModelMutationSession mutationSession)
+                return MdlResult<BpaRunResult>.Fail(
+                    "MDL_BPA_FIX_UNSUPPORTED",
+                    "The model provider does not support applying fixes.",
+                    exitCode: 2);
+
+            var fixer = new BpaFixer();
+            var fixResult = fixer.ApplyFixes(mutationSession, runResult.Violations, rules);
+
+            runResult = runResult with
+            {
+                FixesApplied = fixResult.FixesApplied,
+                FixesSkipped = fixResult.FixesSkipped,
+                FixErrors = fixResult.Errors.Count > 0
+                    ? fixResult.Errors.Select(e => $"[{e.RuleId}] {e.ObjectPath}: {e.Reason}").ToList()
+                    : null
+            };
+
+            if (request.Save && fixResult.FixesApplied > 0)
+            {
+                var serialization = string.IsNullOrWhiteSpace(request.Serialization)
+                    ? "tmdl"
+                    : request.Serialization;
+
+                await mutationSession.SaveAsync(
+                    request.SaveTo,
+                    serialization,
+                    force: false,
+                    cancellationToken);
+
+                runResult = runResult with { Saved = true };
+            }
+        }
+
         return MdlResult<BpaRunResult>.Ok(runResult, exitCode: ShouldFail(runResult, failOnSeverity) ? 1 : 0);
     }
 

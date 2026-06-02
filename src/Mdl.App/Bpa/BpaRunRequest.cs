@@ -10,4 +10,7 @@ public sealed record BpaRunRequest(
     IReadOnlyList<string>? RuleIds = null,
     bool Fix = false,
     string? Ruleset = null,
-    string? FailOn = null);
+    string? FailOn = null,
+    bool Save = false,
+    string? SaveTo = null,
+    string? Serialization = null);

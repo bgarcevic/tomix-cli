@@ -78,6 +78,8 @@ internal sealed class SaveCommand : ICommandModule
             var serialization = parseResult.GetValue(serializationOption) ?? "";
             var force = parseResult.GetValue(forceOption);
             var supportingFiles = parseResult.GetValue(supportingFilesOption);
+            var fixBpa = parseResult.GetValue(fixBpaOption);
+            var bpaRules = parseResult.GetValue(bpaRulesOption);
 
             var reference = ModelSourceResolver.ResolveReference(
                 GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
@@ -89,7 +91,9 @@ internal sealed class SaveCommand : ICommandModule
                     outputPath,
                     serialization,
                     force,
-                    supportingFiles),
+                    supportingFiles,
+                    fixBpa,
+                    bpaRules),
                 cancellationToken);
 
             return CommandOutput.Render(

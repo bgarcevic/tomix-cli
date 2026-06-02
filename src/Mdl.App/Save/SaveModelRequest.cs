@@ -7,4 +7,6 @@ public sealed record SaveModelRequest(
     string? OutputPath,
     string Serialization,
     bool Force,
-    bool SupportingFiles);
+    bool SupportingFiles,
+    bool FixBpa = false,
+    string[]? BpaRules = null);

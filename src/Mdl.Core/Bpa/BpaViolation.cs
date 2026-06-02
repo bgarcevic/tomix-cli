@@ -1,3 +1,5 @@
+using Mdl.Core.Models;
+
 namespace Mdl.Core.Bpa;
 
 public sealed record BpaViolation(
@@ -9,4 +11,5 @@ public sealed record BpaViolation(
     string ObjectName,
     string ObjectPath,
     string? Description = null,
-    bool CanFix = false);
+    bool CanFix = false,
+    ModelObjectKind? ObjectKind = null);
