@@ -735,6 +735,179 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
+    public void ScriptInlineExpressionJson_MatchesReferenceOutput()
+    {
+        AssertScriptJsonEqual(
+            CliProcess.RunReference("script", "-e", "Model.Tables.Count", "samples\\basic-tmdl", "--output-format", "json"),
+            CliProcess.RunMdl("script", "-e", "Model.Tables.Count", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void ScriptInlineFirstTableNameJson_MatchesReferenceOutput()
+    {
+        AssertScriptJsonEqual(
+            CliProcess.RunReference("script", "-e", "Model.Tables[0].Name", "samples\\basic-tmdl", "--output-format", "json"),
+            CliProcess.RunMdl("script", "-e", "Model.Tables[0].Name", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void ScriptRepeatedInlineExpressionsJson_MatchesReferenceOutput()
+    {
+        AssertScriptJsonEqual(
+            CliProcess.RunReference("script", "-e", "1+1", "-e", "Model.Tables.Count", "samples\\basic-tmdl", "--output-format", "json"),
+            CliProcess.RunMdl("script", "-e", "1+1", "-e", "Model.Tables.Count", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void ScriptInlineExpressionText_MatchesReferenceOutput()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("script", "-e", "Model.Tables.Count", "samples\\basic-tmdl"),
+            CliProcess.RunMdl("script", "-e", "Model.Tables.Count", "samples\\basic-tmdl"));
+    }
+
+    [Fact]
+    public void ScriptInlineExpressionCsv_FallsBackToReferenceText()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("script", "-e", "Model.Tables.Count", "samples\\basic-tmdl", "--output-format", "csv"),
+            CliProcess.RunMdl("script", "-e", "Model.Tables.Count", "samples\\basic-tmdl", "--output-format", "csv"));
+    }
+
+    [Fact]
+    public void ScriptDryRunJson_MatchesReferenceOutput()
+    {
+        AssertScriptJsonEqual(
+            CliProcess.RunReference("script", "-e", "1+1", "samples\\basic-tmdl", "--dry-run", "--output-format", "json"),
+            CliProcess.RunMdl("script", "-e", "1+1", "samples\\basic-tmdl", "--dry-run", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void ScriptFileJson_MatchesReferenceOutput()
+    {
+        var scriptPath = Path.Combine(Path.GetTempPath(), $"mdl-script-test-{Guid.NewGuid():N}.csx");
+        try
+        {
+            File.WriteAllText(scriptPath, "Model.Tables.Count");
+            AssertScriptJsonEqual(
+                CliProcess.RunReference("script", "--script", scriptPath, "samples\\basic-tmdl", "--output-format", "json"),
+                CliProcess.RunMdl("script", "--script", scriptPath, "samples\\basic-tmdl", "--output-format", "json"));
+        }
+        finally
+        {
+            if (File.Exists(scriptPath))
+                File.Delete(scriptPath);
+        }
+    }
+
+    [Fact]
+    public void MacroInitListAddSetSortRemoveJson_MatchesReferenceBehavior()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-macro-test-{Guid.NewGuid():N}");
+        var referenceMacros = Path.Combine(tempDir, "reference", "macros.json");
+        var mdlMacros = Path.Combine(tempDir, "mdl", "macros.json");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AssertMacroInitJson(
+                CliProcess.RunReference("macro", "init", "--macros", referenceMacros, "--output-format", "json"),
+                CliProcess.RunMdl("macro", "init", "--macros", mdlMacros, "--output-format", "json"));
+            AssertMacroFilesEqual(referenceMacros, mdlMacros);
+
+            AssertMacroListJsonEqual(
+                CliProcess.RunReference("macro", "list", "--macros", referenceMacros, "--output-format", "json"),
+                CliProcess.RunMdl("macro", "list", "--macros", mdlMacros, "--output-format", "json"));
+
+            AssertMacroAddJson(
+                CliProcess.RunReference(
+                    "macro", "add", "Formatting\\Format DAX",
+                    "--macros", referenceMacros,
+                    "-e", "Selected.Measures.FormatDax();",
+                    "--tooltip", "Format selected DAX",
+                    "--contexts", "Measure, Table",
+                    "--enabled", "Selected.Measures.Any()",
+                    "--output-format", "json"),
+                CliProcess.RunMdl(
+                    "macro", "add", "Formatting\\Format DAX",
+                    "--macros", mdlMacros,
+                    "-e", "Selected.Measures.FormatDax();",
+                    "--tooltip", "Format selected DAX",
+                    "--contexts", "Measure, Table",
+                    "--enabled", "Selected.Measures.Any()",
+                    "--output-format", "json"),
+                "Formatting\\Format DAX",
+                0);
+            AssertMacroFilesEqual(referenceMacros, mdlMacros);
+
+            AssertMacroListJsonEqual(
+                CliProcess.RunReference("macro", "list", "--macros", referenceMacros, "--output-format", "json"),
+                CliProcess.RunMdl("macro", "list", "--macros", mdlMacros, "--output-format", "json"));
+
+            AssertMacroSetJson(
+                CliProcess.RunReference("macro", "set", "0", "--macros", referenceMacros, "-q", "tooltip", "-i", "Changed", "--output-format", "json"),
+                CliProcess.RunMdl("macro", "set", "0", "--macros", mdlMacros, "-q", "tooltip", "-i", "Changed", "--output-format", "json"),
+                0,
+                "tooltip",
+                "Changed");
+            AssertMacroFilesEqual(referenceMacros, mdlMacros);
+
+            AssertMacroSortJson(
+                CliProcess.RunReference("macro", "sort", "--macros", referenceMacros, "--output-format", "json"),
+                CliProcess.RunMdl("macro", "sort", "--macros", mdlMacros, "--output-format", "json"),
+                1);
+            AssertMacroFilesEqual(referenceMacros, mdlMacros);
+
+            AssertMacroRemoveJson(
+                CliProcess.RunReference("macro", "rm", "0", "--macros", referenceMacros, "--output-format", "json"),
+                CliProcess.RunMdl("macro", "rm", "0", "--macros", mdlMacros, "--output-format", "json"),
+                0,
+                "Formatting\\Format DAX");
+            AssertMacroFilesEqual(referenceMacros, mdlMacros);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void MacroEnvironmentPath_MatchesReferenceBehavior()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-macro-env-test-{Guid.NewGuid():N}");
+        var referenceMacros = Path.Combine(tempDir, "reference", "macros.json");
+        var mdlMacros = Path.Combine(tempDir, "mdl", "macros.json");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            AssertMacroInitJson(
+                CliProcess.RunReferenceWithEnvironment(
+                    new Dictionary<string, string> { ["TE_MACROS_PATH"] = referenceMacros },
+                    "macro", "init", "--output-format", "json"),
+                CliProcess.RunMdlWithEnvironment(
+                    new Dictionary<string, string> { ["TE_MACROS_PATH"] = mdlMacros },
+                    "macro", "init", "--output-format", "json"));
+
+            AssertMacroFilesEqual(referenceMacros, mdlMacros);
+
+            AssertMacroAddJson(
+                CliProcess.RunReferenceWithEnvironment(
+                    new Dictionary<string, string> { ["TE_MACROS_PATH"] = referenceMacros },
+                    "macro", "add", "Env Macro", "-e", "Env();", "--output-format", "json"),
+                CliProcess.RunMdlWithEnvironment(
+                    new Dictionary<string, string> { ["TE_MACROS_PATH"] = mdlMacros },
+                    "macro", "add", "Env Macro", "-e", "Env();", "--output-format", "json"),
+                "Env Macro",
+                0);
+
+            AssertMacroFilesEqual(referenceMacros, mdlMacros);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
     public void ValidateBasicTmdlJson_MatchesReferenceResult()
     {
         AssertValidateJsonEqual(
@@ -1002,6 +1175,111 @@ public sealed class CompatibilityProbeTests
         referenceJson.Remove("antipatterns");
         mdlJson.Remove("durationMs");
 
+        Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
+    }
+
+    private static void AssertScriptJsonEqual(CliRun reference, CliRun mdl, int expectedExitCode = 0)
+    {
+        Assert.Equal(expectedExitCode, reference.ExitCode);
+        Assert.Equal(expectedExitCode, mdl.ExitCode);
+
+        var referenceJson = JsonNode.Parse(CompatibilityText.JsonPrefix(reference.StdOut))!.AsObject();
+        var mdlJson = JsonNode.Parse(CompatibilityText.JsonPrefix(mdl.StdOut))!.AsObject();
+
+        referenceJson.Remove("durationMs");
+        mdlJson.Remove("durationMs");
+
+        Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
+    }
+
+    private static void AssertMacroInitJson(CliRun reference, CliRun mdl)
+    {
+        var referenceJson = AssertJsonObject(reference);
+        var mdlJson = AssertJsonObject(mdl);
+
+        Assert.False(string.IsNullOrWhiteSpace(referenceJson["created"]!.GetValue<string>()));
+        Assert.False(string.IsNullOrWhiteSpace(mdlJson["created"]!.GetValue<string>()));
+    }
+
+    private static void AssertMacroAddJson(CliRun reference, CliRun mdl, string name, int id)
+    {
+        var referenceJson = AssertJsonObject(reference);
+        var mdlJson = AssertJsonObject(mdl);
+
+        foreach (var json in new[] { referenceJson, mdlJson })
+        {
+            Assert.Equal(name, json["added"]!.GetValue<string>());
+            Assert.Equal(id, json["id"]!.GetValue<int>());
+            Assert.False(string.IsNullOrWhiteSpace(json["path"]!.GetValue<string>()));
+            json.Remove("path");
+        }
+
+        Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
+    }
+
+    private static void AssertMacroListJsonEqual(CliRun reference, CliRun mdl)
+    {
+        var referenceJson = AssertJsonObject(reference);
+        var mdlJson = AssertJsonObject(mdl);
+        referenceJson.Remove("path");
+        mdlJson.Remove("path");
+
+        Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
+    }
+
+    private static void AssertMacroSetJson(
+        CliRun reference,
+        CliRun mdl,
+        int id,
+        string property,
+        string value)
+    {
+        var referenceJson = AssertJsonObject(reference);
+        var mdlJson = AssertJsonObject(mdl);
+
+        foreach (var json in new[] { referenceJson, mdlJson })
+        {
+            Assert.Equal(id, json["updated"]!.GetValue<int>());
+            Assert.Equal(property, json["property"]!.GetValue<string>());
+            Assert.Equal(value, json["value"]!.GetValue<string>());
+        }
+
+        Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
+    }
+
+    private static void AssertMacroSortJson(CliRun reference, CliRun mdl, int count)
+    {
+        var referenceJson = AssertJsonObject(reference);
+        var mdlJson = AssertJsonObject(mdl);
+
+        foreach (var json in new[] { referenceJson, mdlJson })
+        {
+            Assert.Equal(count, json["sorted"]!.GetValue<int>());
+            Assert.False(string.IsNullOrWhiteSpace(json["path"]!.GetValue<string>()));
+            json.Remove("path");
+        }
+
+        Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
+    }
+
+    private static void AssertMacroRemoveJson(CliRun reference, CliRun mdl, int id, string name)
+    {
+        var referenceJson = AssertJsonObject(reference);
+        var mdlJson = AssertJsonObject(mdl);
+
+        foreach (var json in new[] { referenceJson, mdlJson })
+        {
+            Assert.Equal(id, json["removed"]!.GetValue<int>());
+            Assert.Equal(name, json["name"]!.GetValue<string>());
+        }
+
+        Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
+    }
+
+    private static void AssertMacroFilesEqual(string referencePath, string mdlPath)
+    {
+        var referenceJson = JsonNode.Parse(File.ReadAllText(referencePath));
+        var mdlJson = JsonNode.Parse(File.ReadAllText(mdlPath));
         Assert.True(JsonNode.DeepEquals(referenceJson, mdlJson), $"Reference:\n{referenceJson}\n\nmdl:\n{mdlJson}");
     }
 

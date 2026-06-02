@@ -49,6 +49,15 @@ internal static class CliProcess
         return Run(te, args, environment: null);
     }
 
+    public static CliRun RunReferenceWithEnvironment(
+        IReadOnlyDictionary<string, string> environment,
+        params string[] args)
+    {
+        var te = Path.Combine(RepositoryRoot, "references", "te.exe");
+        Assert.True(File.Exists(te), $"Expected compatibility reference at {te}");
+        return Run(te, args, environment);
+    }
+
     private static CliRun Run(
         string fileName,
         IReadOnlyList<string> args,

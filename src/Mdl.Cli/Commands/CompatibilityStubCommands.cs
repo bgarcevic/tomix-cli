@@ -197,8 +197,6 @@ internal sealed class CompatibilityStubCommand : ICommandModule
                     ]),
                 New("sort", "Sort macros")
             ]),
-        New("migrate", "Reference guide for migrating from previous CLI usage. Shows equivalent commands, renamed options, and not-yet-implemented features.",
-            args: [Optional("flag")]),
         New("mv", "Move or rename a model object",
             args: [Required("source"), Required("destination"), Optional("model")],
             options:
@@ -211,7 +209,6 @@ internal sealed class CompatibilityStubCommand : ICommandModule
                 Value("--save-to"),
                 Value("--serialization")
             ]),
-        New("open", "Open a model in the desktop model editor", args: [Optional("model")]),
         New("profile", "Manage named connection profiles for quick environment switching",
             subcommands:
             [

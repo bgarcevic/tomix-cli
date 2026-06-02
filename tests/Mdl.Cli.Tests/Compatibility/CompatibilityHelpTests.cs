@@ -7,6 +7,12 @@ public sealed class CompatibilityHelpTests
     private static readonly ConcurrentDictionary<string, CliRun> ReferenceHelpCache = new();
     private static readonly ConcurrentDictionary<string, CliRun> MdlHelpCache = new();
 
+    private static readonly IReadOnlySet<string> SkippedCommands = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "migrate",
+        "open"
+    };
+
     private static readonly string[] ExpectedCommands =
     [
         "add",
@@ -27,9 +33,7 @@ public sealed class CompatibilityHelpTests
         "load",
         "ls",
         "macro",
-        "migrate",
         "mv",
-        "open",
         "profile",
         "query",
         "refresh",
@@ -112,8 +116,9 @@ public sealed class CompatibilityHelpTests
         Assert.Equal(0, reference.ExitCode);
         Assert.Equal(0, mdl.ExitCode);
         Assert.Equal(
-            CompatibilityText.RootCommandNames(reference.StdOut),
+            WithoutSkippedCommandNames(CompatibilityText.RootCommandNames(reference.StdOut)),
             CompatibilityText.RootCommandNames(mdl.StdOut));
+        AssertSkippedCommandsAreHidden(mdl.StdOut);
     }
 
     [Fact]
@@ -125,8 +130,9 @@ public sealed class CompatibilityHelpTests
         Assert.Equal(0, reference.ExitCode);
         Assert.Equal(0, mdl.ExitCode);
         Assert.Equal(
-            CompatibilityText.RootCommandUsageLabels(reference.StdOut),
+            WithoutSkippedUsageLabels(CompatibilityText.RootCommandUsageLabels(reference.StdOut)),
             CompatibilityText.RootCommandUsageLabels(mdl.StdOut));
+        AssertSkippedCommandsAreHidden(mdl.StdOut);
     }
 
     [Fact]
@@ -159,7 +165,7 @@ public sealed class CompatibilityHelpTests
 
         Assert.Equal(reference.ExitCode, mdl.ExitCode);
         Assert.Equal(
-            CompatibilityText.RootCommandUsageLabels(reference.StdOut),
+            WithoutSkippedUsageLabels(CompatibilityText.RootCommandUsageLabels(reference.StdOut)),
             CompatibilityText.RootCommandUsageLabels(mdl.StdOut));
     }
 
@@ -184,8 +190,9 @@ public sealed class CompatibilityHelpTests
             Assert.Equal(0, reference.ExitCode);
             Assert.Equal(0, mdl.ExitCode);
             Assert.Equal(
-                CompatibilityText.RootCommandNames(reference.StdOut),
+                WithoutSkippedCommandNames(CompatibilityText.RootCommandNames(reference.StdOut)),
                 CompatibilityText.RootCommandNames(mdl.StdOut));
+            AssertSkippedCommandsAreHidden(mdl.StdOut);
         }
     }
 
@@ -316,4 +323,17 @@ public sealed class CompatibilityHelpTests
 
     private static CliRun MdlHelp(params string[] args)
         => MdlHelpCache.GetOrAdd(string.Join('\u001f', args), _ => CliProcess.RunMdl(args));
+
+    private static IReadOnlyList<string> WithoutSkippedCommandNames(IReadOnlyList<string> commandNames)
+        => commandNames.Where(command => !SkippedCommands.Contains(command)).ToArray();
+
+    private static IReadOnlyList<string> WithoutSkippedUsageLabels(IReadOnlyList<string> usageLabels)
+        => usageLabels.Where(label => !SkippedCommands.Contains(label.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0])).ToArray();
+
+    private static void AssertSkippedCommandsAreHidden(string helpText)
+    {
+        var commandNames = CompatibilityText.RootCommandNames(helpText);
+        foreach (var command in SkippedCommands)
+            Assert.DoesNotContain(command, commandNames);
+    }
 }

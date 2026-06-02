@@ -31,6 +31,26 @@ public sealed class ConfigHandlerTests
     }
 
     [Fact]
+    public void Set_Macros_RoundTripsValue()
+    {
+        var handler = NewHandler(out var path);
+        try
+        {
+            var macrosPath = Path.Combine(Path.GetTempPath(), $"mdl-macros-{Guid.NewGuid():N}.json");
+            var set = handler.Set(ConfigKeys.Macros, macrosPath);
+
+            Assert.True(set.Success);
+            var get = handler.Get(ConfigKeys.Macros);
+            Assert.True(get.Success);
+            Assert.Equal(macrosPath, get.Data!.Value);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
+    [Fact]
     public void Set_UnknownKey_FailsWithExitCode2()
     {
         var handler = NewHandler(out var path);
