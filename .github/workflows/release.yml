@@ -1,0 +1,125 @@
+name: release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    name: publish ${{ matrix.rid }}
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            archive: zip
+            exe: mdl.exe
+          - rid: win-arm64
+            archive: zip
+            exe: mdl.exe
+          - rid: osx-x64
+            archive: tar.gz
+            exe: mdl
+          - rid: osx-arm64
+            archive: tar.gz
+            exe: mdl
+          - rid: linux-x64
+            archive: tar.gz
+            exe: mdl
+          - rid: linux-arm64
+            archive: tar.gz
+            exe: mdl
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Restore
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -m:1 --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test -m:1 --configuration Release --no-build
+
+      - name: Publish
+        run: >
+          dotnet publish src/Mdl.Cli/Mdl.Cli.csproj
+          --configuration Release
+          --runtime ${{ matrix.rid }}
+          --self-contained true
+          --output artifacts/publish/${{ matrix.rid }}
+          -p:PublishSingleFile=true
+          -p:DebugType=None
+          -p:DebugSymbols=false
+
+      - name: Stage
+        shell: bash
+        run: |
+          set -euo pipefail
+          rid="${{ matrix.rid }}"
+          publish_dir="artifacts/publish/${rid}"
+          stage_dir="artifacts/stage/mdl-${rid}"
+          mkdir -p "${stage_dir}"
+          cp -R "${publish_dir}/." "${stage_dir}/"
+          rm -f "${stage_dir}/Mdl.Cli.pdb"
+          if [[ -f "${stage_dir}/Mdl.Cli.exe" ]]; then
+            mv "${stage_dir}/Mdl.Cli.exe" "${stage_dir}/${{ matrix.exe }}"
+          elif [[ -f "${stage_dir}/Mdl.Cli" ]]; then
+            mv "${stage_dir}/Mdl.Cli" "${stage_dir}/${{ matrix.exe }}"
+          fi
+          cp LICENSE README.md "${stage_dir}/"
+
+      - name: Archive
+        shell: bash
+        run: |
+          set -euo pipefail
+          rid="${{ matrix.rid }}"
+          mkdir -p artifacts/packages
+          if [[ "${{ matrix.archive }}" == "zip" ]]; then
+            (cd artifacts/stage && zip -qr "../packages/mdl-${rid}.zip" "mdl-${rid}")
+          else
+            tar -C artifacts/stage -czf "artifacts/packages/mdl-${rid}.tar.gz" "mdl-${rid}"
+          fi
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdl-${{ matrix.rid }}
+          path: artifacts/packages/*
+          if-no-files-found: error
+
+  pack:
+    name: pack tool
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack
+        run: dotnet pack src/Mdl.Cli/Mdl.Cli.csproj --configuration Release --output artifacts/packages
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: mdl-tool-package
+          path: artifacts/packages/*.nupkg
+          if-no-files-found: error
