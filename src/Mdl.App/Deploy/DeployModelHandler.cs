@@ -95,7 +95,7 @@ public sealed class DeployModelHandler
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return MdlResult<DeployModelResult>.Fail("MDL_DEPLOY_CONNECT_FAILED", $"Failed to connect to '{server}': {ex.InnerException?.Message ?? ex.Message}", exitCode: 1);
+            return MdlResult<DeployModelResult>.Fail("MDL_DEPLOY_FAILED", $"Deploy to '{server}' failed: {ex.InnerException?.Message ?? ex.Message}", exitCode: 1);
         }
     }
 

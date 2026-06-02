@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.AnalysisServices.Tabular;
 using Mdl.Core.Authentication;
 using Mdl.Core.Models;
@@ -28,38 +29,26 @@ public static class TomModelDeployer
             : request.Database;
 
         var existing = server.Databases.FindByName(targetName);
-        if (existing is not null)
+        if (existing is not null && request.CreateOnly)
         {
-            if (request.CreateOnly)
-            {
-                server.Disconnect();
-                server.Dispose();
-                throw new InvalidOperationException(
-                    $"Model '{targetName}' already exists on '{request.Server}'. Remove --create-only to overwrite.");
-            }
-
-            existing.Name = targetName + "_mdl_tmp";
-            existing.Update();
-            server.Databases.Remove(existing);
-
-            var clone = sourceDatabase.Clone();
-            clone.Name = targetName;
-            server.Databases.Add(clone);
-            clone.Update();
-            sw.Stop();
             server.Disconnect();
             server.Dispose();
-            return new ModelDeployResult(request.Server, targetName, "updated", sw.ElapsedMilliseconds);
+            throw new InvalidOperationException(
+                $"Model '{targetName}' already exists on '{request.Server}'. Remove --create-only to overwrite.");
         }
 
-        var created = sourceDatabase.Clone();
-        created.Name = targetName;
-        server.Databases.Add(created);
-        created.Update();
+        var status = existing is not null ? "updated" : "created";
+
+        var clone = sourceDatabase.Clone();
+        clone.Name = targetName;
+
+        var dbJson = TabularJsonSerializer.SerializeDatabase(clone, new SerializeOptions());
+        server.Execute(BuildCreateOrReplaceCommand(targetName, dbJson));
+
         sw.Stop();
         server.Disconnect();
         server.Dispose();
-        return new ModelDeployResult(request.Server, targetName, "created", sw.ElapsedMilliseconds);
+        return new ModelDeployResult(request.Server, targetName, status, sw.ElapsedMilliseconds);
     }
 
     public static string GenerateScript(Database sourceDatabase, ModelDeployRequest request)
@@ -72,9 +61,17 @@ public static class TomModelDeployer
         if (!string.IsNullOrWhiteSpace(targetName) && clone.Name != targetName)
             clone.Name = targetName;
 
-        return TabularJsonSerializer.SerializeDatabase(
+        var dbJson = TabularJsonSerializer.SerializeDatabase(
             clone,
             new SerializeOptions { SplitMultilineStrings = true });
+
+        return BuildCreateOrReplaceCommand(targetName, dbJson);
+    }
+
+    private static string BuildCreateOrReplaceCommand(string databaseName, string databaseJson)
+    {
+        var escapedName = System.Text.Json.JsonSerializer.Serialize(databaseName);
+        return $"{{\"createOrReplace\":{{\"object\":{{\"database\":{escapedName}}},\"database\":{databaseJson}}}}}";
     }
 
     private static async Task ConnectAsync(
