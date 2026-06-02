@@ -15,8 +15,8 @@ internal sealed class BpaCommand : ICommandModule
     public Command Build()
     {
         var command = new Command("bpa", "Best Practice Analyzer: run rules and manage rule collections");
-        command.Subcommands.Add(BuildRunCommand());
         command.Subcommands.Add(BuildRulesCommand());
+        command.Subcommands.Add(BuildRunCommand());
         return command;
     }
 

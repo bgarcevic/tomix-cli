@@ -34,24 +34,36 @@ internal sealed class DiffCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
+            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
+            var left = parseResult.GetValue(leftArgument) ?? "";
+            var right = parseResult.GetValue(rightArgument) ?? "";
             var result = await new DiffModelHandler(_providers).HandleAsync(
                 new DiffModelRequest(
-                    new ModelReference(parseResult.GetValue(leftArgument) ?? ""),
-                    new ModelReference(parseResult.GetValue(rightArgument) ?? "")),
+                    new ModelReference(left),
+                    new ModelReference(right)),
                 cancellationToken);
 
-            return CommandOutput.Render(result, formatValue, Render);
+            return CommandOutput.Render(
+                result,
+                formatValue,
+                errorFormat,
+                data => Render(data, left, right, includeComparingLine: !OutputFormats.IsCsv(formatValue)));
         });
 
         return command;
     }
 
-    private static void Render(DiffModelResult result)
+    private static void Render(
+        DiffModelResult result,
+        string left,
+        string right,
+        bool includeComparingLine)
     {
-        Console.WriteLine("Comparing models...");
+        if (includeComparingLine)
+            Console.WriteLine("Comparing models...");
 
         if (!result.HasChanges)
         {
@@ -59,6 +71,8 @@ internal sealed class DiffCommand : ICommandModule
             return;
         }
 
+        Console.WriteLine($"Left:  {left}");
+        Console.WriteLine($"Right: {right}");
         Console.WriteLine(
             $"{result.Summary.Added} added, {result.Summary.Removed} removed, {result.Summary.Modified} modified");
         Console.WriteLine();

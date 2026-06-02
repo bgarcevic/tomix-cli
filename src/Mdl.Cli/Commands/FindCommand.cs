@@ -60,6 +60,7 @@ internal sealed class FindCommand : ICommandModule
         {
             var pattern = parseResult.GetValue(patternArgument) ?? "";
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
+            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
@@ -80,7 +81,9 @@ internal sealed class FindCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 formatValue,
-                data => Render(data, pathsOnly, noMultiline));
+                data => Render(data, pathsOnly, noMultiline),
+                ToReferenceJson,
+                errorFormat: errorFormat);
         });
 
         return command;
@@ -88,18 +91,73 @@ internal sealed class FindCommand : ICommandModule
 
     private static void Render(FindModelResult result, bool pathsOnly, bool noMultiline)
     {
-        foreach (var match in result.Matches)
+        if (result.Matches.Count == 0)
         {
-            if (pathsOnly)
-            {
-                Console.WriteLine(match.Path);
-                continue;
-            }
+            if (!pathsOnly)
+                Console.WriteLine("No matches found.");
 
-            var value = noMultiline
-                ? match.Value.ReplaceLineEndings(" ").Trim()
-                : match.Value;
-            Console.WriteLine($"{match.Path}  {match.Type}  {match.Field}: {value}");
+            return;
         }
+
+        if (pathsOnly)
+        {
+            foreach (var path in result.Matches.Select(m => m.Path).Distinct(StringComparer.OrdinalIgnoreCase))
+                Console.WriteLine(path);
+
+            return;
+        }
+
+        _ = noMultiline;
+        RenderMatchTable(result.Matches);
     }
+
+    private static void RenderMatchTable(IReadOnlyList<FindMatch> matches)
+    {
+        var rows = matches
+            .Select(match => new[]
+            {
+                match.Path,
+                match.Type,
+                match.Property,
+                match.MatchedText,
+                match.Line.ToString()
+            })
+            .ToList();
+
+        var headers = new[] { "Path", "Type", "Property", "Match", "Line" };
+        var widths = Enumerable.Range(0, headers.Length)
+            .Select(i => Math.Max(headers[i].Length, rows.Max(row => row[i].Length)))
+            .ToArray();
+
+        var totalWidth = widths.Sum() + (headers.Length - 1) * 3 + 4;
+        Console.WriteLine(new string(' ', totalWidth));
+        Console.WriteLine(Row(headers, widths));
+        Console.WriteLine(Separator(widths));
+        foreach (var row in rows)
+            Console.WriteLine(Row(row, widths));
+        Console.WriteLine(new string(' ', totalWidth));
+        Console.WriteLine($"{matches.Count} match(es)");
+    }
+
+    private static string Row(IReadOnlyList<string> cells, IReadOnlyList<int> widths)
+        => "  " + string.Join(" │ ", cells.Select((cell, index) => cell.PadRight(widths[index]))) + "  ";
+
+    private static string Separator(IReadOnlyList<int> widths)
+        => " " + string.Join("┼", widths.Select(width => new string('─', width + 2))) + " ";
+
+    private static object ToReferenceJson(FindModelResult result)
+        => new
+        {
+            pattern = result.Pattern,
+            matchCount = result.Matches.Count,
+            matches = result.Matches.Select(match => new
+            {
+                objectPath = match.Path,
+                objectType = match.Type,
+                property = match.Property,
+                matchedText = match.MatchedText,
+                line = match.Line,
+                position = match.Position
+            })
+        };
 }

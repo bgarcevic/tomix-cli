@@ -22,4 +22,5 @@ public sealed record LsObject(
     string? Description,
     bool Hidden,
     string? SourceColumn,
-    IReadOnlyDictionary<ModelObjectKind, int> ChildCounts);
+    IReadOnlyDictionary<ModelObjectKind, int> ChildCounts,
+    IReadOnlyDictionary<string, string>? Properties);

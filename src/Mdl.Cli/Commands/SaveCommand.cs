@@ -70,6 +70,7 @@ internal sealed class SaveCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
+            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
@@ -91,7 +92,12 @@ internal sealed class SaveCommand : ICommandModule
                     supportingFiles),
                 cancellationToken);
 
-            return CommandOutput.Render(result, formatValue, data => Render(data, reference.Value));
+            return CommandOutput.Render(
+                result,
+                formatValue,
+                errorFormat,
+                data => Render(data, reference.Value),
+                RenderCsv);
         });
 
         return command;
@@ -103,4 +109,7 @@ internal sealed class SaveCommand : ICommandModule
         Console.WriteLine($"Saving ({result.Format})...");
         Console.WriteLine($"Saved: {result.Saved} ({result.Format})");
     }
+
+    private static void RenderCsv(SaveModelResult result)
+        => Console.WriteLine($"Saved: {result.Saved} ({result.Format})");
 }

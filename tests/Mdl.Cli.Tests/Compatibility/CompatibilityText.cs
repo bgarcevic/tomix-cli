@@ -14,6 +14,9 @@ internal static partial class CompatibilityText
     }
 
     public static IReadOnlyList<string> RootCommandNames(string helpText)
+        => CommandNames(helpText);
+
+    public static IReadOnlyList<string> CommandNames(string helpText)
     {
         return Section(helpText, "Commands:")
             .Select(line => line.Trim())
@@ -43,6 +46,13 @@ internal static partial class CompatibilityText
             .ToHashSet(StringComparer.Ordinal);
     }
 
+    public static IReadOnlySet<string> OptionTokens(string helpText)
+    {
+        return OptionToken().Matches(helpText)
+            .Select(match => match.Value)
+            .ToHashSet(StringComparer.Ordinal);
+    }
+
     public static IReadOnlyList<string> ArgumentNames(string helpText)
     {
         return Section(helpText, "Arguments:")
@@ -55,6 +65,9 @@ internal static partial class CompatibilityText
     public static string JsonPrefix(string text)
     {
         var trimmed = WithoutPreviewFooter(text).TrimStart();
+        if (trimmed.Length == 0 || trimmed[0] is not ('{' or '[' or '"'))
+            return trimmed;
+
         var depth = 0;
         var inString = false;
         var escaped = false;
@@ -126,7 +139,7 @@ internal static partial class CompatibilityText
     [GeneratedRegex("--[A-Za-z0-9-]+")]
     private static partial Regex LongOption();
 
-    [GeneratedRegex(@"(?<!-)--[A-Za-z0-9-]+|(?<!-)-[A-Za-z](?![A-Za-z0-9-])")]
+    [GeneratedRegex(@"(?<!-)--[A-Za-z0-9-]+|(?<!-)-[A-Za-z?](?![A-Za-z0-9-])|/[A-Za-z?](?![A-Za-z0-9-])")]
     private static partial Regex OptionToken();
 
     [GeneratedRegex(@"^<?(?<name>[A-Za-z0-9_-]+)>?")]

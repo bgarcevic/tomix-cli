@@ -30,10 +30,7 @@ public sealed class GetModelHandler
         if (matches.Count == 0)
             return MdlResult<GetModelResult>.Fail(
                 code: "MDL_OBJECT_NOT_FOUND",
-                message:
-                    $"Object '{request.Path}' not found. Expected: table name, '.', or container " +
-                    "(Tables, Measures, Columns, Hierarchies, Relationships, Roles, Perspectives, " +
-                    "Cultures, DataSources, CalculationGroups, Expressions, Functions, Annotations)",
+                message: ModelObjectLookup.NotFoundMessage(request.Path),
                 exitCode: 1);
 
         if (matches.Count > 1)
@@ -51,7 +48,8 @@ public sealed class GetModelHandler
         return MdlResult<GetModelResult>.Ok(new GetModelResult(
             ModelObjectProjection.KindLabel(obj.Kind),
             obj.Path,
-            properties));
+            properties,
+            obj));
     }
 
     private static IReadOnlyDictionary<string, object?> ProjectSingleProperty(

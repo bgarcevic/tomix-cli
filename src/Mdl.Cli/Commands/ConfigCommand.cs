@@ -12,8 +12,6 @@ internal sealed class ConfigCommand : ICommandModule
         var command = new Command("config", "View and manage CLI configuration");
 
         command.Subcommands.Add(BuildInit());
-        command.Subcommands.Add(BuildList());
-        command.Subcommands.Add(BuildGet());
         command.Subcommands.Add(BuildPaths());
         command.Subcommands.Add(BuildSet());
         command.Subcommands.Add(BuildShow());
@@ -38,48 +36,6 @@ internal sealed class ConfigCommand : ICommandModule
 
             Console.WriteLine(MdlPaths.ConfigFile);
             return 0;
-        });
-
-        return command;
-    }
-
-    private static Command BuildList()
-    {
-        var command = new Command("list", "List all configuration values.");
-
-        command.SetAction(parseResult =>
-        {
-            var formatValue = GlobalOptions.OutputFormatValue(parseResult);
-
-            if (!CommandOutput.TryValidateFormat(formatValue))
-                return 2;
-
-            var result = new ConfigHandler().List();
-            return CommandOutput.Render(result, formatValue, RenderList);
-        });
-
-        return command;
-    }
-
-    private static Command BuildGet()
-    {
-        var keyArgument = new Argument<string>("key") { Description = "Configuration key." };
-
-        var command = new Command("get", "Get a configuration value.")
-        {
-            keyArgument
-        };
-
-        command.SetAction(parseResult =>
-        {
-            var formatValue = GlobalOptions.OutputFormatValue(parseResult);
-
-            if (!CommandOutput.TryValidateFormat(formatValue))
-                return 2;
-
-            var key = parseResult.GetValue(keyArgument) ?? "";
-            var result = new ConfigHandler().Get(key);
-            return CommandOutput.Render(result, formatValue, RenderGet);
         });
 
         return command;
@@ -157,9 +113,6 @@ internal sealed class ConfigCommand : ICommandModule
         foreach (var (key, value) in result.Values)
             Console.WriteLine($"{key.PadRight(nameWidth)}  {value}");
     }
-
-    private static void RenderGet(ConfigGetResult result)
-        => Console.WriteLine(result.Value ?? "");
 
     private static void RenderSet(ConfigSetResult result)
         => Console.WriteLine($"{result.Key} = {result.Value}");

@@ -70,7 +70,12 @@ internal sealed class DepsCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
+            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
             var typeValue = parseResult.GetValue(typeOption);
+            var upstreamRequested = parseResult.GetValue(upstreamOption);
+            var downstreamRequested = parseResult.GetValue(downstreamOption);
+            var upstreamOnly = upstreamRequested && !downstreamRequested;
+            var downstreamOnly = downstreamRequested && !upstreamRequested;
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
@@ -94,29 +99,47 @@ internal sealed class DepsCommand : ICommandModule
                         parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(pathArgument),
                     type,
-                    parseResult.GetValue(upstreamOption),
-                    parseResult.GetValue(downstreamOption),
+                    upstreamOnly,
+                    downstreamOnly,
                     parseResult.GetValue(deepOption),
                     parseResult.GetValue(unusedOption),
                     parseResult.GetValue(hiddenOption),
                     parseResult.GetValue(maxDepthOption)),
                 cancellationToken);
 
-            return CommandOutput.Render(result, formatValue, Render, ToReferenceJson);
+            if (result.Data is null && OutputFormats.IsTextLike(formatValue))
+            {
+                Console.WriteLine("Running semantic analysis...");
+                Console.WriteLine();
+            }
+
+            return CommandOutput.Render(
+                result,
+                formatValue,
+                data => Render(data, showUpstream: !downstreamOnly, showDownstream: !upstreamOnly),
+                data => ToReferenceJson(data, includeUpstream: !downstreamOnly, includeDownstream: !upstreamOnly),
+                errorFormat: errorFormat);
         });
 
         return command;
     }
 
-    private static void Render(DepsModelResult result)
+    private static void Render(DepsModelResult result, bool showUpstream, bool showDownstream)
     {
         Console.WriteLine("Running semantic analysis...");
         Console.WriteLine();
         Console.WriteLine($"Dependencies for {result.Path} ({result.Type})");
-        Console.WriteLine();
-        RenderSection("Upstream (depends on)", result.Upstream);
-        Console.WriteLine();
-        RenderSection("Downstream (referenced by)", result.Downstream);
+        if (showUpstream)
+        {
+            Console.WriteLine();
+            RenderSection("Upstream (depends on)", result.Upstream);
+        }
+
+        if (showDownstream)
+        {
+            Console.WriteLine();
+            RenderSection("Downstream (referenced by)", result.Downstream);
+        }
     }
 
     private static void RenderSection(string title, IReadOnlyList<DependencyObject> dependencies)
@@ -129,17 +152,27 @@ internal sealed class DepsCommand : ICommandModule
         }
 
         foreach (var dependency in dependencies)
-            Console.WriteLine($"    {dependency.Type,-18} {dependency.Reference,-30} {dependency.Path}");
+            Console.WriteLine($"    {dependency.Type,-18} {dependency.Reference,-28} {dependency.Path}");
     }
 
-    private static object ToReferenceJson(DepsModelResult result)
-        => new
+    private static object ToReferenceJson(
+        DepsModelResult result,
+        bool includeUpstream,
+        bool includeDownstream)
+    {
+        var json = new Dictionary<string, object?>
         {
-            path = result.Path,
-            objectType = result.Type,
-            upstream = result.Upstream.Select(ToReferenceJson).ToList(),
-            downstream = result.Downstream.Select(ToReferenceJson).ToList()
+            ["path"] = result.Path,
+            ["objectType"] = result.Type
         };
+
+        if (includeUpstream)
+            json["upstream"] = result.Upstream.Select(ToReferenceJson).ToList();
+        if (includeDownstream)
+            json["downstream"] = result.Downstream.Select(ToReferenceJson).ToList();
+
+        return json;
+    }
 
     private static object ToReferenceJson(DependencyObject dependency)
         => new

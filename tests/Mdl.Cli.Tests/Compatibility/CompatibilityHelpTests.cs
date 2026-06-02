@@ -82,6 +82,27 @@ public sealed class CompatibilityHelpTests
         return data;
     }
 
+    public static TheoryData<string> ParentCommandsWithSubcommands()
+    {
+        var data = new TheoryData<string>();
+        foreach (var command in new[]
+                 {
+                     "auth",
+                     "bpa",
+                     "config",
+                     "incremental-refresh",
+                     "macro",
+                     "profile",
+                     "session",
+                     "test"
+                 })
+        {
+            data.Add(command);
+        }
+
+        return data;
+    }
+
     [Fact]
     public void RootHelp_ExposesSameCommandNamesAsReference()
     {
@@ -103,6 +124,31 @@ public sealed class CompatibilityHelpTests
 
         foreach (var option in reference.Where(option => option != "--help"))
             Assert.Contains(option, mdl);
+    }
+
+    [Fact]
+    public void RootHelp_SlashHelpAliasesMatchReferenceBehavior()
+    {
+        foreach (var option in new[] { "/h", "/?" })
+        {
+            var reference = ReferenceHelp(option);
+            var mdl = MdlHelp(option);
+
+            Assert.Equal(0, reference.ExitCode);
+            Assert.Equal(0, mdl.ExitCode);
+            Assert.Equal(
+                CompatibilityText.RootCommandNames(reference.StdOut),
+                CompatibilityText.RootCommandNames(mdl.StdOut));
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(ParentCommandsWithSubcommands))]
+    public void ParentCommandHelp_ExposesSameSubcommandNamesAsReference(string command)
+    {
+        Assert.Equal(
+            CompatibilityText.CommandNames(ReferenceHelp(command, "--help").StdOut),
+            CompatibilityText.CommandNames(MdlHelp(command, "--help").StdOut));
     }
 
     [Theory]

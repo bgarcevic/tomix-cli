@@ -31,6 +31,7 @@ internal sealed class LoadCommand : ICommandModule
                 GlobalOptions.ModelValue(parseResult) ?? path,
                 parseResult.GetValue(GlobalOptions.Database));
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
+            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
@@ -40,7 +41,7 @@ internal sealed class LoadCommand : ICommandModule
                 new InfoModelRequest(reference),
                 cancellationToken);
 
-            return CommandOutput.Render(result, formatValue, Render, data => data.Summary);
+            return CommandOutput.Render(result, formatValue, Render, ToReferenceJson, errorFormat: errorFormat);
         });
 
         return command;
@@ -58,5 +59,20 @@ internal sealed class LoadCommand : ICommandModule
         Console.WriteLine($"  measures:      {summary.Measures}");
         Console.WriteLine($"  columns:       {summary.Columns}");
         Console.WriteLine($"  relationships: {summary.Relationships}");
+    }
+
+    private static object ToReferenceJson(InfoModelResult result)
+    {
+        var summary = result.Summary;
+        return new
+        {
+            name = summary.Name,
+            database = summary.DatabaseName,
+            compatLevel = summary.CompatibilityLevel,
+            tables = summary.Tables,
+            measures = summary.Measures,
+            columns = summary.Columns,
+            relationships = summary.Relationships
+        };
     }
 }

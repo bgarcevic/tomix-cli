@@ -32,7 +32,14 @@ public sealed class FindModelHandler
         {
             foreach (var (field, value) in SearchFields(obj, request.Scope))
             {
-                if (value is null || !IsMatch(value, request.Pattern, request.Regex, request.CaseSensitive))
+                if (value is null || !TryMatch(
+                        value,
+                        request.Pattern,
+                        request.Regex,
+                        request.CaseSensitive,
+                        out var matchedText,
+                        out var line,
+                        out var position))
                     continue;
 
                 matches.Add(new FindMatch(
@@ -40,12 +47,14 @@ public sealed class FindModelHandler
                     ModelObjectProjection.KindLabel(obj.Kind),
                     obj.Name,
                     field,
-                    value));
-                break;
+                    matchedText,
+                    value,
+                    line,
+                    position));
             }
         }
 
-        return MdlResult<FindModelResult>.Ok(new FindModelResult(matches));
+        return MdlResult<FindModelResult>.Ok(new FindModelResult(request.Pattern, matches));
     }
 
     private static bool IsSearchableByDefault(ModelObject obj)
@@ -56,26 +65,71 @@ public sealed class FindModelHandler
         var normalized = string.IsNullOrWhiteSpace(scope) ? "all" : scope.Trim().ToLowerInvariant();
 
         if (normalized is "all" or "names")
-            yield return ("name", obj.Name);
+            yield return ("Name", obj.Name);
         if (normalized is "all" or "expressions")
-            yield return ("expression", obj.Expression);
+            yield return ("Expression", obj.Expression);
         if (normalized is "all" or "descriptions")
-            yield return ("description", obj.Description);
+            yield return ("Description", obj.Description);
         if (normalized is "all" or "formatstrings" or "displayfolders" or "annotations")
             yield break;
     }
 
-    private static bool IsMatch(string value, string pattern, bool regex, bool caseSensitive)
+    private static bool TryMatch(
+        string value,
+        string pattern,
+        bool regex,
+        bool caseSensitive,
+        out string matchedText,
+        out int line,
+        out int position)
     {
         if (regex)
         {
             var options = caseSensitive ? RegexOptions.None : RegexOptions.IgnoreCase;
-            return Regex.IsMatch(value, pattern, options);
+            var match = Regex.Match(value, pattern, options);
+            if (!match.Success)
+            {
+                matchedText = "";
+                line = 0;
+                position = 0;
+                return false;
+            }
+
+            matchedText = match.Value;
+            (line, position) = LinePosition(value, match.Index);
+            return true;
         }
 
         var comparison = caseSensitive
             ? StringComparison.Ordinal
             : StringComparison.OrdinalIgnoreCase;
-        return value.Contains(pattern, comparison);
+        var index = value.IndexOf(pattern, comparison);
+        if (index < 0)
+        {
+            matchedText = "";
+            line = 0;
+            position = 0;
+            return false;
+        }
+
+        matchedText = value.Substring(index, pattern.Length);
+        (line, position) = LinePosition(value, index);
+        return true;
+    }
+
+    private static (int Line, int Position) LinePosition(string value, int index)
+    {
+        var line = 1;
+        var lineStart = 0;
+        for (var i = 0; i < index; i++)
+        {
+            if (value[i] != '\n')
+                continue;
+
+            line++;
+            lineStart = i + 1;
+        }
+
+        return (line, index - lineStart + 1);
     }
 }

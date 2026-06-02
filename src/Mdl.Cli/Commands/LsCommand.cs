@@ -146,6 +146,41 @@ internal sealed class LsCommand : ICommandModule
             };
         }
 
+        if (obj.Kind == ModelObjectKind.Column)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["name"] = obj.Name,
+                ["description"] = obj.Description ?? "",
+                ["sourceColumn"] = obj.SourceColumn ?? "",
+                ["dataType"] = DataTypeProperty(obj, DataTypeName(obj.Detail)),
+                ["isHidden"] = obj.Hidden,
+                ["formatString"] = Property(obj, "FormatString", ""),
+                ["displayFolder"] = "",
+                ["sortByColumn"] = EmptyToNull(Property(obj, "SortByColumn", "")),
+                ["summarizeBy"] = Property(obj, "SummarizeBy", "Default"),
+                ["lineageTag"] = ""
+            };
+        }
+
+        if (obj.Kind == ModelObjectKind.Measure)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["name"] = obj.Name,
+                ["description"] = obj.Description ?? "",
+                ["expression"] = obj.Expression ?? "",
+                ["formatString"] = Property(obj, "FormatString", ""),
+                ["isHidden"] = obj.Hidden,
+                ["displayFolder"] = Property(obj, "DisplayFolder", ""),
+                ["dataType"] = DataTypeProperty(obj, GuessMeasureDataType(obj.Expression)),
+                ["detailRowsExpression"] = null,
+                ["formatStringExpression"] = null,
+                ["kpi"] = null,
+                ["lineageTag"] = ""
+            };
+        }
+
         return new Dictionary<string, object?>
         {
             ["type"] = obj.Kind.ToString(),
@@ -156,6 +191,43 @@ internal sealed class LsCommand : ICommandModule
             ["detail"] = obj.Detail,
             ["expression"] = obj.Expression
         };
+    }
+
+    private static string Property(LsObject obj, string key, string fallback)
+        => obj.Properties is not null && obj.Properties.TryGetValue(key, out var value)
+            ? value
+            : fallback;
+
+    private static object? EmptyToNull(string value)
+        => string.IsNullOrWhiteSpace(value) ? null : value;
+
+    private static string DataTypeProperty(LsObject obj, string fallback)
+    {
+        var value = Property(obj, "DataType", "");
+        return string.IsNullOrWhiteSpace(value) || value.Equals("Unknown", StringComparison.OrdinalIgnoreCase)
+            ? fallback
+            : DataTypeName(value);
+    }
+
+    private static string DataTypeName(string? detail)
+        => detail?.Trim().ToLowerInvariant() switch
+        {
+            "int64" => "Int64",
+            "decimal" => "Decimal",
+            "double" => "Double",
+            "string" => "String",
+            "boolean" or "bool" => "Boolean",
+            "datetime" => "DateTime",
+            _ => detail ?? ""
+        };
+
+    private static string GuessMeasureDataType(string? expression)
+    {
+        var text = expression ?? "";
+        return text.Contains("COUNTROWS", StringComparison.OrdinalIgnoreCase) ||
+               text.Contains("DISTINCTCOUNT", StringComparison.OrdinalIgnoreCase)
+            ? "Int64"
+            : "Decimal";
     }
 
     private static void RenderCsv(LsModelResult data)
@@ -185,7 +257,7 @@ internal sealed class LsCommand : ICommandModule
                 [
                     o.Name,
                     o.SourceColumn ?? "",
-                    o.Detail ?? "",
+                    DataTypeDisplay(Property(o, "DataType", o.Detail ?? "")),
                     o.Description ?? "",
                     o.Hidden
                 ]));
@@ -218,4 +290,16 @@ internal sealed class LsCommand : ICommandModule
                 o.Expression ?? ""
             ]));
     }
+
+    private static string DataTypeDisplay(string value)
+        => value.Trim().ToLowerInvariant() switch
+        {
+            "int64" => "Integer / Whole Number (int64)",
+            "decimal" => "Currency / Fixed Decimal Number (decimal)",
+            "string" => "String / Text",
+            "double" => "Decimal Number (double)",
+            "boolean" or "bool" => "Boolean / True/False",
+            "datetime" => "DateTime / Date/Time",
+            _ => value
+        };
 }

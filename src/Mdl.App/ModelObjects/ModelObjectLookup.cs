@@ -49,6 +49,12 @@ internal static partial class ModelObjectLookup
         return path.Trim().Trim('/').Replace("'", "");
     }
 
+    public static string NotFoundMessage(string path)
+        =>
+        $"Object '{path}' not found. Expected: table name, '.', or container " +
+        "(Tables, Measures, Columns, Hierarchies, Relationships, Roles, Perspectives, " +
+        "Cultures, DataSources, CalculationGroups, Expressions, Functions, Annotations)";
+
     private static bool TryParseLoneBracket(string path, out string name)
     {
         var match = LoneBracketObject().Match(path.Trim());

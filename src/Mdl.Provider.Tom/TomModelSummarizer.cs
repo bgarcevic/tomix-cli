@@ -11,6 +11,7 @@ public static class TomModelSummarizer
     private const string PropIsAvailableInMdx = "IsAvailableInMdx";
     private const string PropSummarizeBy = "SummarizeBy";
     private const string PropFormatString = "FormatString";
+    private const string PropDisplayFolder = "DisplayFolder";
     private const string PropDataCategory = "DataCategory";
     private const string PropSortByColumn = "SortByColumn";
     private const string PropTableDataCategory = "TableDataCategory";
@@ -159,7 +160,9 @@ public static class TomModelSummarizer
     {
         var props = new Dictionary<string, string>
         {
+            [PropDataType] = measure.DataType.ToString(),
             [PropFormatString] = measure.FormatString ?? "",
+            [PropDisplayFolder] = measure.DisplayFolder ?? "",
             [PropObjectType] = "Measure"
         };
 

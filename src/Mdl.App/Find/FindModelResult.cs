@@ -1,10 +1,13 @@
 namespace Mdl.App.Find;
 
-public sealed record FindModelResult(IReadOnlyList<FindMatch> Matches);
+public sealed record FindModelResult(string Pattern, IReadOnlyList<FindMatch> Matches);
 
 public sealed record FindMatch(
     string Path,
     string Type,
     string Name,
-    string Field,
-    string Value);
+    string Property,
+    string MatchedText,
+    string Value,
+    int Line,
+    int Position);

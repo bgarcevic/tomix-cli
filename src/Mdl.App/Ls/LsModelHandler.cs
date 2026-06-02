@@ -35,7 +35,8 @@ public sealed class LsModelHandler
                 .Select(o => new LsObject(
                     o.Path, o.Name, o.Kind, o.Detail, o.Expression, o.Description, o.Hidden,
                     o.SourceColumn,
-                    o.Children.GroupBy(c => c.Kind).ToDictionary(g => g.Key, g => g.Count())))
+                    o.Children.GroupBy(c => c.Kind).ToDictionary(g => g.Key, g => g.Count()),
+                    o.Properties))
                 .ToList();
 
             return MdlResult<LsModelResult>.Ok(

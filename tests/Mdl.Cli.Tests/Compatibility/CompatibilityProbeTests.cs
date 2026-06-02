@@ -7,34 +7,41 @@ public sealed class CompatibilityProbeTests
     [Fact]
     public void LoadBasicTmdl_MatchesReferenceSummary()
     {
-        var reference = CliProcess.RunReference("load", "samples\\basic-tmdl");
-        var mdl = CliProcess.RunMdl("load", "samples\\basic-tmdl");
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("load", "samples\\basic-tmdl"),
+            CliProcess.RunMdl("load", "samples\\basic-tmdl"));
+    }
 
-        Assert.Equal(0, reference.ExitCode);
-        Assert.Equal(0, mdl.ExitCode);
-        AssertSameTextIgnoringSpacingAndFooter(reference, mdl);
+    [Fact]
+    public void LoadBasicTmdlJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("load", "samples\\basic-tmdl", "--output-format", "json"),
+            CliProcess.RunMdl("load", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void LoadBasicTmdlCsv_FallsBackToReferenceText()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("load", "samples\\basic-tmdl", "--output-format", "csv"),
+            CliProcess.RunMdl("load", "samples\\basic-tmdl", "--output-format", "csv"));
     }
 
     [Fact]
     public void LoadPbip_MatchesReferenceSummary()
     {
-        var reference = CliProcess.RunReference("load", "samples\\Artificial Intelligence Sample.pbip");
-        var mdl = CliProcess.RunMdl("load", "samples\\Artificial Intelligence Sample.pbip");
-
-        Assert.Equal(0, reference.ExitCode);
-        Assert.Equal(0, mdl.ExitCode);
-        AssertSameTextIgnoringSpacingAndFooter(reference, mdl);
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("load", "samples\\Artificial Intelligence Sample.pbip"),
+            CliProcess.RunMdl("load", "samples\\Artificial Intelligence Sample.pbip"));
     }
 
     [Fact]
     public void LoadGlobalModel_MatchesReferenceSummary()
     {
-        var reference = CliProcess.RunReference("load", "--model", "samples\\basic-tmdl");
-        var mdl = CliProcess.RunMdl("load", "--model", "samples\\basic-tmdl");
-
-        Assert.Equal(0, reference.ExitCode);
-        Assert.Equal(0, mdl.ExitCode);
-        AssertSameTextIgnoringSpacingAndFooter(reference, mdl);
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("load", "--model", "samples\\basic-tmdl"),
+            CliProcess.RunMdl("load", "--model", "samples\\basic-tmdl"));
     }
 
     [Fact]
@@ -76,6 +83,14 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
+    public void LsBasicTmdlText_MatchesReferenceTable()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("ls", "samples\\basic-tmdl"),
+            CliProcess.RunMdl("ls", "samples\\basic-tmdl"));
+    }
+
+    [Fact]
     public void LsBasicTmdlJson_MatchesReferenceJson()
     {
         AssertJsonEqual(
@@ -100,6 +115,54 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
+    public void LsSalesColumnsJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("ls", "samples\\basic-tmdl", "Sales/Columns", "--output-format", "json"),
+            CliProcess.RunMdl("ls", "samples\\basic-tmdl", "Sales/Columns", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void LsSalesColumnsText_MatchesReferenceTable()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("ls", "samples\\basic-tmdl", "Sales/Columns"),
+            CliProcess.RunMdl("ls", "samples\\basic-tmdl", "Sales/Columns"));
+    }
+
+    [Fact]
+    public void LsSalesColumnsCsv_MatchesReferenceCsv()
+    {
+        AssertCsvEqual(
+            CliProcess.RunReference("ls", "samples\\basic-tmdl", "Sales/Columns", "--output-format", "csv"),
+            CliProcess.RunMdl("ls", "samples\\basic-tmdl", "Sales/Columns", "--output-format", "csv"));
+    }
+
+    [Fact]
+    public void LsSalesMeasuresJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("ls", "samples\\basic-tmdl", "Sales/Measures", "--output-format", "json"),
+            CliProcess.RunMdl("ls", "samples\\basic-tmdl", "Sales/Measures", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void LsSalesMeasuresText_MatchesReferenceTable()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("ls", "samples\\basic-tmdl", "Sales/Measures"),
+            CliProcess.RunMdl("ls", "samples\\basic-tmdl", "Sales/Measures"));
+    }
+
+    [Fact]
+    public void LsSalesMeasuresCsv_MatchesReferenceCsv()
+    {
+        AssertCsvEqual(
+            CliProcess.RunReference("ls", "samples\\basic-tmdl", "Sales/Measures", "--output-format", "csv"),
+            CliProcess.RunMdl("ls", "samples\\basic-tmdl", "Sales/Measures", "--output-format", "csv"));
+    }
+
+    [Fact]
     public void GetSalesJson_MatchesReferenceJson()
     {
         AssertJsonEqual(
@@ -116,6 +179,102 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
+    public void GetSalesTmdl_MatchesReferenceTmdl()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("get", "Sales", "samples\\basic-tmdl", "--output-format", "tmdl"),
+            CliProcess.RunMdl("get", "Sales", "samples\\basic-tmdl", "--output-format", "tmdl"));
+    }
+
+    [Fact]
+    public void GetSalesBim_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("get", "Sales", "samples\\basic-tmdl", "--output-format", "bim"),
+            CliProcess.RunMdl("get", "Sales", "samples\\basic-tmdl", "--output-format", "bim"));
+    }
+
+    [Fact]
+    public void GetMeasureTmdl_MatchesReferenceTmdl()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("get", "Sales/Total Sales", "samples\\basic-tmdl", "--output-format", "tmdl"),
+            CliProcess.RunMdl("get", "Sales/Total Sales", "samples\\basic-tmdl", "--output-format", "tmdl"));
+    }
+
+    [Fact]
+    public void GetMeasureBim_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("get", "Sales/Total Sales", "samples\\basic-tmdl", "--output-format", "bim"),
+            CliProcess.RunMdl("get", "Sales/Total Sales", "samples\\basic-tmdl", "--output-format", "bim"));
+    }
+
+    [Fact]
+    public void GetColumnTmdl_MatchesReferenceTmdl()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("get", "Sales/Amount", "samples\\basic-tmdl", "--output-format", "tmdl"),
+            CliProcess.RunMdl("get", "Sales/Amount", "samples\\basic-tmdl", "--output-format", "tmdl"));
+    }
+
+    [Fact]
+    public void GetColumnBim_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("get", "Sales/Amount", "samples\\basic-tmdl", "--output-format", "bim"),
+            CliProcess.RunMdl("get", "Sales/Amount", "samples\\basic-tmdl", "--output-format", "bim"));
+    }
+
+    [Fact]
+    public void GetPartitionTmdl_MatchesReferenceTmdl()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("get", "Sales/Sales", "samples\\basic-tmdl", "--type", "partition", "--output-format", "tmdl"),
+            CliProcess.RunMdl("get", "Sales/Sales", "samples\\basic-tmdl", "--type", "partition", "--output-format", "tmdl"));
+    }
+
+    [Fact]
+    public void GetPartitionBim_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("get", "Sales/Sales", "samples\\basic-tmdl", "--type", "partition", "--output-format", "bim"),
+            CliProcess.RunMdl("get", "Sales/Sales", "samples\\basic-tmdl", "--type", "partition", "--output-format", "bim"));
+    }
+
+    [Fact]
+    public void GetMeasureQueryText_MatchesReferenceScalar()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("get", "Sales/Total Sales", "samples\\basic-tmdl", "-q", "expression"),
+            CliProcess.RunMdl("get", "Sales/Total Sales", "samples\\basic-tmdl", "-q", "expression"));
+    }
+
+    [Fact]
+    public void GetMeasureQueryJson_MatchesReferenceScalar()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("get", "Sales/Total Sales", "samples\\basic-tmdl", "-q", "expression", "--output-format", "json"),
+            CliProcess.RunMdl("get", "Sales/Total Sales", "samples\\basic-tmdl", "-q", "expression", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void GetTableQueryJson_MatchesReferenceBooleanScalar()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("get", "Sales", "samples\\basic-tmdl", "-q", "isHidden", "--output-format", "json"),
+            CliProcess.RunMdl("get", "Sales", "samples\\basic-tmdl", "-q", "isHidden", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void GetMeasureQueryTmdl_MatchesReferenceScalar()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("get", "Sales/Total Sales", "samples\\basic-tmdl", "-q", "expression", "--output-format", "tmdl"),
+            CliProcess.RunMdl("get", "Sales/Total Sales", "samples\\basic-tmdl", "-q", "expression", "--output-format", "tmdl"));
+    }
+
+    [Fact]
     public void GetMissingObjectJsonError_MatchesReferenceErrorFormat()
     {
         var reference = CliProcess.RunReference("get", "Nope", "samples\\basic-tmdl", "--error-format", "json");
@@ -126,6 +285,30 @@ public sealed class CompatibilityProbeTests
         Assert.Equal(
             CompatibilityText.WithoutPreviewFooter(reference.StdErr),
             mdl.StdErr.Trim());
+    }
+
+    [Fact]
+    public void FindSalesJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("find", "Sales", "samples\\basic-tmdl", "--output-format", "json"),
+            CliProcess.RunMdl("find", "Sales", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void FindSalesText_MatchesReferenceTable()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("find", "Sales", "samples\\basic-tmdl"),
+            CliProcess.RunMdl("find", "Sales", "samples\\basic-tmdl"));
+    }
+
+    [Fact]
+    public void FindSalesCsv_FallsBackToReferenceTable()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("find", "Sales", "samples\\basic-tmdl", "--output-format", "csv"),
+            CliProcess.RunMdl("find", "Sales", "samples\\basic-tmdl", "--output-format", "csv"));
     }
 
     [Fact]
@@ -142,17 +325,19 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
-    public void DepsTotalSales_FindsSameDirectDependencyAsReference()
+    public void FindNoMatchesText_MatchesReferenceText()
     {
-        var reference = CliProcess.RunReference("deps", "Sales/Total Sales", "samples\\basic-tmdl");
-        var mdl = CliProcess.RunMdl("deps", "Sales/Total Sales", "samples\\basic-tmdl");
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("find", "zzzzz", "samples\\basic-tmdl"),
+            CliProcess.RunMdl("find", "zzzzz", "samples\\basic-tmdl"));
+    }
 
-        Assert.Equal(0, reference.ExitCode);
-        Assert.Equal(0, mdl.ExitCode);
-        Assert.Contains("Sales/Amount", reference.StdOut);
-        Assert.Contains("Sales/Amount", mdl.StdOut);
-        Assert.Contains("Upstream", mdl.StdOut);
-        Assert.Contains("Downstream", mdl.StdOut);
+    [Fact]
+    public void DepsTotalSalesText_MatchesReferenceText()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("deps", "Sales/Total Sales", "samples\\basic-tmdl"),
+            CliProcess.RunMdl("deps", "Sales/Total Sales", "samples\\basic-tmdl"));
     }
 
     [Fact]
@@ -164,11 +349,63 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
+    public void DepsTotalSalesUpstreamText_MatchesReferenceText()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--upstream"),
+            CliProcess.RunMdl("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--upstream"));
+    }
+
+    [Fact]
+    public void DepsTotalSalesUpstreamJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--upstream", "--output-format", "json"),
+            CliProcess.RunMdl("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--upstream", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void DepsTotalSalesDownstreamText_MatchesReferenceText()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--downstream"),
+            CliProcess.RunMdl("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--downstream"));
+    }
+
+    [Fact]
+    public void DepsTotalSalesDownstreamJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--downstream", "--output-format", "json"),
+            CliProcess.RunMdl("deps", "Sales/Total Sales", "samples\\basic-tmdl", "--downstream", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void DepsMissingObjectJsonError_MatchesReferenceErrorFormat()
+    {
+        var reference = CliProcess.RunReference("deps", "Nope", "samples\\basic-tmdl", "--error-format", "json");
+        var mdl = CliProcess.RunMdl("deps", "Nope", "samples\\basic-tmdl", "--error-format", "json");
+
+        Assert.Equal(1, reference.ExitCode);
+        Assert.Equal(1, mdl.ExitCode);
+        Assert.Equal(CompatibilityText.WithoutPreviewFooter(reference.StdOut), mdl.StdOut.Trim());
+        Assert.Equal(CompatibilityText.WithoutPreviewFooter(reference.StdErr), mdl.StdErr.Trim());
+    }
+
+    [Fact]
     public void DiffIdenticalBasicTmdl_MatchesReferenceJsonAndExitCode()
     {
         AssertJsonEqual(
             CliProcess.RunReference("diff", "samples\\basic-tmdl", "samples\\basic-tmdl", "--output-format", "json"),
             CliProcess.RunMdl("diff", "samples\\basic-tmdl", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void DiffIdenticalBasicTmdlCsv_FallsBackToReferenceText()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("diff", "samples\\basic-tmdl", "samples\\basic-tmdl", "--output-format", "csv"),
+            CliProcess.RunMdl("diff", "samples\\basic-tmdl", "samples\\basic-tmdl", "--output-format", "csv"));
     }
 
     [Fact]
@@ -192,6 +429,35 @@ public sealed class CompatibilityProbeTests
             AssertJsonEqual(
                 CliProcess.RunReference("diff", left, right, "--output-format", "json"),
                 CliProcess.RunMdl("diff", left, right, "--output-format", "json"),
+                expectedExitCode: 1);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void DiffModifiedBasicTmdlText_MatchesReferenceTextAndExitCode()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-diff-text-test-{Guid.NewGuid():N}");
+        var left = Path.Combine(tempDir, "left");
+        var right = Path.Combine(tempDir, "right");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), left);
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), right);
+            var salesTable = Path.Combine(right, "tables", "Sales.tmdl");
+            File.WriteAllText(
+                salesTable,
+                ReplaceTotalSalesExpression(
+                    File.ReadAllText(salesTable),
+                    "SUMX(Sales, Sales[Amount])"));
+
+            AssertStdOutEqualIgnoringFooter(
+                CliProcess.RunReference("diff", left, right),
+                CliProcess.RunMdl("diff", left, right),
                 expectedExitCode: 1);
         }
         finally
@@ -230,6 +496,27 @@ public sealed class CompatibilityProbeTests
             AssertJsonEqual(
                 CliProcess.RunReference("ls", referenceOut, "--output-format", "json"),
                 CliProcess.RunMdl("ls", mdlOut, "--output-format", "json"));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void SaveBasicTmdlCsv_FallsBackToReferenceSavedLine()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-save-csv-test-{Guid.NewGuid():N}");
+        var output = Path.Combine(tempDir, "model");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            var reference = CliProcess.RunReference(
+                "save", "samples\\basic-tmdl", "--output-path", output, "--force", "--output-format", "csv");
+            var mdl = CliProcess.RunMdl(
+                "save", "samples\\basic-tmdl", "--output-path", output, "--force", "--output-format", "csv");
+
+            AssertStdOutEqualIgnoringFooter(reference, mdl);
         }
         finally
         {
@@ -613,6 +900,15 @@ public sealed class CompatibilityProbeTests
     }
 
     private static void AssertCsvEqual(CliRun reference, CliRun mdl, int expectedExitCode = 0)
+    {
+        Assert.Equal(expectedExitCode, reference.ExitCode);
+        Assert.Equal(expectedExitCode, mdl.ExitCode);
+        Assert.Equal(
+            CompatibilityText.WithoutPreviewFooter(reference.StdOut),
+            mdl.StdOut.Trim());
+    }
+
+    private static void AssertStdOutEqualIgnoringFooter(CliRun reference, CliRun mdl, int expectedExitCode = 0)
     {
         Assert.Equal(expectedExitCode, reference.ExitCode);
         Assert.Equal(expectedExitCode, mdl.ExitCode);

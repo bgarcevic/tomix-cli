@@ -10,10 +10,10 @@ internal sealed class SessionCommand : ICommandModule
     {
         var command = new Command("session", "Show or manage the current terminal session");
         command.SetAction(parseResult => RenderShow(parseResult));
-        command.Subcommands.Add(BuildShow());
-        command.Subcommands.Add(BuildList());
         command.Subcommands.Add(BuildClear());
+        command.Subcommands.Add(BuildList());
         command.Subcommands.Add(BuildPrune());
+        command.Subcommands.Add(BuildShow());
         return command;
     }
 

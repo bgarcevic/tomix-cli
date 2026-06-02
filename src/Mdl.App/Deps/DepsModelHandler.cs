@@ -43,7 +43,7 @@ public sealed partial class DepsModelHandler
         if (targetMatches.Count == 0)
             return MdlResult<DepsModelResult>.Fail(
                 code: "MDL_OBJECT_NOT_FOUND",
-                message: $"Object not found: {request.Path}",
+                message: ModelObjectLookup.NotFoundMessage(request.Path),
                 exitCode: 1);
 
         if (targetMatches.Count > 1)

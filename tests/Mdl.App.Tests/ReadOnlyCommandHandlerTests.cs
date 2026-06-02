@@ -33,9 +33,15 @@ public sealed class ReadOnlyCommandHandlerTests
             CancellationToken.None);
 
         Assert.True(result.Success);
+        Assert.Equal("Sales", result.Data!.Pattern);
         Assert.Equal(
-            ["Sales", "Sales/Total Sales", "Sales/Order Count"],
-            result.Data!.Matches.Select(m => m.Path).ToArray());
+            [
+                "Sales|Name|Sales|1|1",
+                "Sales/Total Sales|Name|Sales|1|7",
+                "Sales/Total Sales|Expression|Sales|1|5",
+                "Sales/Order Count|Expression|Sales|1|11"
+            ],
+            result.Data.Matches.Select(m => $"{m.Path}|{m.Property}|{m.MatchedText}|{m.Line}|{m.Position}").ToArray());
     }
 
     [Fact]

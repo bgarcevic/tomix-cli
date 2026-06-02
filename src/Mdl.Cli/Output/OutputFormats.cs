@@ -33,4 +33,6 @@ internal static class OutputFormats
     public static bool IsJson(string format) => format == Json;
 
     public static bool IsCsv(string format) => format == Csv;
+
+    public static bool IsTextLike(string format) => format is Text or Auto;
 }
