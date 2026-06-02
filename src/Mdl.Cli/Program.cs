@@ -66,6 +66,19 @@ internal static class Program
         foreach (var module in modules)
             root.Subcommands.Add(module.Build());
 
+        if (RootHelpRenderer.IsRootHelpRequest(args))
+        {
+            RootHelpRenderer.Write(root, Console.Out);
+            return 0;
+        }
+
+        if (RootHelpRenderer.IsRootInvocation(args))
+        {
+            RootHelpRenderer.Write(root, Console.Out);
+            Console.Error.WriteLine("Required command was not provided.");
+            return 0;
+        }
+
         return root.Parse(args).Invoke();
     }
 

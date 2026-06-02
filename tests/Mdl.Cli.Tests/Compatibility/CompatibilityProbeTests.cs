@@ -67,6 +67,46 @@ public sealed class CompatibilityProbeTests
         }
     }
 
+    [Theory]
+    [InlineData("bash")]
+    [InlineData("zsh")]
+    [InlineData("fish")]
+    [InlineData("powershell")]
+    [InlineData("pwsh")]
+    public void CompletionScript_MatchesReferenceShape(string shell)
+    {
+        var reference = CliProcess.RunReference("completion", shell);
+        var mdl = CliProcess.RunMdl("completion", shell);
+
+        Assert.Equal(0, reference.ExitCode);
+        Assert.Equal(0, mdl.ExitCode);
+        Assert.Equal(ToMdlCompletionScript(reference.StdOut), mdl.StdOut.Trim());
+    }
+
+    [Fact]
+    public void CompletionUnsupportedShell_MatchesReferenceExitAndError()
+    {
+        var reference = CliProcess.RunReference("completion", "cmd");
+        var mdl = CliProcess.RunMdl("completion", "cmd");
+
+        Assert.Equal(reference.ExitCode, mdl.ExitCode);
+        Assert.Equal(reference.StdErr.Trim(), mdl.StdErr.Trim());
+        Assert.Contains("completion", reference.StdOut);
+        Assert.Contains("completion", mdl.StdOut);
+    }
+
+    [Fact]
+    public void CompletionMissingShell_MatchesReferenceExitAndError()
+    {
+        var reference = CliProcess.RunReference("completion");
+        var mdl = CliProcess.RunMdl("completion");
+
+        Assert.Equal(reference.ExitCode, mdl.ExitCode);
+        Assert.Equal(reference.StdErr.Trim(), mdl.StdErr.Trim());
+        Assert.Contains("completion", reference.StdOut);
+        Assert.Contains("completion", mdl.StdOut);
+    }
+
     [Fact]
     public void LsBasicTmdl_ListsSameTablesAsReference()
     {
@@ -703,6 +743,22 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
+    public void ValidateBasicTmdlText_MatchesReferenceText()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("validate", "samples\\basic-tmdl"),
+            CliProcess.RunMdl("validate", "samples\\basic-tmdl"));
+    }
+
+    [Fact]
+    public void ValidateBasicTmdlCsv_FallsBackToReferenceText()
+    {
+        AssertStdOutEqualIgnoringFooter(
+            CliProcess.RunReference("validate", "samples\\basic-tmdl", "--output-format", "csv"),
+            CliProcess.RunMdl("validate", "samples\\basic-tmdl", "--output-format", "csv"));
+    }
+
+    [Fact]
     public void ValidateBrokenMeasureJson_MatchesReferenceErrorAndExitCode()
     {
         var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-validate-test-{Guid.NewGuid():N}");
@@ -719,6 +775,56 @@ public sealed class CompatibilityProbeTests
             AssertValidateJsonEqual(
                 CliProcess.RunReference("validate", referenceModel, "--output-format", "json"),
                 CliProcess.RunMdl("validate", mdlModel, "--output-format", "json"),
+                expectedExitCode: 1);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ValidateBrokenMeasureText_MatchesReferenceTextAndExitCode()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-validate-text-test-{Guid.NewGuid():N}");
+        var referenceModel = Path.Combine(tempDir, "reference");
+        var mdlModel = Path.Combine(tempDir, "mdl");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), referenceModel);
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), mdlModel);
+            BreakTotalSales(referenceModel);
+            BreakTotalSales(mdlModel);
+
+            AssertStdOutEqualIgnoringFooter(
+                CliProcess.RunReference("validate", referenceModel),
+                CliProcess.RunMdl("validate", mdlModel),
+                expectedExitCode: 1);
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ValidateBrokenMeasureCsv_MatchesReferenceTextAndExitCode()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-validate-csv-test-{Guid.NewGuid():N}");
+        var referenceModel = Path.Combine(tempDir, "reference");
+        var mdlModel = Path.Combine(tempDir, "mdl");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), referenceModel);
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), mdlModel);
+            BreakTotalSales(referenceModel);
+            BreakTotalSales(mdlModel);
+
+            AssertStdOutEqualIgnoringFooter(
+                CliProcess.RunReference("validate", referenceModel, "--output-format", "csv"),
+                CliProcess.RunMdl("validate", mdlModel, "--output-format", "csv"),
                 expectedExitCode: 1);
         }
         finally
@@ -1050,6 +1156,26 @@ public sealed class CompatibilityProbeTests
             '\n',
             text.Split('\n')
                 .Select(line => string.Join(' ', line.Split(' ', StringSplitOptions.RemoveEmptyEntries))));
+
+    private static string ToMdlCompletionScript(string referenceScript)
+    {
+        var text = CompatibilityText.WithoutPreviewFooter(referenceScript);
+        return text
+            .Replace("# te shell completion", "# mdl shell completion", StringComparison.Ordinal)
+            .Replace("te completion", "mdl completion", StringComparison.Ordinal)
+            .Replace("__te_complete", "__mdl_complete", StringComparison.Ordinal)
+            .Replace("_te_complete", "_mdl_complete", StringComparison.Ordinal)
+            .Replace("$__teNames", "$__mdlNames", StringComparison.Ordinal)
+            .Replace("te.exe", "mdl.exe", StringComparison.Ordinal)
+            .Replace(".\\te", ".\\mdl", StringComparison.Ordinal)
+            .Replace("'te'", "'mdl'", StringComparison.Ordinal)
+            .Replace(" te.fish", " mdl.fish", StringComparison.Ordinal)
+            .Replace("/te.fish", "/mdl.fish", StringComparison.Ordinal)
+            .Replace("te \"[suggest:", "mdl \"[suggest:", StringComparison.Ordinal)
+            .Replace("complete -o default -F _mdl_complete te", "complete -o default -F _mdl_complete mdl", StringComparison.Ordinal)
+            .Replace("compdef _mdl_complete te", "compdef _mdl_complete mdl", StringComparison.Ordinal)
+            .Replace("complete -c te", "complete -c mdl", StringComparison.Ordinal);
+    }
 
     private static void CopyDirectory(string source, string destination)
     {

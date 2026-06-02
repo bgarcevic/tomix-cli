@@ -12,23 +12,27 @@ public sealed class CompletionHandlerTests
     [InlineData("fish")]
     [InlineData("powershell")]
     [InlineData("PowerShell")]
-    public void Generate_SupportedShell_ReturnsScriptContainingCommands(string shell)
+    [InlineData("pwsh")]
+    public void Generate_SupportedShell_ReturnsDynamicSuggestionScript(string shell)
     {
         var result = new CompletionHandler().Generate(shell, Commands);
 
         Assert.True(result.Success);
         Assert.False(string.IsNullOrWhiteSpace(result.Data!.Script));
-        Assert.Contains("doctor", result.Data.Script);
-        Assert.Contains("config", result.Data.Script);
+        Assert.Contains("mdl completion", result.Data.Script);
+        Assert.Contains("[suggest:", result.Data.Script);
+        Assert.DoesNotContain("doctor", result.Data.Script);
     }
 
-    [Fact]
-    public void Generate_NormalizesShellName()
+    [Theory]
+    [InlineData("PowerShell", "powershell")]
+    [InlineData("pwsh", "powershell")]
+    public void Generate_NormalizesShellName(string shell, string expected)
     {
-        var result = new CompletionHandler().Generate("PowerShell", Commands);
+        var result = new CompletionHandler().Generate(shell, Commands);
 
         Assert.True(result.Success);
-        Assert.Equal("powershell", result.Data!.Shell);
+        Assert.Equal(expected, result.Data!.Shell);
     }
 
     [Fact]
@@ -39,5 +43,7 @@ public sealed class CompletionHandlerTests
         Assert.False(result.Success);
         Assert.Equal(2, result.ExitCode);
         Assert.Equal("MDL_COMPLETION_UNSUPPORTED_SHELL", result.Diagnostics[0].Code);
+        Assert.Contains("Argument 'tcsh' not recognized", result.Diagnostics[0].Message);
+        Assert.Contains("'pwsh'", result.Diagnostics[0].Message);
     }
 }

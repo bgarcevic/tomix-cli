@@ -18,7 +18,8 @@ internal sealed class CompletionCommand : ICommandModule
     {
         var shellArgument = new Argument<string>("shell")
         {
-            Description = "Target shell: bash, zsh, fish, or powershell."
+            Description = "Target shell: bash, zsh, fish, or powershell.",
+            Arity = ArgumentArity.ZeroOrOne
         };
 
         var command = new Command("completion", "Generate a shell completion script.")
@@ -29,14 +30,22 @@ internal sealed class CompletionCommand : ICommandModule
         command.SetAction(parseResult =>
         {
             var shell = parseResult.GetValue(shellArgument) ?? "";
+            if (string.IsNullOrWhiteSpace(shell))
+            {
+                WriteHelp(command);
+                Console.Error.WriteLine("Required argument missing for command: 'completion'.");
+                return 0;
+            }
+
             var result = new CompletionHandler().Generate(shell, _commandNames());
 
             if (result.Data is null)
             {
+                WriteHelp(command);
                 foreach (var diagnostic in result.Diagnostics)
                     Console.Error.WriteLine(diagnostic.Message);
 
-                return result.ExitCode == 0 ? 1 : result.ExitCode;
+                return 0;
             }
 
             Console.WriteLine(result.Data.Script);
@@ -45,4 +54,7 @@ internal sealed class CompletionCommand : ICommandModule
 
         return command;
     }
+
+    private static void WriteHelp(Command command)
+        => command.Parse(["--help"]).Invoke();
 }

@@ -16,6 +16,13 @@ internal static partial class CompatibilityText
     public static IReadOnlyList<string> RootCommandNames(string helpText)
         => CommandNames(helpText);
 
+    public static IReadOnlyList<string> RootCommandUsageLabels(string helpText)
+        => Section(helpText, "Commands:")
+            .Select(line => line.Trim())
+            .Where(line => line.Length > 0)
+            .Select(line => TwoOrMoreSpaces().Split(line, count: 2)[0])
+            .ToArray();
+
     public static IReadOnlyList<string> CommandNames(string helpText)
     {
         return Section(helpText, "Commands:")
@@ -138,6 +145,9 @@ internal static partial class CompatibilityText
 
     [GeneratedRegex("--[A-Za-z0-9-]+")]
     private static partial Regex LongOption();
+
+    [GeneratedRegex(@"\s{2,}")]
+    private static partial Regex TwoOrMoreSpaces();
 
     [GeneratedRegex(@"(?<!-)--[A-Za-z0-9-]+|(?<!-)-[A-Za-z?](?![A-Za-z0-9-])|/[A-Za-z?](?![A-Za-z0-9-])")]
     private static partial Regex OptionToken();

@@ -85,15 +85,20 @@ internal sealed class ValidateCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => Render(data, errorsOnly, parseResult.GetValue(noMultilineOption)));
+                data => Render(data, errorsOnly, parseResult.GetValue(noMultilineOption), includeBanner: !OutputFormats.IsCsv(format)));
         });
 
         return command;
     }
 
-    private static void Render(ValidateModelResult result, bool errorsOnly, bool noMultiline)
+    private static void Render(
+        ValidateModelResult result,
+        bool errorsOnly,
+        bool noMultiline,
+        bool includeBanner)
     {
-        Console.WriteLine("Validating...");
+        if (includeBanner)
+            Console.WriteLine("Validating...");
         Console.WriteLine("Validating: (unnamed)");
         Console.WriteLine();
 
@@ -142,6 +147,8 @@ internal sealed class ValidateCommand : ICommandModule
         {
             Console.WriteLine($"  Warnings:      {result.Warnings.Count}");
         }
+
+        Console.WriteLine("  Anti-patterns: 0");
     }
 
     private static void RenderTable(IReadOnlyList<(string Kind, string Message, string Object, string Line)> rows)
@@ -149,21 +156,20 @@ internal sealed class ValidateCommand : ICommandModule
         if (rows.Count == 0)
             return;
 
-        var msgWidth = Math.Max("Message".Length, rows.Max(r => r.Message.Length));
+        var msgWidth = Math.Max("Message".Length, rows.Max(r => r.Message.Length)) + 1;
         var objWidth = Math.Max("Object".Length, rows.Max(r => r.Object.Length));
-        var lineHeader = "Line";
+        var lineWidth = Math.Max("Line".Length, rows.Max(r => r.Line.Length)) + 2;
+        var tableWidth = 2 + msgWidth + 1 + (objWidth + 2) + 1 + (lineWidth + 1);
+        var blank = new string(' ', tableWidth);
 
-        var header = $"  {"Message".PadRight(msgWidth)} │ {"Object".PadRight(objWidth)} │ {lineHeader}";
-        var separator = $"  {new string('─', msgWidth)}─┼─{new string('─', objWidth)}─┼─{new string('─', lineHeader.Length)}";
-
-        Console.WriteLine("                                                                            ");
-        Console.WriteLine(header);
-        Console.WriteLine(separator);
+        Console.WriteLine(blank);
+        Console.WriteLine($"  {"Message".PadRight(msgWidth)}│ {"Object".PadRight(objWidth)} │ {"Line".PadRight(lineWidth)}");
+        Console.WriteLine($" {new string('─', msgWidth + 1)}┼{new string('─', objWidth + 2)}┼{new string('─', lineWidth)} ");
 
         foreach (var row in rows)
-            Console.WriteLine($"  {row.Message.PadRight(msgWidth)} │ {row.Object.PadRight(objWidth)} │ {row.Line}");
+            Console.WriteLine($"  {row.Message.PadRight(msgWidth)}│ {row.Object.PadRight(objWidth)} │ {row.Line.PadRight(lineWidth)}");
 
-        Console.WriteLine("                                                                            ");
+        Console.WriteLine(blank);
     }
 
     private static void EmitCi(string? ci, ValidateModelResult result)

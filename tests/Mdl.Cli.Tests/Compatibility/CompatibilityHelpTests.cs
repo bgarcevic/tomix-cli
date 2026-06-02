@@ -117,6 +117,53 @@ public sealed class CompatibilityHelpTests
     }
 
     [Fact]
+    public void RootHelp_ExposesSameCommandUsageLabelsAsReference()
+    {
+        var reference = ReferenceHelp("--help");
+        var mdl = MdlHelp("--help");
+
+        Assert.Equal(0, reference.ExitCode);
+        Assert.Equal(0, mdl.ExitCode);
+        Assert.Equal(
+            CompatibilityText.RootCommandUsageLabels(reference.StdOut),
+            CompatibilityText.RootCommandUsageLabels(mdl.StdOut));
+    }
+
+    [Fact]
+    public void RootHelp_UsesMdlExecutableName()
+    {
+        var mdl = MdlHelp("--help");
+
+        Assert.Equal(0, mdl.ExitCode);
+        Assert.Contains("Usage:\n  mdl [command] [options]", mdl.StdOut);
+        Assert.DoesNotContain("Mdl.Cli", mdl.StdOut);
+    }
+
+    [Fact]
+    public void RootHelp_UsesDistinctMdlStyling()
+    {
+        var mdl = MdlHelp("--help");
+
+        Assert.Equal(0, mdl.ExitCode);
+        Assert.StartsWith("mdl\n  Semantic model command line", mdl.StdOut);
+        Assert.Contains("Global options:", mdl.StdOut);
+        Assert.DoesNotContain("  mdl -", mdl.StdOut);
+        Assert.Contains("Use `mdl <command> --help` for command-specific options.", mdl.StdOut);
+    }
+
+    [Fact]
+    public void RootInvocationWithoutArguments_MatchesReferenceExitAndCommandUsageLabels()
+    {
+        var reference = ReferenceHelp();
+        var mdl = MdlHelp();
+
+        Assert.Equal(reference.ExitCode, mdl.ExitCode);
+        Assert.Equal(
+            CompatibilityText.RootCommandUsageLabels(reference.StdOut),
+            CompatibilityText.RootCommandUsageLabels(mdl.StdOut));
+    }
+
+    [Fact]
     public void RootHelp_ContainsReferenceGlobalLongOptions()
     {
         var reference = CompatibilityText.LongOptions(ReferenceHelp("--help").StdOut);
