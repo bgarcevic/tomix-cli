@@ -57,7 +57,7 @@ internal sealed class ScriptCommand : ICommandModule
 
         var saveOption = new Option<bool>("--save")
         {
-            Description = "Persist this command's mutation to the source location."
+            Description = "Persist this command's mutation to the source location. Mutually exclusive with --revert and --stage."
         };
 
         var command = new Command("script", "Execute C# script(s) against a semantic model")

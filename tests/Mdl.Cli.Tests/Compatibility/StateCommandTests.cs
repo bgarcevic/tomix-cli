@@ -94,6 +94,61 @@ public sealed class StateCommandTests
     }
 
     [Fact]
+    public void InteractiveLocalModelNonInteractive_SetsActiveSession()
+    {
+        using var state = TempState();
+
+        var interactive = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "interactive", "samples\\basic-tmdl", "--non-interactive", "--output-format", "json");
+
+        Assert.Equal(0, interactive.ExitCode);
+        var interactiveJson = JsonObject(interactive);
+        Assert.True(interactiveJson["active"]!.GetValue<bool>());
+        Assert.Equal("samples\\basic-tmdl", interactiveJson["connection"]!["model"]!.GetValue<string>());
+
+        var load = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "load", "--output-format", "json");
+        Assert.Equal(0, load.ExitCode);
+        Assert.Equal(3, JsonObject(load)["tables"]!.GetValue<int>());
+    }
+
+    [Fact]
+    public void InteractiveNoModelNonInteractive_DoesNotCreateActiveSession()
+    {
+        using var state = TempState();
+
+        var interactive = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "interactive", "--non-interactive", "--output-format", "json");
+
+        Assert.Equal(0, interactive.ExitCode);
+        Assert.False(JsonObject(interactive)["active"]!.GetValue<bool>());
+
+        var show = CliProcess.RunMdlWithEnvironment(
+            state.Environment,
+            "session", "show", "--output-format", "json");
+        Assert.Equal(0, show.ExitCode);
+        Assert.False(JsonObject(show)["exists"]!.GetValue<bool>());
+    }
+
+    [Fact]
+    public void InteractiveExitCommand_LeavesCleanly()
+    {
+        using var state = TempState();
+
+        var interactive = CliProcess.RunMdlWithEnvironmentAndInput(
+            state.Environment,
+            "exit\n",
+            "interactive", "samples\\basic-tmdl");
+
+        Assert.Equal(0, interactive.ExitCode);
+        Assert.Contains("mdl interactive", interactive.StdOut);
+        Assert.Contains("mdl>", interactive.StdOut);
+    }
+
+    [Fact]
     public void ConnectGlobalServerDatabaseOptions_DoNotSetActiveConnection()
     {
         using var state = TempState();

@@ -42,7 +42,7 @@ internal static class Program
             new GetCommand(providers),
             stubs["incremental-refresh"],
             new InitCommand(),
-            stubs["interactive"],
+            new InteractiveCommand(),
             new LoadCommand(providers),
             new LsCommand(providers),
             new MacroCommand(),

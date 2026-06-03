@@ -42,6 +42,24 @@ internal static class CliProcess
         return Run("dotnet", [cliDll, .. args], environment);
     }
 
+    public static CliRun RunMdlWithEnvironmentAndInput(
+        IReadOnlyDictionary<string, string> environment,
+        string stdin,
+        params string[] args)
+    {
+        var cliDll = Path.Combine(
+            RepositoryRoot,
+            "src",
+            "Mdl.Cli",
+            "bin",
+            "Debug",
+            "net10.0",
+            "Mdl.Cli.dll");
+
+        Assert.True(File.Exists(cliDll), $"Expected built CLI at {cliDll}");
+        return Run("dotnet", [cliDll, .. args], environment, stdin);
+    }
+
     public static CliRun RunReference(params string[] args)
     {
         var te = Path.Combine(RepositoryRoot, "references", "te.exe");
@@ -62,12 +80,20 @@ internal static class CliProcess
         string fileName,
         IReadOnlyList<string> args,
         IReadOnlyDictionary<string, string>? environment)
+        => Run(fileName, args, environment, stdin: null);
+
+    private static CliRun Run(
+        string fileName,
+        IReadOnlyList<string> args,
+        IReadOnlyDictionary<string, string>? environment,
+        string? stdin)
     {
         using var process = new Process();
         process.StartInfo.FileName = fileName;
         process.StartInfo.WorkingDirectory = RepositoryRoot;
         process.StartInfo.RedirectStandardOutput = true;
         process.StartInfo.RedirectStandardError = true;
+        process.StartInfo.RedirectStandardInput = stdin is not null;
         process.StartInfo.UseShellExecute = false;
 
         foreach (var arg in args)
@@ -80,6 +106,12 @@ internal static class CliProcess
         }
 
         process.Start();
+        if (stdin is not null)
+        {
+            process.StandardInput.Write(stdin);
+            process.StandardInput.Close();
+        }
+
         var stdout = process.StandardOutput.ReadToEnd();
         var stderr = process.StandardError.ReadToEnd();
 
