@@ -136,7 +136,9 @@ public static class MutationLifecycle
                 return new MutationOutcome(false, true);
 
             default:
-                return new MutationOutcome(false, null);
+                // None: mutated in memory but not persisted. Staged=false mirrors the reference CLI's
+                // "not saved" shape; commands that never exposed a staged field map this to null.
+                return new MutationOutcome(false, false);
         }
     }
 }

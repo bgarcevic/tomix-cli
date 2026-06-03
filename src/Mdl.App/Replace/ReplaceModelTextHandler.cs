@@ -1,4 +1,5 @@
 using Mdl.App.Mutations;
+using Mdl.App.State;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -21,20 +22,44 @@ public sealed class ReplaceModelTextHandler
                 "A pattern is required.",
                 exitCode: 2);
 
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
+        // --dry-run is a preview: never persist or stage.
+        var options = new MutationOptions(
+            request.Save && !request.DryRun,
+            request.DryRun ? null : request.SaveTo,
+            request.Stage && !request.DryRun,
+            request.Revert,
+            request.Serialization,
+            request.Force);
+        var stagingStore = new StagingStore();
+        var connection = new CliStateStore().LoadCurrentSession();
+
+        var begin = await MutationLifecycle.BeginAsync(
+            _providers, request.Model, options, stagingStore, connection, cancellationToken);
+        if (begin.Error is { } error)
+            return MdlResult<ReplaceModelTextResult>.Fail(error.Code, error.Message, error.ExitCode);
+
+        if (begin.Mode == MutationMode.Revert)
+        {
+            stagingStore.Discard(request.Model);
+            return MdlResult<ReplaceModelTextResult>.Ok(new ReplaceModelTextResult(
+                request.Pattern, request.Replacement, DryRun: null, ChangeCount: 0, Previews: null, Saved: false));
+        }
+
+        var context = begin.Context!;
+        var persist = context.Mode is MutationMode.Save or MutationMode.Stage;
+
+        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
         if (provider is null)
             return MdlResult<ReplaceModelTextResult>.Fail(
                 "MDL_NO_PROVIDER",
-                $"No provider can open model: {request.Model.Value}",
+                $"No provider can open model: {context.EffectiveModel.Value}",
                 exitCode: 2);
 
-        var shouldSave = MutationSave.Requested(request.Save, request.SaveTo) && !request.DryRun;
-
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+        await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
         if (session is not IModelMutationSession mutator)
             return MdlResult<ReplaceModelTextResult>.Fail(
                 "MDL_MUTATION_UNSUPPORTED_PROVIDER",
-                $"Provider cannot mutate model: {request.Model.Value}");
+                $"Provider cannot mutate model: {context.EffectiveModel.Value}");
 
         try
         {
@@ -44,9 +69,9 @@ public sealed class ReplaceModelTextHandler
                 request.Scope,
                 request.Regex,
                 request.CaseSensitive,
-                Apply: shouldSave));
+                Apply: persist));
 
-            if (!shouldSave)
+            if (!persist)
             {
                 return MdlResult<ReplaceModelTextResult>.Ok(new ReplaceModelTextResult(
                     request.Pattern,
@@ -58,9 +83,14 @@ public sealed class ReplaceModelTextHandler
             }
 
             object saved = false;
+            bool? staged = null;
             if (replace.ChangeCount > 0)
-                saved = await MutationSave.RunAsync(
-                    mutator, request.SaveTo, request.Serialization, request.Force, cancellationToken);
+            {
+                var outcome = await MutationLifecycle.CompleteAsync(
+                    mutator, context, "replace", $"replace {request.Pattern}", cancellationToken);
+                saved = outcome.Saved;
+                staged = outcome.Staged;
+            }
 
             return MdlResult<ReplaceModelTextResult>.Ok(new ReplaceModelTextResult(
                 request.Pattern,
@@ -68,7 +98,8 @@ public sealed class ReplaceModelTextHandler
                 DryRun: null,
                 replace.ChangeCount,
                 Previews: null,
-                saved));
+                saved,
+                staged));
         }
         catch (ArgumentException ex)
         {

@@ -1,4 +1,5 @@
 using Mdl.App.Mutations;
+using Mdl.App.State;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -15,18 +16,42 @@ public sealed class RemoveModelObjectHandler
         RemoveModelObjectRequest request,
         CancellationToken cancellationToken)
     {
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
+        // --dry-run is a preview: never persist or stage, regardless of --save/--stage.
+        var options = new MutationOptions(
+            request.Save && !request.DryRun,
+            request.DryRun ? null : request.SaveTo,
+            request.Stage && !request.DryRun,
+            request.Revert,
+            request.Serialization,
+            request.Force);
+        var stagingStore = new StagingStore();
+        var connection = new CliStateStore().LoadCurrentSession();
+
+        var begin = await MutationLifecycle.BeginAsync(
+            _providers, request.Model, options, stagingStore, connection, cancellationToken);
+        if (begin.Error is { } error)
+            return MdlResult<RemoveModelObjectResult>.Fail(error.Code, error.Message, error.ExitCode);
+
+        if (begin.Mode == MutationMode.Revert)
+        {
+            stagingStore.Discard(request.Model);
+            return MdlResult<RemoveModelObjectResult>.Ok(
+                new RemoveModelObjectResult(false, null, null, null, null));
+        }
+
+        var context = begin.Context!;
+        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
         if (provider is null)
             return MdlResult<RemoveModelObjectResult>.Fail(
                 "MDL_NO_PROVIDER",
-                $"No provider can open model: {request.Model.Value}",
+                $"No provider can open model: {context.EffectiveModel.Value}",
                 exitCode: 2);
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+        await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
         if (session is not IModelMutationSession mutator)
             return MdlResult<RemoveModelObjectResult>.Fail(
                 "MDL_MUTATION_UNSUPPORTED_PROVIDER",
-                $"Provider cannot mutate model: {request.Model.Value}");
+                $"Provider cannot mutate model: {context.EffectiveModel.Value}");
 
         try
         {
@@ -39,15 +64,11 @@ public sealed class RemoveModelObjectHandler
                 return MdlResult<RemoveModelObjectResult>.Ok(
                     new RemoveModelObjectResult(false, null, null, mutation.Reason, mutation.Path));
 
-            if (request.DryRun || !MutationSave.Requested(request.Save, request.SaveTo))
-                return MdlResult<RemoveModelObjectResult>.Ok(
-                    new RemoveModelObjectResult(mutation.Path, false, false, null, null));
-
-            var saved = await MutationSave.RunAsync(
-                mutator, request.SaveTo, request.Serialization, request.Force, cancellationToken);
+            var outcome = await MutationLifecycle.CompleteAsync(
+                mutator, context, "rm", $"rm {mutation.Path}", cancellationToken);
 
             return MdlResult<RemoveModelObjectResult>.Ok(
-                new RemoveModelObjectResult(mutation.Path, saved, null, null, null));
+                new RemoveModelObjectResult(mutation.Path, outcome.Saved, outcome.Staged, null, null));
         }
         catch (NotSupportedException ex)
         {

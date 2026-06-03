@@ -56,6 +56,7 @@ internal static class Program
             new ScriptCommand(providers),
             new SessionCommand(),
             new SetCommand(providers),
+            new StageCommand(providers),
             stubs["test"],
             new ValidateCommand(providers),
             stubs["vertipaq"]

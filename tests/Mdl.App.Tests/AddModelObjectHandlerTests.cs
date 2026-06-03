@@ -75,7 +75,7 @@ public sealed class AddModelObjectHandlerTests
         Assert.True(result.Success);
         Assert.Equal("Sales/Revenue", result.Data!.Added);
         Assert.Equal(false, result.Data.Saved);
-        Assert.False(result.Data.Staged);
+        Assert.Null(result.Data.Staged);
     }
 
     [Fact]
@@ -189,34 +189,11 @@ public sealed class AddModelObjectHandlerTests
         Assert.True(addRequest.IfNotExists);
     }
 
-    [Fact]
-    public async Task HandleAsync_Stage_ReturnsStagedTrue()
-    {
-        var session = new StubMutationSession();
-        var handler = new AddModelObjectHandler([new StubProvider(session)]);
-
-        var result = await handler.HandleAsync(
-            new AddModelObjectRequest(
-                new ModelReference("any"),
-                "Sales/Revenue",
-                "Measure",
-                "1",
-                [],
-                IfNotExists: false,
-                Save: false,
-                SaveTo: null,
-                Serialization: "",
-                Force: false,
-                Stage: true),
-            CancellationToken.None);
-
-        Assert.True(result.Success);
-        Assert.Equal("Sales/Revenue", result.Data!.Added);
-        Assert.True(result.Data.Staged);
-    }
+    // --stage materializes a working copy on disk; that end-to-end behavior is covered by the
+    // process-isolated StageCommandTests (which set MDL_CONFIG_DIR), not here.
 
     [Fact]
-    public async Task HandleAsync_Revert_ReturnsNotSupportedError()
+    public async Task HandleAsync_Revert_DiscardsAndSucceeds()
     {
         var session = new StubMutationSession();
         var handler = new AddModelObjectHandler([new StubProvider(session)]);
@@ -237,8 +214,10 @@ public sealed class AddModelObjectHandlerTests
                 Revert: true),
             CancellationToken.None);
 
-        Assert.False(result.Success);
-        Assert.Equal("MDL_MUTATION_REVERT_NOT_SUPPORTED", result.Diagnostics[0].Code);
+        // Revert no longer hard-rejects; it discards any staged working copy and reports success.
+        Assert.True(result.Success);
+        Assert.Equal(false, result.Data!.Added);
+        Assert.Null(result.Data.Staged);
     }
 
     [Fact]

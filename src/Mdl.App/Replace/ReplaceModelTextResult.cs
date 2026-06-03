@@ -12,4 +12,6 @@ public sealed record ReplaceModelTextResult(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<ModelReplacePreview>? Previews,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    object? Saved);
+    object? Saved,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? Staged = null);

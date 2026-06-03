@@ -13,6 +13,13 @@ public sealed class CompatibilityHelpTests
         "open"
     };
 
+    // mdl-specific commands that have no te.exe counterpart and so are filtered out of the mdl side
+    // before comparing command lists against the reference.
+    private static readonly IReadOnlySet<string> MdlOnlyCommands = new HashSet<string>(StringComparer.Ordinal)
+    {
+        "stage"
+    };
+
     private static readonly string[] ExpectedCommands =
     [
         "add",
@@ -117,7 +124,7 @@ public sealed class CompatibilityHelpTests
         Assert.Equal(0, mdl.ExitCode);
         Assert.Equal(
             WithoutSkippedCommandNames(CompatibilityText.RootCommandNames(reference.StdOut)),
-            CompatibilityText.RootCommandNames(mdl.StdOut));
+            WithoutMdlOnlyCommandNames(CompatibilityText.RootCommandNames(mdl.StdOut)));
         AssertSkippedCommandsAreHidden(mdl.StdOut);
     }
 
@@ -131,7 +138,7 @@ public sealed class CompatibilityHelpTests
         Assert.Equal(0, mdl.ExitCode);
         Assert.Equal(
             WithoutSkippedUsageLabels(CompatibilityText.RootCommandUsageLabels(reference.StdOut)),
-            CompatibilityText.RootCommandUsageLabels(mdl.StdOut));
+            WithoutMdlOnlyUsageLabels(CompatibilityText.RootCommandUsageLabels(mdl.StdOut)));
         AssertSkippedCommandsAreHidden(mdl.StdOut);
     }
 
@@ -166,7 +173,7 @@ public sealed class CompatibilityHelpTests
         Assert.Equal(reference.ExitCode, mdl.ExitCode);
         Assert.Equal(
             WithoutSkippedUsageLabels(CompatibilityText.RootCommandUsageLabels(reference.StdOut)),
-            CompatibilityText.RootCommandUsageLabels(mdl.StdOut));
+            WithoutMdlOnlyUsageLabels(CompatibilityText.RootCommandUsageLabels(mdl.StdOut)));
     }
 
     [Fact]
@@ -191,7 +198,7 @@ public sealed class CompatibilityHelpTests
             Assert.Equal(0, mdl.ExitCode);
             Assert.Equal(
                 WithoutSkippedCommandNames(CompatibilityText.RootCommandNames(reference.StdOut)),
-                CompatibilityText.RootCommandNames(mdl.StdOut));
+                WithoutMdlOnlyCommandNames(CompatibilityText.RootCommandNames(mdl.StdOut)));
             AssertSkippedCommandsAreHidden(mdl.StdOut);
         }
     }
@@ -327,6 +334,12 @@ public sealed class CompatibilityHelpTests
 
     private static IReadOnlyList<string> WithoutSkippedCommandNames(IReadOnlyList<string> commandNames)
         => commandNames.Where(command => !SkippedCommands.Contains(command)).ToArray();
+
+    private static IReadOnlyList<string> WithoutMdlOnlyCommandNames(IReadOnlyList<string> commandNames)
+        => commandNames.Where(command => !MdlOnlyCommands.Contains(command)).ToArray();
+
+    private static IReadOnlyList<string> WithoutMdlOnlyUsageLabels(IReadOnlyList<string> usageLabels)
+        => usageLabels.Where(label => !MdlOnlyCommands.Contains(label.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0])).ToArray();
 
     private static IReadOnlyList<string> WithoutSkippedUsageLabels(IReadOnlyList<string> usageLabels)
         => usageLabels.Where(label => !SkippedCommands.Contains(label.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0])).ToArray();

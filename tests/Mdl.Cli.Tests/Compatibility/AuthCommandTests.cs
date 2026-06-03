@@ -59,6 +59,10 @@ public sealed class AuthCommandTests
         Assert.True(json.ContainsKey("encryptedAtRest"));
         Assert.True(json.ContainsKey("keyStoreMode"));
         Assert.True(json.ContainsKey("expiresOn"));
+        Assert.True(json.ContainsKey("tokenAccount"));
+        Assert.True(json.ContainsKey("tokenTenantId"));
+        Assert.True(json.ContainsKey("tenantMismatch"));
+        Assert.True(json.ContainsKey("usernameMismatch"));
     }
 
     [Fact]
@@ -74,7 +78,7 @@ public sealed class AuthCommandTests
         Assert.Contains("--certificate", help.StdOut);
         Assert.Contains("--device-code", help.StdOut);
         Assert.Contains("--client-id", help.StdOut);
-        Assert.DoesNotContain("--save", help.StdOut);
+        Assert.Contains("--save", help.StdOut);
     }
 
     [Fact]

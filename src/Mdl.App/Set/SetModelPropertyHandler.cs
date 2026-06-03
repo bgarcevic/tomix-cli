@@ -70,7 +70,8 @@ public sealed class SetModelPropertyHandler
                 mutation.Value ?? request.Properties[^1].Value,
                 outcome.Saved,
                 ValidationErrors: 0,
-                outcome.Staged));
+                // set never exposed a staged field; surface it only when actually staged.
+                outcome.Staged == true ? true : null));
         }
         catch (NotSupportedException ex)
         {

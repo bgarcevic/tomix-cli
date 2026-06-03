@@ -1,4 +1,5 @@
 using Mdl.App.Mutations;
+using Mdl.App.State;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -15,21 +16,39 @@ public sealed class MoveModelObjectHandler
         MoveModelObjectRequest request,
         CancellationToken cancellationToken)
     {
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
-        if (provider is null)
-            return MdlResult<MoveModelObjectResult>.Fail(
-                "MDL_NO_PROVIDER",
-                $"No provider can open model: {request.Model.Value}",
-                exitCode: 2);
-
         if (!TryGetRename(request.Source, request.Destination, out var newName, out var error))
             return MdlResult<MoveModelObjectResult>.Fail("MDL_MOVE_UNSUPPORTED", error);
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+        var options = new MutationOptions(
+            request.Save, request.SaveTo, request.Stage, request.Revert, request.Serialization, request.Force);
+        var stagingStore = new StagingStore();
+        var connection = new CliStateStore().LoadCurrentSession();
+
+        var begin = await MutationLifecycle.BeginAsync(
+            _providers, request.Model, options, stagingStore, connection, cancellationToken);
+        if (begin.Error is { } beginError)
+            return MdlResult<MoveModelObjectResult>.Fail(beginError.Code, beginError.Message, beginError.ExitCode);
+
+        if (begin.Mode == MutationMode.Revert)
+        {
+            stagingStore.Discard(request.Model);
+            return MdlResult<MoveModelObjectResult>.Ok(new MoveModelObjectResult(
+                NormalizePath(request.Source), NormalizePath(request.Destination), false, null));
+        }
+
+        var context = begin.Context!;
+        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
+        if (provider is null)
+            return MdlResult<MoveModelObjectResult>.Fail(
+                "MDL_NO_PROVIDER",
+                $"No provider can open model: {context.EffectiveModel.Value}",
+                exitCode: 2);
+
+        await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
         if (session is not IModelMutationSession mutator)
             return MdlResult<MoveModelObjectResult>.Fail(
                 "MDL_MUTATION_UNSUPPORTED_PROVIDER",
-                $"Provider cannot mutate model: {request.Model.Value}");
+                $"Provider cannot mutate model: {context.EffectiveModel.Value}");
 
         try
         {
@@ -38,16 +57,11 @@ public sealed class MoveModelObjectHandler
                 [new ModelPropertyAssignment("name", newName)],
                 request.Type));
 
-            object saved = false;
-            bool? staged = false;
-            if (MutationSave.Requested(request.Save, request.SaveTo))
-            {
-                saved = await MutationSave.RunAsync(mutator, request.SaveTo, request.Serialization, request.Force, cancellationToken);
-                staged = null;
-            }
+            var outcome = await MutationLifecycle.CompleteAsync(
+                mutator, context, "mv", $"mv {request.Source} -> {request.Destination}", cancellationToken);
 
-            return MdlResult<MoveModelObjectResult>.Ok(
-                new MoveModelObjectResult(NormalizePath(request.Source), NormalizePath(request.Destination), saved, staged));
+            return MdlResult<MoveModelObjectResult>.Ok(new MoveModelObjectResult(
+                NormalizePath(request.Source), NormalizePath(request.Destination), outcome.Saved, outcome.Staged));
         }
         catch (NotSupportedException ex)
         {

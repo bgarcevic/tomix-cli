@@ -141,8 +141,10 @@ internal sealed class AddCommand : ICommandModule
     private static void Render(AddModelObjectResult result)
     {
         Console.WriteLine($"Added: {result.Added}");
-        if (result.Saved is false)
-            Console.WriteLine("Changes not saved. Use --save to persist.");
+        if (result.Staged == true)
+            Console.WriteLine("Staged. Run 'mdl stage commit' to promote.");
+        else if (result.Saved is false)
+            Console.WriteLine("Changes not saved. Use --save to persist or --stage to stage.");
         else
             Console.WriteLine($"Saved: {result.Saved}");
     }

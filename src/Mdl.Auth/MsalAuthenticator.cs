@@ -52,13 +52,16 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
         };
 
         var identity = ToIdentity(result, options);
-        _stateStore.Save(new AuthState(
-            options.Method,
-            identity.Username,
-            identity.TenantId,
-            options.ClientId,
-            options.TargetEndpoint,
-            identity.ExpiresOn));
+        if (options.Save)
+        {
+            _stateStore.Save(new AuthState(
+                options.Method,
+                identity.Username,
+                identity.TenantId,
+                options.ClientId,
+                options.TargetEndpoint,
+                identity.ExpiresOn));
+        }
         return identity;
     }
 
@@ -91,11 +94,13 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
                 // Token needs an interactive refresh; report the cached account with the stored expiry.
             }
 
-            return new AuthIdentity(account.Username, state.TenantId, state.Method, expiresOn, StorageLabel);
+            return new AuthIdentity(account.Username, state.TenantId, state.Method, expiresOn, StorageLabel,
+                TokenAccount: account.Username, TokenTenantId: state.TenantId);
         }
 
         // Service principal / managed identity: no user account in the cache to refresh from.
-        return new AuthIdentity(state.Username, state.TenantId, state.Method, state.ExpiresOn, StorageLabel);
+        return new AuthIdentity(state.Username, state.TenantId, state.Method, state.ExpiresOn, StorageLabel,
+            TokenAccount: state.Username, TokenTenantId: state.TenantId);
     }
 
     public async Task<bool> LogoutAsync(CancellationToken cancellationToken)
@@ -302,7 +307,11 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             ?? options.Tenant
             ?? result.Account?.HomeAccountId?.TenantId;
 
-        return new AuthIdentity(username, tenant, options.Method, result.ExpiresOn, StorageLabel);
+        var tokenAccount = result.Account?.Username;
+        var tokenTenant = result.TenantId ?? result.Account?.HomeAccountId?.TenantId;
+
+        return new AuthIdentity(username, tenant, options.Method, result.ExpiresOn, StorageLabel,
+            TokenAccount: tokenAccount, TokenTenantId: tokenTenant);
     }
 
     private static string DefaultUsername(AuthLoginOptions options)

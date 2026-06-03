@@ -32,10 +32,11 @@ internal sealed class AuthCommand : ICommandModule
         tenantOption.Aliases.Add("-t");
         var identityOption = new Option<bool>("--identity") { Description = "Sign in with a managed identity (Azure-hosted; use --username for user-assigned)" };
         identityOption.Aliases.Add("-I");
-        var certificateOption = new Option<string?>("--certificate") { Description = "Path to a service-principal certificate (PEM or PKCS12/.pfx)" };
+        var certificateOption = new Option<string?>("--certificate") { Description = "Path to certificate file (PEM or PKCS12) for service principal auth" };
         var certificatePasswordOption = new Option<string?>("--certificate-password") { Description = "Password for the certificate file" };
         var deviceCodeOption = new Option<bool>("--device-code") { Description = "Use the device-code flow instead of a local browser" };
         var clientIdOption = new Option<string?>("--client-id") { Description = "Override the Azure AD client id used for interactive/device-code sign-in" };
+        var saveOption = new Option<bool?>("--save") { Description = "Persist service principal credentials for silent reuse (default: true). Use --save false for one-shot login." };
         var command = new Command("login", "Log in to a Power BI / Fabric / Azure AS account")
         {
             usernameOption,
@@ -45,7 +46,8 @@ internal sealed class AuthCommand : ICommandModule
             certificateOption,
             certificatePasswordOption,
             deviceCodeOption,
-            clientIdOption
+            clientIdOption,
+            saveOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -76,7 +78,8 @@ internal sealed class AuthCommand : ICommandModule
                 ClientId: IsServicePrincipal(method) || method == AuthMethod.ManagedIdentity ? username : null,
                 ClientSecret: password,
                 CertificatePath: certificate,
-                CertificatePassword: parseResult.GetValue(certificatePasswordOption));
+                CertificatePassword: parseResult.GetValue(certificatePasswordOption),
+                Save: parseResult.GetValue(saveOption) ?? true);
 
             var authenticator = CreateAuthenticator(parseResult.GetValue(clientIdOption), tenant);
             var handler = new AuthHandler(authenticator);
@@ -121,7 +124,7 @@ internal sealed class AuthCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => Console.WriteLine(data.Existed ? "Logged out." : "Not logged in."));
+                data => Console.WriteLine(data.Existed ? "Logged out -- cached credentials cleared." : "Not logged in."));
         });
         return command;
     }
@@ -194,28 +197,46 @@ internal sealed class AuthCommand : ICommandModule
         string? TenantId,
         bool EncryptedAtRest,
         string KeyStoreMode,
-        DateTimeOffset? ExpiresOn)
+        DateTimeOffset? ExpiresOn,
+        string? TokenAccount,
+        string? TokenTenantId,
+        bool TenantMismatch,
+        bool UsernameMismatch)
     {
         public static FlatAuthStatus FromResult(AuthStatusResult result)
         {
-            var expired = result.Identity?.ExpiresOn is { } exp && exp <= DateTimeOffset.UtcNow;
+            var identity = result.Identity;
+            var expired = identity?.ExpiresOn is { } exp && exp <= DateTimeOffset.UtcNow;
 
             string[] osKeyStoreBackends = ["DPAPI", "Keychain", "libsecret"];
             var (encryptedAtRest, keyStoreMode) =
-                result.Identity?.Storage is { } storage
+                identity?.Storage is { } storage
                 && osKeyStoreBackends.Any(backend => storage.Contains(backend, StringComparison.OrdinalIgnoreCase))
                     ? (true, "OsKeyStore")
                     : (false, "None");
 
+            var tokenAccount = identity?.TokenAccount;
+            var tokenTenant = identity?.TokenTenantId;
+            var tenantMismatch = tokenTenant is not null
+                && identity?.TenantId is not null
+                && !string.Equals(tokenTenant, identity.TenantId, StringComparison.OrdinalIgnoreCase);
+            var usernameMismatch = tokenAccount is not null
+                && identity?.Username is not null
+                && !string.Equals(tokenAccount, identity.Username, StringComparison.OrdinalIgnoreCase);
+
             return new FlatAuthStatus(
                 Authenticated: result.LoggedIn && !expired,
                 Expired: expired,
-                Method: result.Identity?.Method.ToString() ?? "None",
-                Account: result.Identity?.Username,
-                TenantId: result.Identity?.TenantId,
+                Method: identity?.Method.ToString() ?? "None",
+                Account: identity?.Username,
+                TenantId: identity?.TenantId,
                 EncryptedAtRest: encryptedAtRest,
                 KeyStoreMode: keyStoreMode,
-                ExpiresOn: result.Identity?.ExpiresOn);
+                ExpiresOn: identity?.ExpiresOn,
+                TokenAccount: tokenAccount,
+                TokenTenantId: tokenTenant,
+                TenantMismatch: tenantMismatch,
+                UsernameMismatch: usernameMismatch);
         }
     }
 }

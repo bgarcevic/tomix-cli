@@ -1,4 +1,5 @@
 using Mdl.App.Mutations;
+using Mdl.App.State;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -15,23 +16,35 @@ public sealed class AddModelObjectHandler
         AddModelObjectRequest request,
         CancellationToken cancellationToken)
     {
-        if (request.Revert)
-            return MdlResult<AddModelObjectResult>.Fail(
-                "MDL_MUTATION_REVERT_NOT_SUPPORTED",
-                "Revert is not yet supported for the add command.");
+        var options = new MutationOptions(
+            request.Save, request.SaveTo, request.Stage, request.Revert, request.Serialization, request.Force);
+        var stagingStore = new StagingStore();
+        var connection = new CliStateStore().LoadCurrentSession();
 
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
+        var begin = await MutationLifecycle.BeginAsync(
+            _providers, request.Model, options, stagingStore, connection, cancellationToken);
+        if (begin.Error is { } error)
+            return MdlResult<AddModelObjectResult>.Fail(error.Code, error.Message, error.ExitCode);
+
+        if (begin.Mode == MutationMode.Revert)
+        {
+            stagingStore.Discard(request.Model);
+            return MdlResult<AddModelObjectResult>.Ok(new AddModelObjectResult(false, false, null));
+        }
+
+        var context = begin.Context!;
+        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
         if (provider is null)
             return MdlResult<AddModelObjectResult>.Fail(
                 "MDL_NO_PROVIDER",
-                $"No provider can open model: {request.Model.Value}",
+                $"No provider can open model: {context.EffectiveModel.Value}",
                 exitCode: 2);
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+        await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
         if (session is not IModelMutationSession mutator)
             return MdlResult<AddModelObjectResult>.Fail(
                 "MDL_MUTATION_UNSUPPORTED_PROVIDER",
-                $"Provider cannot mutate model: {request.Model.Value}");
+                $"Provider cannot mutate model: {context.EffectiveModel.Value}");
 
         try
         {
@@ -42,19 +55,12 @@ public sealed class AddModelObjectHandler
                 request.Properties,
                 request.IfNotExists));
 
-            if (request.Stage)
-                return MdlResult<AddModelObjectResult>.Ok(
-                    new AddModelObjectResult(mutation.Changed ? mutation.Path : false, false, true));
-
-            if (!MutationSave.Requested(request.Save, request.SaveTo))
-                return MdlResult<AddModelObjectResult>.Ok(
-                    new AddModelObjectResult(mutation.Changed ? mutation.Path : false, false, false));
-
-            var saved = await MutationSave.RunAsync(
-                mutator, request.SaveTo, request.Serialization, request.Force, cancellationToken);
+            var added = mutation.Changed ? mutation.Path : (object)false;
+            var outcome = await MutationLifecycle.CompleteAsync(
+                mutator, context, "add", $"add {mutation.Path}", cancellationToken);
 
             return MdlResult<AddModelObjectResult>.Ok(
-                new AddModelObjectResult(mutation.Changed ? mutation.Path : false, saved, null));
+                new AddModelObjectResult(added, outcome.Saved, outcome.Staged));
         }
         catch (NotSupportedException ex)
         {

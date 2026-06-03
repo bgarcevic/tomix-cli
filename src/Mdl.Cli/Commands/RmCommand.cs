@@ -106,7 +106,9 @@ internal sealed class RmCommand : ICommandModule
                     parseResult.GetValue(saveOption),
                     parseResult.GetValue(saveToOption),
                     parseResult.GetValue(serializationOption) ?? "",
-                    parseResult.GetValue(forceOption)),
+                    parseResult.GetValue(forceOption),
+                    parseResult.GetValue(stageOption),
+                    parseResult.GetValue(revertOption)),
                 cancellationToken);
 
             return CommandOutput.Render(result, formatValue, Render);

@@ -5,6 +5,8 @@ namespace Mdl.Core.Authentication;
 /// <see cref="Method"/>; service-principal flows additionally read the client id,
 /// secret and/or certificate fields. <see cref="TargetEndpoint"/> determines the
 /// token scope (Power BI vs Azure AS); when null a default Power BI scope is used.
+/// When <see cref="Save"/> is false the token is acquired but not persisted for
+/// silent reuse (one-shot login).
 /// </summary>
 public sealed record AuthLoginOptions(
     AuthMethod Method,
@@ -13,4 +15,5 @@ public sealed record AuthLoginOptions(
     string? ClientId = null,
     string? ClientSecret = null,
     string? CertificatePath = null,
-    string? CertificatePassword = null);
+    string? CertificatePassword = null,
+    bool Save = true);
