@@ -1,3 +1,4 @@
+using Mdl.App.Mutations;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -38,18 +39,15 @@ public sealed class RemoveModelObjectHandler
                 return MdlResult<RemoveModelObjectResult>.Ok(
                     new RemoveModelObjectResult(false, null, null, mutation.Reason, mutation.Path));
 
-            if (request.DryRun || (!request.Save && string.IsNullOrWhiteSpace(request.SaveTo)))
+            if (request.DryRun || !MutationSave.Requested(request.Save, request.SaveTo))
                 return MdlResult<RemoveModelObjectResult>.Ok(
                     new RemoveModelObjectResult(mutation.Path, false, false, null, null));
 
-            var export = await mutator.SaveAsync(
-                request.SaveTo,
-                request.Serialization,
-                request.Force,
-                cancellationToken);
+            var saved = await MutationSave.RunAsync(
+                mutator, request.SaveTo, request.Serialization, request.Force, cancellationToken);
 
             return MdlResult<RemoveModelObjectResult>.Ok(
-                new RemoveModelObjectResult(mutation.Path, export.SavedPath, null, null, null));
+                new RemoveModelObjectResult(mutation.Path, saved, null, null, null));
         }
         catch (NotSupportedException ex)
         {

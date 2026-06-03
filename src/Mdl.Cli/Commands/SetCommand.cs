@@ -95,7 +95,7 @@ internal sealed class SetCommand : ICommandModule
             }
 
             var query = parseResult.GetValue(queryOption);
-            var value = ResolveInputValue(parseResult.GetValue(valueOption));
+            var value = InputValueResolver.Resolve(parseResult.GetValue(valueOption));
             IReadOnlyList<ModelPropertyAssignment> assignments = string.IsNullOrWhiteSpace(query)
                 ? Array.Empty<ModelPropertyAssignment>()
                 : [new ModelPropertyAssignment(query, value ?? "")];
@@ -110,7 +110,9 @@ internal sealed class SetCommand : ICommandModule
                     parseResult.GetValue(saveOption),
                     parseResult.GetValue(saveToOption),
                     parseResult.GetValue(serializationOption) ?? "",
-                    parseResult.GetValue(forceOption)),
+                    parseResult.GetValue(forceOption),
+                    parseResult.GetValue(stageOption),
+                    parseResult.GetValue(revertOption)),
                 cancellationToken);
 
             return CommandOutput.Render(result, formatValue, Render);
@@ -119,14 +121,19 @@ internal sealed class SetCommand : ICommandModule
         return command;
     }
 
-    private static string? ResolveInputValue(string? value)
-        => value == "-" ? Console.In.ReadToEnd() : value;
-
     private static void Render(SetModelPropertyResult result)
     {
+        if (string.IsNullOrEmpty(result.Property))
+        {
+            Console.WriteLine($"Reverted staged changes for {result.Set}.");
+            return;
+        }
+
         Console.WriteLine($"Set: {result.Set}.{result.Property}");
-        if (result.Saved is false)
-            Console.WriteLine("Changes not saved. Use --save to persist.");
+        if (result.Staged == true)
+            Console.WriteLine("Staged. Run 'mdl stage commit' to promote.");
+        else if (result.Saved is false)
+            Console.WriteLine("Changes not saved. Use --save to persist or --stage to stage.");
         else
             Console.WriteLine($"Saved: {result.Saved}");
     }

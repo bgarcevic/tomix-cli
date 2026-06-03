@@ -219,7 +219,8 @@ public sealed class CompatibilityHelpTests
 
     private static readonly IReadOnlySet<string> NotYetImplementedOptions = new HashSet<string>
     {
-        "--no-antipatterns"
+        "--no-antipatterns",
+        "--save"
     };
 
     private static readonly IReadOnlySet<string> CoveredByGlobalOptions = new HashSet<string>

@@ -1,3 +1,4 @@
+using Mdl.App.Mutations;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -39,14 +40,9 @@ public sealed class MoveModelObjectHandler
 
             object saved = false;
             bool? staged = false;
-            if (request.Save || !string.IsNullOrWhiteSpace(request.SaveTo))
+            if (MutationSave.Requested(request.Save, request.SaveTo))
             {
-                var export = await mutator.SaveAsync(
-                    request.SaveTo,
-                    request.Serialization,
-                    request.Force,
-                    cancellationToken);
-                saved = export.SavedPath;
+                saved = await MutationSave.RunAsync(mutator, request.SaveTo, request.Serialization, request.Force, cancellationToken);
                 staged = null;
             }
 

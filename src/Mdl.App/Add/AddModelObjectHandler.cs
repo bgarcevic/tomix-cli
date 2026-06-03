@@ -1,3 +1,4 @@
+using Mdl.App.Mutations;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -14,6 +15,11 @@ public sealed class AddModelObjectHandler
         AddModelObjectRequest request,
         CancellationToken cancellationToken)
     {
+        if (request.Revert)
+            return MdlResult<AddModelObjectResult>.Fail(
+                "MDL_MUTATION_REVERT_NOT_SUPPORTED",
+                "Revert is not yet supported for the add command.");
+
         var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
         if (provider is null)
             return MdlResult<AddModelObjectResult>.Fail(
@@ -36,18 +42,19 @@ public sealed class AddModelObjectHandler
                 request.Properties,
                 request.IfNotExists));
 
-            if (!request.Save && string.IsNullOrWhiteSpace(request.SaveTo))
+            if (request.Stage)
+                return MdlResult<AddModelObjectResult>.Ok(
+                    new AddModelObjectResult(mutation.Changed ? mutation.Path : false, false, true));
+
+            if (!MutationSave.Requested(request.Save, request.SaveTo))
                 return MdlResult<AddModelObjectResult>.Ok(
                     new AddModelObjectResult(mutation.Changed ? mutation.Path : false, false, false));
 
-            var export = await mutator.SaveAsync(
-                request.SaveTo,
-                request.Serialization,
-                request.Force,
-                cancellationToken);
+            var saved = await MutationSave.RunAsync(
+                mutator, request.SaveTo, request.Serialization, request.Force, cancellationToken);
 
             return MdlResult<AddModelObjectResult>.Ok(
-                new AddModelObjectResult(mutation.Changed ? mutation.Path : false, export.SavedPath, null));
+                new AddModelObjectResult(mutation.Changed ? mutation.Path : false, saved, null));
         }
         catch (NotSupportedException ex)
         {

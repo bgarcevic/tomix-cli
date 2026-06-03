@@ -1,3 +1,5 @@
+using Mdl.App.Mutations;
+using Mdl.App.State;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -14,24 +16,42 @@ public sealed class SetModelPropertyHandler
         SetModelPropertyRequest request,
         CancellationToken cancellationToken)
     {
+        var options = new MutationOptions(
+            request.Save, request.SaveTo, request.Stage, request.Revert, request.Serialization, request.Force);
+        var stagingStore = new StagingStore();
+        var connection = new CliStateStore().LoadCurrentSession();
+
+        var begin = await MutationLifecycle.BeginAsync(
+            _providers, request.Model, options, stagingStore, connection, cancellationToken);
+        if (begin.Error is { } error)
+            return MdlResult<SetModelPropertyResult>.Fail(error.Code, error.Message, error.ExitCode);
+
+        if (begin.Mode == MutationMode.Revert)
+        {
+            stagingStore.Discard(request.Model);
+            return MdlResult<SetModelPropertyResult>.Ok(new SetModelPropertyResult(
+                request.Path, Property: "", Value: "", Saved: false, ValidationErrors: 0));
+        }
+
         if (request.Properties.Count == 0)
             return MdlResult<SetModelPropertyResult>.Fail(
                 "MDL_SET_PROPERTY_REQUIRED",
                 "At least one -q/-i property assignment is required.",
                 exitCode: 2);
 
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
+        var context = begin.Context!;
+        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
         if (provider is null)
             return MdlResult<SetModelPropertyResult>.Fail(
                 "MDL_NO_PROVIDER",
-                $"No provider can open model: {request.Model.Value}",
+                $"No provider can open model: {context.EffectiveModel.Value}",
                 exitCode: 2);
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+        await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
         if (session is not IModelMutationSession mutator)
             return MdlResult<SetModelPropertyResult>.Fail(
                 "MDL_MUTATION_UNSUPPORTED_PROVIDER",
-                $"Provider cannot mutate model: {request.Model.Value}");
+                $"Provider cannot mutate model: {context.EffectiveModel.Value}");
 
         try
         {
@@ -40,23 +60,17 @@ public sealed class SetModelPropertyHandler
                 request.Properties,
                 request.Type));
 
-            object saved = false;
-            if (request.Save || !string.IsNullOrWhiteSpace(request.SaveTo))
-            {
-                var export = await mutator.SaveAsync(
-                    request.SaveTo,
-                    request.Serialization,
-                    request.Force,
-                    cancellationToken);
-                saved = export.SavedPath;
-            }
+            var property = mutation.Property ?? request.Properties[^1].Property;
+            var outcome = await MutationLifecycle.CompleteAsync(
+                mutator, context, "set", $"set {mutation.Path}.{property}", cancellationToken);
 
             return MdlResult<SetModelPropertyResult>.Ok(new SetModelPropertyResult(
                 mutation.Path,
-                mutation.Property ?? request.Properties[^1].Property,
+                property,
                 mutation.Value ?? request.Properties[^1].Value,
-                saved,
-                ValidationErrors: 0));
+                outcome.Saved,
+                ValidationErrors: 0,
+                outcome.Staged));
         }
         catch (NotSupportedException ex)
         {

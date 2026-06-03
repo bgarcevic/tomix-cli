@@ -12,4 +12,6 @@ public sealed record AddModelObjectRequest(
     bool Save,
     string? SaveTo,
     string Serialization,
-    bool Force);
+    bool Force,
+    bool Stage = false,
+    bool Revert = false);

@@ -26,18 +26,16 @@ internal sealed class AuthCommand : ICommandModule
     {
         var usernameOption = new Option<string?>("--username") { Description = "Service-principal application (client) id" };
         usernameOption.Aliases.Add("-u");
-        var passwordOption = new Option<string?>("--password") { Description = "Service-principal client secret" };
+        var passwordOption = new Option<string?>("--password") { Description = "Service-principal client secret (reads from AZURE_CLIENT_SECRET env var; pass '-' to read from stdin)" };
         passwordOption.Aliases.Add("-p");
         var tenantOption = new Option<string?>("--tenant") { Description = "Tenant id or domain (required for service principal)" };
         tenantOption.Aliases.Add("-t");
-        var identityOption = new Option<bool>("--identity") { Description = "Sign in with a managed identity (Azure-hosted)" };
+        var identityOption = new Option<bool>("--identity") { Description = "Sign in with a managed identity (Azure-hosted; use --username for user-assigned)" };
         identityOption.Aliases.Add("-I");
-        var certificateOption = new Option<string?>("--certificate") { Description = "Path to a service-principal certificate (.pfx)" };
+        var certificateOption = new Option<string?>("--certificate") { Description = "Path to a service-principal certificate (PEM or PKCS12/.pfx)" };
         var certificatePasswordOption = new Option<string?>("--certificate-password") { Description = "Password for the certificate file" };
         var deviceCodeOption = new Option<bool>("--device-code") { Description = "Use the device-code flow instead of a local browser" };
         var clientIdOption = new Option<string?>("--client-id") { Description = "Override the Azure AD client id used for interactive/device-code sign-in" };
-        var saveOption = new Option<bool?>("--save") { Description = "Persist credentials when supported" };
-
         var command = new Command("login", "Log in to a Power BI / Fabric / Azure AS account")
         {
             usernameOption,
@@ -47,8 +45,7 @@ internal sealed class AuthCommand : ICommandModule
             certificateOption,
             certificatePasswordOption,
             deviceCodeOption,
-            clientIdOption,
-            saveOption
+            clientIdOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -58,7 +55,11 @@ internal sealed class AuthCommand : ICommandModule
                 return 2;
 
             var username = parseResult.GetValue(usernameOption);
-            var password = parseResult.GetValue(passwordOption);
+            var password = parseResult.GetValue(passwordOption)
+                ?? Environment.GetEnvironmentVariable("AZURE_CLIENT_SECRET")
+                ?? Environment.GetEnvironmentVariable("MDL_AUTH_CLIENT_SECRET");
+            if (password == "-")
+                password = Console.In.ReadLine();
             var tenant = parseResult.GetValue(tenantOption);
             var certificate = parseResult.GetValue(certificateOption);
             var useIdentity = parseResult.GetValue(identityOption);
@@ -72,7 +73,7 @@ internal sealed class AuthCommand : ICommandModule
                 method,
                 TargetEndpoint: endpoint,
                 Tenant: tenant,
-                ClientId: IsServicePrincipal(method) ? username : null,
+                ClientId: IsServicePrincipal(method) || method == AuthMethod.ManagedIdentity ? username : null,
                 ClientSecret: password,
                 CertificatePath: certificate,
                 CertificatePassword: parseResult.GetValue(certificatePasswordOption));
@@ -101,7 +102,7 @@ internal sealed class AuthCommand : ICommandModule
 
             var handler = new AuthHandler(CreateAuthenticator(clientIdOverride: null, tenant: null));
             var result = await handler.StatusAsync(cancellationToken);
-            return CommandOutput.Render(result, format, RenderStatus);
+            return CommandOutput.Render(result, format, RenderStatus, data => FlatAuthStatus.FromResult(data));
         });
         return command;
     }
@@ -125,7 +126,7 @@ internal sealed class AuthCommand : ICommandModule
         return command;
     }
 
-    private static AuthMethod ResolveMethod(bool useIdentity, string? certificate, string? username, string? password, bool useDeviceCode)
+    internal static AuthMethod ResolveMethod(bool useIdentity, string? certificate, string? username, string? password, bool useDeviceCode)
     {
         if (useIdentity)
             return AuthMethod.ManagedIdentity;
@@ -184,4 +185,37 @@ internal sealed class AuthCommand : ICommandModule
         AuthMethod.ManagedIdentity => "Managed identity",
         _ => method.ToString()
     };
+
+    private sealed record FlatAuthStatus(
+        bool Authenticated,
+        bool Expired,
+        string Method,
+        string? Account,
+        string? TenantId,
+        bool EncryptedAtRest,
+        string KeyStoreMode,
+        DateTimeOffset? ExpiresOn)
+    {
+        public static FlatAuthStatus FromResult(AuthStatusResult result)
+        {
+            var expired = result.Identity?.ExpiresOn is { } exp && exp <= DateTimeOffset.UtcNow;
+
+            string[] osKeyStoreBackends = ["DPAPI", "Keychain", "libsecret"];
+            var (encryptedAtRest, keyStoreMode) =
+                result.Identity?.Storage is { } storage
+                && osKeyStoreBackends.Any(backend => storage.Contains(backend, StringComparison.OrdinalIgnoreCase))
+                    ? (true, "OsKeyStore")
+                    : (false, "None");
+
+            return new FlatAuthStatus(
+                Authenticated: result.LoggedIn && !expired,
+                Expired: expired,
+                Method: result.Identity?.Method.ToString() ?? "None",
+                Account: result.Identity?.Username,
+                TenantId: result.Identity?.TenantId,
+                EncryptedAtRest: encryptedAtRest,
+                KeyStoreMode: keyStoreMode,
+                ExpiresOn: result.Identity?.ExpiresOn);
+        }
+    }
 }

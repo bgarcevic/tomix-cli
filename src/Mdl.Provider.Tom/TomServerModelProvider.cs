@@ -66,7 +66,7 @@ public sealed class TomServerModelProvider : IModelProvider
     }
 }
 
-internal sealed class TomServerModelSession : IModelSession, IModelDeploySession
+internal sealed class TomServerModelSession : IModelSession, IModelDeploySession, IModelExportSession
 {
     private readonly TabularServer _server;
     private readonly TabularDatabase _database;
@@ -109,6 +109,13 @@ internal sealed class TomServerModelSession : IModelSession, IModelDeploySession
 
     public string GenerateScript(ModelDeployRequest request)
         => TomModelDeployer.GenerateScript(_database, request);
+
+    // Serializes the live remote model to a local tmdl/bim target — the "remote -> local" half of
+    // workspace mirroring. Reuses the same exporter the file sessions use.
+    public Task<ModelExportResult> ExportAsync(
+        ModelExportRequest request,
+        CancellationToken cancellationToken)
+        => TomModelExporter.ExportAsync(_database, request, cancellationToken);
 
     private string ModelName()
         => string.IsNullOrWhiteSpace(_database.Name) ? _database.ID : _database.Name;

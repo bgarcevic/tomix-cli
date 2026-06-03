@@ -1,3 +1,4 @@
+using Mdl.App.Mutations;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -27,7 +28,7 @@ public sealed class ReplaceModelTextHandler
                 $"No provider can open model: {request.Model.Value}",
                 exitCode: 2);
 
-        var shouldSave = (request.Save || !string.IsNullOrWhiteSpace(request.SaveTo)) && !request.DryRun;
+        var shouldSave = MutationSave.Requested(request.Save, request.SaveTo) && !request.DryRun;
 
         await using var session = await provider.OpenAsync(request.Model, cancellationToken);
         if (session is not IModelMutationSession mutator)
@@ -58,14 +59,8 @@ public sealed class ReplaceModelTextHandler
 
             object saved = false;
             if (replace.ChangeCount > 0)
-            {
-                var export = await mutator.SaveAsync(
-                    request.SaveTo,
-                    request.Serialization,
-                    request.Force,
-                    cancellationToken);
-                saved = export.SavedPath;
-            }
+                saved = await MutationSave.RunAsync(
+                    mutator, request.SaveTo, request.Serialization, request.Force, cancellationToken);
 
             return MdlResult<ReplaceModelTextResult>.Ok(new ReplaceModelTextResult(
                 request.Pattern,

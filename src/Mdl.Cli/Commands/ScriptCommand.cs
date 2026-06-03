@@ -80,8 +80,8 @@ internal sealed class ScriptCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
-            var scriptValues = CollectRepeatedValues("script", "-S", "--script");
-            var expressionValues = CollectRepeatedValues("script", "-e", "--expression");
+            var scriptValues = CollectRepeatedValues(parseResult, "-S", "--script");
+            var expressionValues = CollectRepeatedValues(parseResult, "-e", "--expression");
             var scriptFiles = scriptValues.Count > 0
                 ? scriptValues
                 : parseResult.GetValue(scriptOption) ?? [];
@@ -118,33 +118,15 @@ internal sealed class ScriptCommand : ICommandModule
     }
 
     private static IReadOnlyList<string> ResolveExpressions(IReadOnlyList<string> expressions)
-        => expressions.Select(expression => expression == "-" ? Console.In.ReadToEnd() : expression).ToList();
+        => expressions.Select(expression => InputValueResolver.Resolve(expression) ?? expression).ToList();
 
-    private static IReadOnlyList<string> CollectRepeatedValues(string commandName, string shortName, string longName)
+    private static IReadOnlyList<string> CollectRepeatedValues(ParseResult parseResult, params string[] optionNames)
     {
-        var args = Environment.GetCommandLineArgs().Skip(1).ToArray();
-        var commandIndex = Array.FindIndex(args, arg => string.Equals(arg, commandName, StringComparison.Ordinal));
-        if (commandIndex < 0)
-            return [];
-
-        var values = new List<string>();
-        for (var i = commandIndex + 1; i < args.Length; i++)
-        {
-            var arg = args[i];
-            if (string.Equals(arg, shortName, StringComparison.Ordinal) ||
-                string.Equals(arg, longName, StringComparison.Ordinal))
-            {
-                if (i + 1 < args.Length)
-                    values.Add(args[++i]);
-                continue;
-            }
-
-            var prefix = longName + "=";
-            if (arg.StartsWith(prefix, StringComparison.Ordinal))
-                values.Add(arg[prefix.Length..]);
-        }
-
-        return values;
+        var targets = new HashSet<string>(optionNames, StringComparer.Ordinal);
+        return OrderedOptionTokens.ReadOptions(parseResult)
+            .Where(token => token.Value is not null && targets.Contains(token.Option))
+            .Select(token => token.Value!)
+            .ToList();
     }
 
     private static string? CollectModelArgument(string commandName)

@@ -108,7 +108,7 @@ internal sealed class FormatCommand : ICommandModule
                 type = parsed;
             }
 
-            var expression = ResolveInputValue(parseResult.GetValue(expressionOption));
+            var expression = InputValueResolver.Resolve(parseResult.GetValue(expressionOption));
             var result = await new FormatModelHandler(_providers, _formatter).HandleAsync(
                 new FormatModelRequest(
                     ModelSourceResolver.ResolveReference(
@@ -134,9 +134,6 @@ internal sealed class FormatCommand : ICommandModule
 
         return command;
     }
-
-    private static string? ResolveInputValue(string? value)
-        => value == "-" ? Console.In.ReadToEnd() : value;
 
     private static void Render(FormatModelResult result)
     {

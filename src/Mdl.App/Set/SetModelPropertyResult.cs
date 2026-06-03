@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Mdl.App.Set;
 
 public sealed record SetModelPropertyResult(
@@ -5,4 +7,6 @@ public sealed record SetModelPropertyResult(
     string Property,
     string Value,
     object Saved,
-    int ValidationErrors);
+    int ValidationErrors,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? Staged = null);

@@ -679,6 +679,55 @@ public sealed class CompatibilityProbeTests
     }
 
     [Fact]
+    public void AddTableDryRunJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("add", "NewTable", "-t", "Table", "samples\\basic-tmdl", "--output-format", "json"),
+            CliProcess.RunMdl("add", "NewTable", "-t", "Table", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void AddMeasureWithQueryPropertyJson_MatchesReferenceJson()
+    {
+        AssertJsonEqual(
+            CliProcess.RunReference("add", "Sales/TestMeasure", "-t", "Measure", "-i", "1", "-q", "description", "-i", "test desc", "samples\\basic-tmdl", "--output-format", "json"),
+            CliProcess.RunMdl("add", "Sales/TestMeasure", "-t", "Measure", "-i", "1", "-q", "description", "-i", "test desc", "samples\\basic-tmdl", "--output-format", "json"));
+    }
+
+    [Fact]
+    public void AddMeasureIfNotExistsDryRunJson_MatchesReferenceExitCode()
+    {
+        var reference = CliProcess.RunReference("add", "Sales/Total Sales", "-t", "Measure", "-i", "1", "--if-not-exists", "samples\\basic-tmdl", "--output-format", "json");
+        var mdl = CliProcess.RunMdl("add", "Sales/Total Sales", "-t", "Measure", "-i", "1", "--if-not-exists", "samples\\basic-tmdl", "--output-format", "json");
+        Assert.Equal(reference.ExitCode, mdl.ExitCode);
+    }
+
+    [Fact]
+    public void AddMeasureWithFileOption_MatchesReferenceJson()
+    {
+        var tempFile = Path.Combine(Path.GetTempPath(), $"mdl-add-file-{Guid.NewGuid():N}.dax");
+        File.WriteAllText(tempFile, "SUM(Sales[Amount])");
+        try
+        {
+            AssertJsonEqual(
+                CliProcess.RunReference("add", "Sales/FileMeasure", "-t", "Measure", "--file", tempFile, "samples\\basic-tmdl", "--output-format", "json"),
+                CliProcess.RunMdl("add", "Sales/FileMeasure", "-t", "Measure", "--file", tempFile, "samples\\basic-tmdl", "--output-format", "json"));
+        }
+        finally
+        {
+            File.Delete(tempFile);
+        }
+    }
+
+    [Fact]
+    public void AddMeasureIgnoredOptionsAccepted_MatchesReferenceExitCode()
+    {
+        var reference = CliProcess.RunReference("add", "Sales/TestMeasure", "-t", "Measure", "-i", "1", "--mode", "import", "samples\\basic-tmdl", "--output-format", "json");
+        var mdl = CliProcess.RunMdl("add", "Sales/TestMeasure", "-t", "Measure", "-i", "1", "--mode", "import", "samples\\basic-tmdl", "--output-format", "json");
+        Assert.Equal(reference.ExitCode, mdl.ExitCode);
+    }
+
+    [Fact]
     public void SetTableHiddenDryRunJson_MatchesReferenceJson()
     {
         AssertJsonEqual(
@@ -1026,6 +1075,56 @@ public sealed class CompatibilityProbeTests
             Assert.Equal(
                 CompatibilityText.WithoutPreviewFooter(CliProcess.RunReference("find", "TestMeasure", referenceModel, "--paths-only").StdOut),
                 CliProcess.RunMdl("find", "TestMeasure", mdlModel, "--paths-only").StdOut.Trim());
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AddMeasureSaveTo_CreatesAtAlternatePathLikeReference()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-add-saveto-test-{Guid.NewGuid():N}");
+        var referenceModel = Path.Combine(tempDir, "reference");
+        var mdlModel = Path.Combine(tempDir, "mdl");
+        var referenceOut = Path.Combine(tempDir, "reference-out");
+        var mdlOut = Path.Combine(tempDir, "mdl-out");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), referenceModel);
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), mdlModel);
+
+            AssertAddSavedJson(
+                CliProcess.RunReference("add", "Sales/TestMeasure", "-t", "Measure", "-i", "1", referenceModel, "--save-to", referenceOut, "--output-format", "json"),
+                CliProcess.RunMdl("add", "Sales/TestMeasure", "-t", "Measure", "-i", "1", mdlModel, "--save-to", mdlOut, "--output-format", "json"),
+                "Sales/TestMeasure");
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void AddMeasureSaveToSerializationBim_MatchesReferenceJson()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"mdl-add-bim-test-{Guid.NewGuid():N}");
+        var referenceModel = Path.Combine(tempDir, "reference");
+        var mdlModel = Path.Combine(tempDir, "mdl");
+        var referenceOut = Path.Combine(tempDir, "reference.bim");
+        var mdlOut = Path.Combine(tempDir, "mdl.bim");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), referenceModel);
+            CopyDirectory(Path.Combine(CliProcess.RepositoryRoot, "samples", "basic-tmdl"), mdlModel);
+
+            AssertAddSavedJson(
+                CliProcess.RunReference("add", "Sales/TestMeasure", "-t", "Measure", "-i", "1", "--model", referenceModel, "--save-to", referenceOut, "--serialization", "bim", "--output-format", "json"),
+                CliProcess.RunMdl("add", "Sales/TestMeasure", "-t", "Measure", "-i", "1", "--model", mdlModel, "--save-to", mdlOut, "--serialization", "bim", "--output-format", "json"),
+                "Sales/TestMeasure");
         }
         finally
         {

@@ -47,7 +47,7 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             AuthMethod.DeviceCode => await DeviceCodeAsync(scopes, options, cancellationToken).ConfigureAwait(false),
             AuthMethod.ServicePrincipalSecret => await ClientCredentialsAsync(scopes, options, useCertificate: false, cancellationToken).ConfigureAwait(false),
             AuthMethod.ServicePrincipalCertificate => await ClientCredentialsAsync(scopes, options, useCertificate: true, cancellationToken).ConfigureAwait(false),
-            AuthMethod.ManagedIdentity => await ManagedIdentityAsync(options.TargetEndpoint, cancellationToken).ConfigureAwait(false),
+            AuthMethod.ManagedIdentity => await ManagedIdentityAsync(options.TargetEndpoint, options.ClientId, cancellationToken).ConfigureAwait(false),
             _ => throw new ArgumentOutOfRangeException(nameof(options), options.Method, "Unsupported auth method.")
         };
 
@@ -158,7 +158,7 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
 
             case AuthMethod.ManagedIdentity:
             {
-                var result = await ManagedIdentityAsync(endpoint, cancellationToken).ConfigureAwait(false);
+                var result = await ManagedIdentityAsync(endpoint, state?.ClientId, cancellationToken).ConfigureAwait(false);
                 return new AccessToken(result.AccessToken, result.ExpiresOn);
             }
 
@@ -206,9 +206,12 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
         return await app.AcquireTokenForClient(scopes).ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private static async Task<AuthenticationResult> ManagedIdentityAsync(string? endpoint, CancellationToken cancellationToken)
+    private static async Task<AuthenticationResult> ManagedIdentityAsync(string? endpoint, string? clientId, CancellationToken cancellationToken)
     {
-        var app = ManagedIdentityApplicationBuilder.Create(ManagedIdentityId.SystemAssigned).Build();
+        var identityId = string.IsNullOrWhiteSpace(clientId)
+            ? ManagedIdentityId.SystemAssigned
+            : ManagedIdentityId.WithUserAssignedClientId(clientId);
+        var app = ManagedIdentityApplicationBuilder.Create(identityId).Build();
         return await app.AcquireTokenForManagedIdentity(AuthScopes.ResourceForEndpoint(endpoint))
             .ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
@@ -230,7 +233,7 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             if (string.IsNullOrWhiteSpace(options.CertificatePath))
                 throw new AuthenticationRequiredException("Certificate sign-in requires --certificate <path>.");
 
-            var certificate = X509CertificateLoader.LoadPkcs12FromFile(options.CertificatePath, options.CertificatePassword);
+            var certificate = LoadCertificate(options.CertificatePath, options.CertificatePassword);
             builder = builder.WithCertificate(certificate);
         }
         else
@@ -242,6 +245,16 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
         }
 
         return builder.Build();
+    }
+
+    private static X509Certificate2 LoadCertificate(string path, string? password)
+    {
+        if (path.EndsWith(".pem", StringComparison.OrdinalIgnoreCase))
+            return string.IsNullOrEmpty(password)
+                ? X509Certificate2.CreateFromPemFile(path)
+                : X509Certificate2.CreateFromEncryptedPemFile(path, password.AsSpan());
+
+        return X509CertificateLoader.LoadPkcs12FromFile(path, password);
     }
 
     private async Task<IPublicClientApplication> EnsurePublicAppAsync(string? tenant)
