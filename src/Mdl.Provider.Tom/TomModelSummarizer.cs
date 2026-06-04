@@ -27,8 +27,14 @@ public static class TomModelSummarizer
     private const string PropIsActive = "IsActive";
     private const string PropPartitionSourceType = "PartitionSourceType";
     private const string PropPartitionMode = "PartitionMode";
+    private const string PropPartitionDataView = "DataView";
+    private const string PropPartitionQueryGroup = "QueryGroup";
     private const string PropRlsExpression = "RlsExpression";
     private const string PropUsedInRelationships = "UsedInRelationships";
+    private const string PropDetailRowsExpression = "DetailRowsExpression";
+    private const string PropFormatStringExpression = "FormatStringExpression";
+    private const string PropLineageTag = "LineageTag";
+    private const string PropKpi = "KPI";
     private const string PropObjectType = "ObjectType";
 
     public static ModelSummary Summarize(Database database, string name)
@@ -77,6 +83,7 @@ public static class TomModelSummarizer
         var tableProps = new Dictionary<string, string>
         {
             [PropDataCategory] = table.DataCategory ?? "",
+            [PropLineageTag] = table.LineageTag ?? "",
             [PropTableHasRls] = rlsIndex.ContainsKey(table.Name).ToString().ToLowerInvariant(),
             [PropTableIsCalc] = (table.Partitions.Any(p => p.SourceType == PartitionSourceType.Calculated)).ToString().ToLowerInvariant(),
             [PropObjectType] = "Table"
@@ -128,8 +135,10 @@ public static class TomModelSummarizer
             [PropIsAvailableInMdx] = column.IsAvailableInMDX.ToString().ToLowerInvariant(),
             [PropSummarizeBy] = column.SummarizeBy.ToString(),
             [PropFormatString] = column.FormatString ?? "",
+            [PropDisplayFolder] = column.DisplayFolder ?? "",
             [PropDataCategory] = column.DataCategory ?? "",
             [PropSortByColumn] = column.SortByColumn?.Name ?? "",
+            [PropLineageTag] = column.LineageTag ?? "",
             [PropUsedInRelationships] = usedInRels.ToString().ToLowerInvariant(),
             [PropTableDataCategory] = column.Table.DataCategory ?? "",
             [PropObjectType] = column.Type == ColumnType.Calculated ? "CalculatedColumn" : "DataColumn"
@@ -163,6 +172,10 @@ public static class TomModelSummarizer
             [PropDataType] = measure.DataType.ToString(),
             [PropFormatString] = measure.FormatString ?? "",
             [PropDisplayFolder] = measure.DisplayFolder ?? "",
+            [PropDetailRowsExpression] = measure.DetailRowsDefinition?.Expression ?? "",
+            [PropFormatStringExpression] = measure.FormatStringDefinition?.Expression ?? "",
+            [PropKpi] = measure.KPI is null ? "" : "Present",
+            [PropLineageTag] = measure.LineageTag ?? "",
             [PropObjectType] = "Measure"
         };
 
@@ -209,6 +222,8 @@ public static class TomModelSummarizer
         {
             [PropPartitionSourceType] = partition.SourceType.ToString(),
             [PropPartitionMode] = partition.Mode.ToString(),
+            [PropPartitionDataView] = partition.DataView.ToString(),
+            [PropPartitionQueryGroup] = partition.QueryGroup?.Name ?? "",
             [PropObjectType] = "Partition"
         };
 

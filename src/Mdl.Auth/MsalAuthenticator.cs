@@ -17,24 +17,31 @@ namespace Mdl.Auth;
 /// </summary>
 public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
 {
-    private const string CacheFileName = "mdl-msal.cache";
+    private const string UserCacheFileName = "mdl-msal-user.cache";
+    private const string AppCacheFileName = "mdl-msal-app.cache";
 
     private readonly MsalAuthSettings _settings;
     private readonly string _cacheDirectory;
     private readonly AuthStateStore _stateStore;
+    private readonly CredentialStore _credentialStore;
     private readonly Action<string> _messageWriter;
 
     private IPublicClientApplication? _publicApp;
+    private IConfidentialClientApplication? _confidentialApp;
+    private MsalCacheHelper? _userCacheHelper;
+    private MsalCacheHelper? _appCacheHelper;
 
     public MsalAuthenticator(
         MsalAuthSettings settings,
         string? cacheDirectory = null,
         string? stateFile = null,
+        string? credentialFile = null,
         Action<string>? messageWriter = null)
     {
         _settings = settings;
         _cacheDirectory = cacheDirectory ?? MdlPaths.AuthDirectory;
         _stateStore = new AuthStateStore(stateFile ?? MdlPaths.AuthStateFile);
+        _credentialStore = new CredentialStore(credentialFile);
         _messageWriter = messageWriter ?? (_ => { });
     }
 
@@ -61,6 +68,9 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
                 options.ClientId,
                 options.TargetEndpoint,
                 identity.ExpiresOn));
+
+            if (options.Method is AuthMethod.ServicePrincipalSecret or AuthMethod.ServicePrincipalCertificate)
+                _credentialStore.Save(options);
         }
         return identity;
     }
@@ -106,6 +116,7 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
     public async Task<bool> LogoutAsync(CancellationToken cancellationToken)
     {
         var hadState = _stateStore.Delete();
+        _credentialStore.Delete();
         var removedAccounts = false;
 
         try
@@ -154,10 +165,20 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             case AuthMethod.ServicePrincipalSecret:
             case AuthMethod.ServicePrincipalCertificate:
             {
+                if (_confidentialApp is not null)
+                {
+                    var cached = await _confidentialApp.AcquireTokenForClient(scopes)
+                        .ExecuteAsync(cancellationToken).ConfigureAwait(false);
+                    return new AccessToken(cached.AccessToken, cached.ExpiresOn);
+                }
+
                 var options = ServicePrincipalFromEnvironment(state, method, endpoint)
+                    ?? _credentialStore.Load(method, endpoint)
                     ?? throw new AuthenticationRequiredException(
-                        "Service-principal credentials are not available. Set MDL_AUTH_CLIENT_ID, MDL_AUTH_TENANT, and MDL_AUTH_CLIENT_SECRET (or MDL_AUTH_CERTIFICATE), then retry.");
-                var result = await ClientCredentialsAsync(scopes, options, method == AuthMethod.ServicePrincipalCertificate, cancellationToken).ConfigureAwait(false);
+                        "Service-principal token expired and credentials are not available for silent renewal. Set MDL_AUTH_CLIENT_SECRET (or MDL_AUTH_CERTIFICATE), then retry.");
+                var app = await EnsureConfidentialAppAsync(options, method == AuthMethod.ServicePrincipalCertificate).ConfigureAwait(false);
+                var result = await app.AcquireTokenForClient(scopes)
+                    .ExecuteAsync(cancellationToken).ConfigureAwait(false);
                 return new AccessToken(result.AccessToken, result.ExpiresOn);
             }
 
@@ -207,7 +228,7 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
         bool useCertificate,
         CancellationToken cancellationToken)
     {
-        var app = BuildConfidentialApp(options, useCertificate);
+        var app = await EnsureConfidentialAppAsync(options, useCertificate).ConfigureAwait(false);
         return await app.AcquireTokenForClient(scopes).ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
 
@@ -221,8 +242,12 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             .ExecuteAsync(cancellationToken).ConfigureAwait(false);
     }
 
-    private IConfidentialClientApplication BuildConfidentialApp(AuthLoginOptions options, bool useCertificate)
+    private async Task<IConfidentialClientApplication> EnsureConfidentialAppAsync(
+        AuthLoginOptions options, bool useCertificate)
     {
+        if (_confidentialApp is not null)
+            return _confidentialApp;
+
         if (string.IsNullOrWhiteSpace(options.ClientId))
             throw new AuthenticationRequiredException("Service-principal sign-in requires a client id (--username/-u).");
 
@@ -249,7 +274,13 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             builder = builder.WithClientSecret(options.ClientSecret);
         }
 
-        return builder.Build();
+        var app = builder.Build();
+
+        var helper = await GetAppCacheHelperAsync().ConfigureAwait(false);
+        helper.RegisterCache(app.AppTokenCache);
+
+        _confidentialApp = app;
+        return app;
     }
 
     private static X509Certificate2 LoadCertificate(string path, string? password)
@@ -273,21 +304,32 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             .WithRedirectUri("http://localhost")
             .Build();
 
-        var helper = await CreateCacheHelperAsync().ConfigureAwait(false);
+        var helper = await GetUserCacheHelperAsync().ConfigureAwait(false);
         helper.RegisterCache(app.UserTokenCache);
 
         _publicApp = app;
         return app;
     }
 
-    private string ResolveAuthority(string? tenant)
-        => string.IsNullOrWhiteSpace(tenant)
-            ? _settings.Authority
-            : $"https://login.microsoftonline.com/{tenant}";
-
-    private async Task<MsalCacheHelper> CreateCacheHelperAsync()
+    private async Task<MsalCacheHelper> GetUserCacheHelperAsync()
     {
-        var storage = new StorageCreationPropertiesBuilder(CacheFileName, _cacheDirectory)
+        if (_userCacheHelper is not null)
+            return _userCacheHelper;
+        _userCacheHelper = await CreateCacheHelperAsync(UserCacheFileName).ConfigureAwait(false);
+        return _userCacheHelper;
+    }
+
+    private async Task<MsalCacheHelper> GetAppCacheHelperAsync()
+    {
+        if (_appCacheHelper is not null)
+            return _appCacheHelper;
+        _appCacheHelper = await CreateCacheHelperAsync(AppCacheFileName).ConfigureAwait(false);
+        return _appCacheHelper;
+    }
+
+    private async Task<MsalCacheHelper> CreateCacheHelperAsync(string fileName)
+    {
+        var storage = new StorageCreationPropertiesBuilder(fileName, _cacheDirectory)
             .WithLinuxKeyring(
                 schemaName: "com.mdl.tokencache",
                 collection: MsalCacheHelper.LinuxKeyRingDefaultCollection,
@@ -299,6 +341,11 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
 
         return await MsalCacheHelper.CreateAsync(storage).ConfigureAwait(false);
     }
+
+    private string ResolveAuthority(string? tenant)
+        => string.IsNullOrWhiteSpace(tenant)
+            ? _settings.Authority
+            : $"https://login.microsoftonline.com/{tenant}";
 
     private AuthIdentity ToIdentity(AuthenticationResult result, AuthLoginOptions options)
     {

@@ -32,8 +32,8 @@ internal static class ModelObjectProjection
                 ["name"] = obj.Name,
                 ["description"] = obj.Description ?? "",
                 ["isHidden"] = obj.Hidden,
-                ["dataCategory"] = "",
-                ["lineageTag"] = "",
+                ["dataCategory"] = obj.Property("DataCategory") ?? "",
+                ["lineageTag"] = obj.Property("LineageTag") ?? "",
                 ["columns"] = counts.GetValueOrDefault(ModelObjectKind.Column),
                 ["measures"] = counts.GetValueOrDefault(ModelObjectKind.Measure),
                 ["hierarchies"] = counts.GetValueOrDefault(ModelObjectKind.Hierarchy),
@@ -51,9 +51,43 @@ internal static class ModelObjectProjection
                 ["description"] = obj.Description ?? "",
                 ["isHidden"] = obj.Hidden,
                 ["expression"] = obj.Expression ?? "",
-                ["formatString"] = null,
-                ["displayFolder"] = "",
-                ["lineageTag"] = ""
+                ["formatString"] = obj.Property("FormatString") ?? "",
+                ["displayFolder"] = obj.Property("DisplayFolder") ?? "",
+                ["dataType"] = obj.Property("DataType") ?? "",
+                ["detailRowsExpression"] = obj.Property("DetailRowsExpression") ?? "",
+                ["formatStringExpression"] = obj.Property("FormatStringExpression") ?? "",
+                ["kpi"] = obj.Property("KPI") ?? "",
+                ["lineageTag"] = obj.Property("LineageTag") ?? ""
+            };
+        }
+
+        if (obj.Kind == ModelObjectKind.Column)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["name"] = obj.Name,
+                ["description"] = obj.Description ?? "",
+                ["sourceColumn"] = obj.SourceColumn ?? "",
+                ["dataType"] = obj.Property("DataType") ?? "",
+                ["isHidden"] = obj.Hidden,
+                ["formatString"] = obj.Property("FormatString") ?? "",
+                ["displayFolder"] = obj.Property("DisplayFolder") ?? "",
+                ["sortByColumn"] = obj.Property("SortByColumn") ?? "",
+                ["summarizeBy"] = obj.Property("SummarizeBy") ?? "",
+                ["lineageTag"] = obj.Property("LineageTag") ?? ""
+            };
+        }
+
+        if (obj.Kind == ModelObjectKind.Partition)
+        {
+            return new Dictionary<string, object?>
+            {
+                ["name"] = obj.Name,
+                ["description"] = obj.Description ?? "",
+                ["expression"] = obj.Expression ?? "",
+                ["mode"] = obj.Detail ?? "",
+                ["dataView"] = obj.Property("DataView") ?? "",
+                ["queryGroup"] = obj.Property("QueryGroup") ?? ""
             };
         }
 

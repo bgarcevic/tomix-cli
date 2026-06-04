@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using Mdl.Core.Models;
+using Mdl.Core.Paths;
 
 namespace Mdl.App.ModelObjects;
 
@@ -16,12 +17,25 @@ internal static partial class ModelObjectLookup
             .ToList();
 
         var normalized = NormalizePath(path);
+        var (stripped, impliedKind) = ParseKeywords(normalized);
+
         var exact = objects
             .Where(o => string.Equals(NormalizePath(o.Path), normalized, StringComparison.OrdinalIgnoreCase))
             .ToList();
 
         if (exact.Count > 0)
             return exact;
+
+        if (stripped != normalized && impliedKind is not null)
+        {
+            var strippedMatches = objects
+                .Where(o => o.Kind == impliedKind &&
+                            string.Equals(NormalizePath(o.Path), stripped, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+
+            if (strippedMatches.Count > 0)
+                return strippedMatches;
+        }
 
         return objects
             .Where(o => Matches(o, path))
@@ -47,6 +61,21 @@ internal static partial class ModelObjectLookup
             return $"{dax.Groups["table"].Value}/{dax.Groups["object"].Value}";
 
         return path.Trim().Trim('/').Replace("'", "");
+    }
+
+    public static (string stripped, ModelObjectKind? impliedKind) ParseKeywords(string normalizedPath)
+    {
+        var segments = ObjectPath.Parse(normalizedPath);
+        ModelObjectKind? kind = null;
+        var filtered = new List<string>();
+        foreach (var seg in segments)
+        {
+            if (seg.TryGetKeyword(out var kw))
+                kind = kw;
+            else
+                filtered.Add(seg.Text);
+        }
+        return (string.Join("/", filtered), kind);
     }
 
     public static string NotFoundMessage(string path)
