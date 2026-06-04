@@ -46,6 +46,7 @@ internal static class Program
             new DeployCommand(providers),
             new DepsCommand(providers),
             new DiffCommand(providers),
+            new DoctorCommand(ResolveVersion()),
             new FindCommand(providers),
             new FormatCommand(providers, formatter),
             new GetCommand(providers),

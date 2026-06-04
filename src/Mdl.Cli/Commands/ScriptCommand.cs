@@ -190,6 +190,8 @@ internal sealed class ScriptCommand : ICommandModule
 
     private static void RenderText(ScriptRunResult result, string format)
     {
+        var err = AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
+
         AnsiConsole.MarkupLine(Styling.Title($"Model: {result.ModelName}"));
 
         if (result.DryRun)
@@ -202,9 +204,9 @@ internal sealed class ScriptCommand : ICommandModule
                     continue;
                 }
 
-                AnsiConsole.MarkupLine(Styling.Error($"Compilation failed: {script.Source}"));
+                err.MarkupLine(Styling.Error($"Compilation failed: {script.Source}"));
                 foreach (var error in script.Errors)
-                    AnsiConsole.WriteLine(error);
+                    err.WriteLine(error);
             }
 
             return;
@@ -227,10 +229,10 @@ internal sealed class ScriptCommand : ICommandModule
         if (!result.Success)
         {
             foreach (var error in result.CompileErrors)
-                AnsiConsole.WriteLine(error);
+                err.WriteLine(error);
 
             if (!string.IsNullOrWhiteSpace(result.RuntimeError))
-                AnsiConsole.WriteLine(result.RuntimeError);
+                err.WriteLine(result.RuntimeError);
 
             return;
         }

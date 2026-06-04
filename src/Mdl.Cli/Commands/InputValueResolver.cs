@@ -7,9 +7,16 @@ namespace Mdl.Cli.Commands;
 /// </summary>
 internal static class InputValueResolver
 {
-    /// <summary>Reads from stdin when <paramref name="value"/> is <c>-</c>, otherwise returns it verbatim.</summary>
+    /// <summary>
+    /// Reads from stdin when <paramref name="value"/> is <c>-</c>, or when it is
+    /// <c>null</c>/<c>empty</c> and stdin is redirected (implicit piping). Otherwise returns it verbatim.
+    /// </summary>
     public static string? Resolve(string? value)
-        => value == "-" ? Console.In.ReadToEnd() : value;
+        => value == "-"
+            ? Console.In.ReadToEnd()
+            : string.IsNullOrEmpty(value) && Console.IsInputRedirected
+                ? Console.In.ReadToEnd()
+                : value;
 
     /// <summary>Reads from <paramref name="file"/> when supplied, otherwise falls back to <see cref="Resolve(string?)"/>.</summary>
     public static string? Resolve(string? value, string? file)

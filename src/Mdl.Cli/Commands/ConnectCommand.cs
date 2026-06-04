@@ -207,7 +207,7 @@ internal sealed class ConnectCommand : ICommandModule
                                 return 1;
                             }
 
-                            Console.Write($"Workspace target {database} already exists on {workspace}. Overwrite? [y/n] (n): ");
+                            Console.Error.Write($"Workspace target {database} already exists on {workspace}. Overwrite? [y/n] (n): ");
                             var answer = Console.ReadLine()?.Trim().ToLowerInvariant();
                             if (answer != "y" && answer != "yes")
                             {

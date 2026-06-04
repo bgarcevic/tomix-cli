@@ -30,11 +30,10 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
 
     private static void WriteRoot(Command root)
     {
-        AnsiConsole.MarkupLine(Styling.Title("mdl"));
-        AnsiConsole.MarkupLine(Styling.Muted("  Semantic model command line"));
+        AnsiConsole.MarkupLine($"{Styling.Title("mdl")} {Styling.Muted("- open source semantic model CLI")}");
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(Styling.Title("Usage:"));
-        AnsiConsole.MarkupLine($"  {Styling.Value("mdl")} [[command]] [[options]]");
+        AnsiConsole.MarkupLine($"  {Styling.Bold("mdl")} {Styling.Bold("[command]")} {Styling.Option("[options]")}");
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(Styling.Title("Global options:"));
 
@@ -56,7 +55,11 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
 
         var globalFlagsWidth = globalOptions.Max(o => o.Flags.Length) + 2;
         foreach (var (flags, desc) in globalOptions)
-            AnsiConsole.MarkupLine($"  {Styling.Option(flags.PadRight(globalFlagsWidth))}{Styling.MarkupEscape(desc)}");
+        {
+            var styled = StyleOptionLabel(flags);
+            var padding = new string(' ', globalFlagsWidth - flags.Length);
+            AnsiConsole.MarkupLine($"  {styled}{padding}{Styling.MarkupEscape(desc)}");
+        }
 
         AnsiConsole.WriteLine();
         WriteCommandsSection(root);
@@ -67,6 +70,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
     private static void WriteCommand(Command command)
     {
         var parentChain = GetParentChain(command);
+        var hasSubcommands = command.Subcommands.Count > 0;
 
         if (!string.IsNullOrEmpty(command.Description))
         {
@@ -78,15 +82,28 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         AnsiConsole.MarkupLine(Styling.Title("Usage:"));
         var usageParts = new List<string> { "mdl" };
         usageParts.AddRange(parentChain);
-        var usageLine = string.Join(" ", usageParts);
-        var argParts = command.Arguments
-            .Where(a => !a.Hidden)
-            .Select(a => a.Arity.MinimumNumberOfValues == 0 ? $"[{a.Name}]" : $"<{a.Name}>");
-        if (argParts.Any())
-            usageLine += " " + string.Join(" ", argParts);
-        usageLine += " [options]";
-        AnsiConsole.MarkupLine($"  {Styling.Value(usageLine)}");
+        var usageLine = Styling.Bold(string.Join(" ", usageParts));
+
+        foreach (var arg in command.Arguments.Where(a => !a.Hidden))
+        {
+            if (arg.Arity.MinimumNumberOfValues == 0)
+                usageLine += " " + Styling.Value($"[{arg.Name}]");
+            else
+                usageLine += " " + Styling.Value($"<{arg.Name}>");
+        }
+
+        if (hasSubcommands)
+            usageLine += " " + Styling.Bold("[command]");
+
+        usageLine += " " + Styling.Option("[options]");
+        AnsiConsole.MarkupLine($"  {usageLine}");
         AnsiConsole.WriteLine();
+
+        if (hasSubcommands)
+        {
+            WriteCommandsSection(command);
+            AnsiConsole.WriteLine();
+        }
 
         var arguments = command.Arguments.Where(a => !a.Hidden).ToList();
         if (arguments.Count > 0)
@@ -96,26 +113,54 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             AnsiConsole.WriteLine();
         }
 
-        var options = GetAllOptions(command);
-        if (options.Count > 0)
+        var (localOptions, globalOptions) = GetGroupedOptions(command);
+
+        if (localOptions.Count > 0)
         {
             AnsiConsole.MarkupLine(Styling.Title("Options:"));
-            WriteOptionRows(options.Select(o => (FormatOptionAliases(o), o.Description ?? "")));
+            WriteOptionRows(localOptions.Select(o => (FormatOptionAliases(o), o.Description ?? "")));
             AnsiConsole.WriteLine();
         }
 
-        if (command.Subcommands.Count > 0)
-            WriteCommandsSection(command);
+        if (globalOptions.Count > 0)
+        {
+            AnsiConsole.MarkupLine(Styling.Title("Global options:"));
+            WriteOptionRows(globalOptions.Select(o => (FormatOptionAliases(o), o.Description ?? "")));
+            AnsiConsole.WriteLine();
+        }
     }
 
     private static void WriteCommandsSection(Command command)
     {
         AnsiConsole.MarkupLine(Styling.Title("Commands:"));
         var subcommands = command.Subcommands.ToList();
-        var rows = subcommands.Select(sc => (sc.Name, sc.Description ?? "")).ToList();
-        var labelWidth = rows.Max(r => r.Name.Length) + 2;
-        foreach (var (label, description) in rows)
-            AnsiConsole.MarkupLine($"  {Styling.Bold(label.PadRight(labelWidth))}{Styling.MarkupEscape(description)}");
+
+        var rows = subcommands.Select(sc =>
+        {
+            var plainLabel = sc.Name;
+            var styledParts = new List<string> { Styling.Bold(sc.Name) };
+            foreach (var arg in sc.Arguments.Where(a => !a.Hidden))
+            {
+                if (arg.Arity.MinimumNumberOfValues == 0)
+                {
+                    plainLabel += $" [{arg.Name}]";
+                    styledParts.Add(Styling.Value($"[{arg.Name}]"));
+                }
+                else
+                {
+                    plainLabel += $" <{arg.Name}>";
+                    styledParts.Add(Styling.Value($"<{arg.Name}>"));
+                }
+            }
+            return (PlainLabel: plainLabel, StyledLabel: string.Join(" ", styledParts), Description: sc.Description ?? "");
+        }).ToList();
+
+        var labelWidth = rows.Max(r => r.PlainLabel.Length) + 2;
+        foreach (var row in rows)
+        {
+            var padding = new string(' ', labelWidth - row.PlainLabel.Length);
+            AnsiConsole.MarkupLine($"  {row.StyledLabel}{padding}{Styling.MarkupEscape(row.Description)}");
+        }
     }
 
     private static void WriteOptionRows(IEnumerable<(string Label, string Description)> rows)
@@ -123,7 +168,11 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         var rowList = rows.ToList();
         var labelWidth = rowList.Max(r => r.Label.Length) + 2;
         foreach (var (label, description) in rowList)
-            AnsiConsole.MarkupLine($"  {Styling.Option(label.PadRight(labelWidth))}{Styling.MarkupEscape(description)}");
+        {
+            var styled = StyleOptionLabel(label);
+            var padding = new string(' ', labelWidth - label.Length);
+            AnsiConsole.MarkupLine($"  {styled}{padding}{Styling.MarkupEscape(description)}");
+        }
     }
 
     private static void WriteArgumentRows(IEnumerable<(string Label, string Description)> rows)
@@ -134,15 +183,16 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             AnsiConsole.MarkupLine($"  {Styling.Value(label.PadRight(labelWidth))}{Styling.MarkupEscape(description)}");
     }
 
-    private static List<Option> GetAllOptions(Command command)
+    private static (List<Option> Local, List<Option> Global) GetGroupedOptions(Command command)
     {
         var seen = new HashSet<string>(StringComparer.Ordinal);
-        var result = new List<Option>();
+        var local = new List<Option>();
+        var global = new List<Option>();
 
         foreach (var opt in command.Options.Where(o => !o.Hidden))
         {
             if (seen.Add(opt.Name))
-                result.Add(opt);
+                local.Add(opt);
         }
 
         var parent = command.Parents.OfType<Command>().FirstOrDefault();
@@ -151,12 +201,12 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             foreach (var opt in parent.Options.Where(o => !o.Hidden && o.Recursive))
             {
                 if (seen.Add(opt.Name))
-                    result.Add(opt);
+                    global.Add(opt);
             }
             parent = parent.Parents.OfType<Command>().FirstOrDefault();
         }
 
-        return result;
+        return (local, global);
     }
 
     private static List<string> GetParentChain(Command command)
@@ -169,6 +219,17 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             current = current.Parents.OfType<Command>().FirstOrDefault();
         }
         return chain;
+    }
+
+    private static string StyleOptionLabel(string label)
+    {
+        var valueStart = label.LastIndexOf(" <");
+        if (valueStart < 0)
+            return Styling.Option(label);
+
+        var flags = label[..valueStart];
+        var valueArg = label[valueStart..];
+        return Styling.Option(flags) + " " + Styling.Value(valueArg[1..]);
     }
 
     private static string FormatOptionAliases(Option option)

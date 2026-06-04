@@ -10,9 +10,16 @@ namespace Mdl.App.Deploy;
 public sealed class DeployModelHandler
 {
     private readonly IReadOnlyList<IModelProvider> _providers;
+    private readonly Func<CliConnectionState?> _resolveSession;
 
     public DeployModelHandler(IEnumerable<IModelProvider> providers)
-        => _providers = providers.ToList();
+        : this(providers, () => new CliStateStore().LoadCurrentSession()) { }
+
+    public DeployModelHandler(IEnumerable<IModelProvider> providers, Func<CliConnectionState?> resolveSession)
+    {
+        _providers = providers.ToList();
+        _resolveSession = resolveSession;
+    }
 
     public async Task<MdlResult<DeployModelResult>> HandleAsync(
         DeployModelRequest request,
@@ -46,7 +53,7 @@ public sealed class DeployModelHandler
                 $"Provider cannot deploy model: {request.Model.Value}",
                 exitCode: 1);
 
-        var (server, database) = ResolveTarget(request);
+        var (server, database) = ResolveTarget(request, _resolveSession);
 
         if (string.IsNullOrWhiteSpace(server))
             return MdlResult<DeployModelResult>.Fail(
@@ -149,7 +156,8 @@ public sealed class DeployModelHandler
         return null;
     }
 
-    private static (string? server, string? database) ResolveTarget(DeployModelRequest request)
+    private static (string? server, string? database) ResolveTarget(
+        DeployModelRequest request, Func<CliConnectionState?> resolveSession)
     {
         if (!string.IsNullOrWhiteSpace(request.Server))
             return (request.Server, request.Database);
@@ -162,7 +170,7 @@ public sealed class DeployModelHandler
                 return (profile.Server, profile.Database ?? request.Database);
         }
 
-        var session = new CliStateStore().LoadCurrentSession();
+        var session = resolveSession();
         if (session is not null)
             return (session.Server, session.Database ?? request.Database);
 

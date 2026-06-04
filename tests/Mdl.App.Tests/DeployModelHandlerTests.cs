@@ -57,7 +57,7 @@ public sealed class DeployModelHandlerTests
     [Fact]
     public async Task HandleAsync_ReturnsFail_WhenNoTargetServer()
     {
-        var handler = new DeployModelHandler([new StubDeployProvider()]);
+        var handler = new DeployModelHandler([new StubDeployProvider()], () => null);
         var result = await handler.HandleAsync(
             new DeployModelRequest(
                 new ModelReference("samples/basic-tmdl"),
