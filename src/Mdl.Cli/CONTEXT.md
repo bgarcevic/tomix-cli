@@ -36,6 +36,7 @@ CLI entry point for `mdl`.
 - CLI help, JSON field names, diagnostics, and human output must avoid versioned third-party product names or abbreviations for licensing-sensitive compatibility work.
 - Use the color palette and helpers in `Output/Styling.cs`. See `/docs/cli-color-strategy.md` for the full palette, message categories, and migration status.
 - Do not hard-code ANSI escape codes or Spectre markup strings in commands. Use `Styling` helpers.
+- Consult `/docs/cli-ux-guidelines.md` when adding or changing any command, option, argument, help text, output rendering, error message, or exit code.
 
 ## Test
 

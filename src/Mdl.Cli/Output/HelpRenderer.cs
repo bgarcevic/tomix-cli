@@ -7,6 +7,147 @@ namespace Mdl.Cli.Output;
 
 internal sealed class SpectreHelpAction : SynchronousCommandLineAction
 {
+    private static readonly (string Heading, string[] Commands)[] RootSections =
+    [
+        ("Discover", ["ls", "get", "find", "info", "deps"]),
+        ("Modify", ["add", "set", "mv", "rm", "replace", "format", "script", "macro"]),
+        ("Connect", ["connect", "deploy", "load", "save", "auth", "session"]),
+        ("Validate", ["bpa", "validate", "diff", "doctor"]),
+        ("Manage", ["config", "profile", "init", "completion", "stage", "interactive"]),
+    ];
+
+    private static readonly string[] NotImplementedCommands =
+        ["incremental-refresh", "query", "refresh", "test", "vertipaq"];
+
+    private static readonly Dictionary<string, string[]> CommandExamples = new(StringComparer.Ordinal)
+    {
+        ["ls"] = [
+            "mdl ls",
+            "mdl ls --type table",
+            "mdl ls Sa*",
+            "mdl ls --paths-only --type measure",
+        ],
+        ["get"] = [
+            "mdl get \"Table[Measure]\"",
+            "mdl get tables/Sales -t dax",
+            "mdl get Sales/Measures/Revenue --output-format json",
+        ],
+        ["find"] = [
+            "mdl find CALCULATE",
+            "mdl find \"SUM(Sales\" --type measure",
+        ],
+        ["info"] = [
+            "mdl info",
+            "mdl info --output-format json",
+        ],
+        ["deps"] = [
+            "mdl deps \"Table[Measure]\"",
+            "mdl deps tables/Sales --direction downstream",
+        ],
+        ["add"] = [
+            "mdl add measures/MyMeasure -q \"CALCULATE(SUM(Sales[Amount]))\"",
+            "mdl add measures/MyMeasure -i - < query.txt",
+        ],
+        ["set"] = [
+            "mdl set \"Table[Measure]\" -q \"CALCULATE(SUM(Sales[Amount]))\"",
+            "mdl set tables/Sales/Name -i \"Sales_v2\"",
+        ],
+        ["mv"] = [
+            "mdl mv measures/OldName measures/NewName",
+            "mdl mv tables/Sales tables/SalesData",
+        ],
+        ["rm"] = [
+            "mdl rm measures/ObsoleteMeasure",
+            "mdl rm tables/Staging --save",
+        ],
+        ["replace"] = [
+            "mdl replace \"[OrderDate]\" \"[ShipDate]\"",
+            "mdl replace \"old_name\" \"new_name\" --type measure",
+        ],
+        ["format"] = [
+            "mdl format",
+            "mdl format -e \"CALCULATE(sum(sales[amt]))\"",
+            "mdl format -p \"Table[Measure]\"",
+        ],
+        ["script"] = [
+            "mdl script -e \"Model.Tables.Count\"",
+            "mdl script transform.csx --save",
+            "mdl script -e \"Model.Tables[\\\"Sales\\\"].Name\" --output-format json",
+        ],
+        ["connect"] = [
+            "mdl connect",
+            "mdl connect MyWorkspace Sales",
+            "mdl connect ./model.tmdl",
+            "mdl connect --local",
+        ],
+        ["deploy"] = [
+            "mdl deploy ./model.tmdl",
+            "mdl deploy ./model.tmdl --dry-run",
+            "mdl deploy ./model.bim --skip-bpa",
+        ],
+        ["load"] = [
+            "mdl load ./model.tmdl",
+            "mdl load --output-format json",
+        ],
+        ["save"] = [
+            "mdl save ./model.tmdl --serialization bim",
+            "mdl save --output-format tmdl",
+        ],
+        ["auth"] = [
+            "mdl auth login",
+            "mdl auth login --auth spn --client-id $SPN_ID",
+            "mdl auth status",
+            "mdl auth logout",
+        ],
+        ["session"] = [
+            "mdl session",
+            "mdl session --reset",
+        ],
+        ["bpa"] = [
+            "mdl bpa",
+            "mdl bpa --format json",
+            "mdl bpa --severity error",
+        ],
+        ["validate"] = [
+            "mdl validate",
+            "mdl validate --ci",
+            "mdl validate --trx",
+        ],
+        ["diff"] = [
+            "mdl diff ./v1.tmdl ./v2.tmdl",
+            "mdl diff ./v1.bim ./v2.bim --output-format json",
+        ],
+        ["doctor"] = [
+            "mdl doctor",
+        ],
+        ["config"] = [
+            "mdl config list",
+            "mdl config set noColor true",
+        ],
+        ["profile"] = [
+            "mdl profile list",
+            "mdl profile add dev -s MyWorkspace -d Sales",
+            "mdl profile activate dev",
+        ],
+        ["init"] = [
+            "mdl init",
+            "mdl init ./my-model",
+        ],
+        ["completion"] = [
+            "mdl completion powershell | Invoke-Expression",
+            "mdl completion bash >> ~/.bashrc",
+        ],
+        ["stage"] = [
+            "mdl stage",
+            "mdl stage commit",
+            "mdl stage revert",
+        ],
+        ["interactive"] = [
+            "mdl interactive",
+            "mdl interactive ./model.tmdl",
+        ],
+    };
+
     public override int Invoke(ParseResult parseResult)
     {
         var command = parseResult.CommandResult.Command;
@@ -62,9 +203,63 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         }
 
         AnsiConsole.WriteLine();
-        WriteCommandsSection(root);
+        WriteSectionedCommands(root);
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(Styling.Muted("Use `mdl <command> --help` for command-specific options."));
+    }
+
+    private static void WriteSectionedCommands(Command root)
+    {
+        var subcommandMap = root.Subcommands.ToDictionary(sc => sc.Name, StringComparer.Ordinal);
+
+        foreach (var (heading, commandNames) in RootSections)
+        {
+            AnsiConsole.MarkupLine(Styling.Title($"{heading}:"));
+            var sectionCommands = commandNames.Where(subcommandMap.ContainsKey).Select(name => subcommandMap[name]).ToList();
+            WriteCommandRows(sectionCommands);
+            AnsiConsole.WriteLine();
+        }
+
+        var notImplemented = NotImplementedCommands.Where(subcommandMap.ContainsKey).ToList();
+        if (notImplemented.Count > 0)
+        {
+            AnsiConsole.MarkupLine(Styling.Title("Not yet implemented:"));
+            WriteCommandRows(notImplemented.Select(name => subcommandMap[name]).ToList());
+            AnsiConsole.WriteLine();
+        }
+    }
+
+    private static void WriteCommandRows(List<Command> commands)
+    {
+        var rows = commands.Select(sc =>
+        {
+            var plainLabel = sc.Name;
+            var styledParts = new List<string> { Styling.Bold(sc.Name) };
+            foreach (var arg in sc.Arguments.Where(a => !a.Hidden))
+            {
+                if (arg.Arity.MinimumNumberOfValues == 0)
+                {
+                    plainLabel += $" [{arg.Name}]";
+                    styledParts.Add(Styling.Value($"[{arg.Name}]"));
+                }
+                else
+                {
+                    plainLabel += $" <{arg.Name}>";
+                    styledParts.Add(Styling.Value($"<{arg.Name}>"));
+                }
+            }
+            return (PlainLabel: plainLabel, StyledLabel: string.Join(" ", styledParts), Description: sc.Description ?? "");
+        }).ToList();
+
+        if (rows.Count == 0)
+            return;
+
+        var labelWidth = rows.Max(r => r.PlainLabel.Length) + 2;
+        foreach (var row in rows)
+        {
+            var padding = new string(' ', labelWidth - row.PlainLabel.Length);
+            AnsiConsole.MarkupLine($"  {row.StyledLabel}{padding}{Styling.MarkupEscape(row.Description)}");
+        }
     }
 
     private static void WriteCommand(Command command)
@@ -128,39 +323,21 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             WriteOptionRows(globalOptions.Select(o => (FormatOptionAliases(o), o.Description ?? "")));
             AnsiConsole.WriteLine();
         }
+
+        var commandKey = string.Join(" ", parentChain);
+        if (CommandExamples.TryGetValue(commandKey, out var examples))
+        {
+            AnsiConsole.MarkupLine(Styling.Title("Examples:"));
+            foreach (var example in examples)
+                AnsiConsole.MarkupLine($"  {Styling.Path(example)}");
+            AnsiConsole.WriteLine();
+        }
     }
 
     private static void WriteCommandsSection(Command command)
     {
         AnsiConsole.MarkupLine(Styling.Title("Commands:"));
-        var subcommands = command.Subcommands.ToList();
-
-        var rows = subcommands.Select(sc =>
-        {
-            var plainLabel = sc.Name;
-            var styledParts = new List<string> { Styling.Bold(sc.Name) };
-            foreach (var arg in sc.Arguments.Where(a => !a.Hidden))
-            {
-                if (arg.Arity.MinimumNumberOfValues == 0)
-                {
-                    plainLabel += $" [{arg.Name}]";
-                    styledParts.Add(Styling.Value($"[{arg.Name}]"));
-                }
-                else
-                {
-                    plainLabel += $" <{arg.Name}>";
-                    styledParts.Add(Styling.Value($"<{arg.Name}>"));
-                }
-            }
-            return (PlainLabel: plainLabel, StyledLabel: string.Join(" ", styledParts), Description: sc.Description ?? "");
-        }).ToList();
-
-        var labelWidth = rows.Max(r => r.PlainLabel.Length) + 2;
-        foreach (var row in rows)
-        {
-            var padding = new string(' ', labelWidth - row.PlainLabel.Length);
-            AnsiConsole.MarkupLine($"  {row.StyledLabel}{padding}{Styling.MarkupEscape(row.Description)}");
-        }
+        WriteCommandRows(command.Subcommands.ToList());
     }
 
     private static void WriteOptionRows(IEnumerable<(string Label, string Description)> rows)

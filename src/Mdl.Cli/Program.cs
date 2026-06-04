@@ -18,7 +18,9 @@ internal static class Program
     private static int Main(string[] args)
     {
         var config = new MdlConfigStore().Load();
-        if (config.TryGetValue(ConfigKeys.NoColor, out var noColor) && bool.TryParse(noColor, out var noColorEnabled) && noColorEnabled)
+        var noColorEnv = Environment.GetEnvironmentVariable("NO_COLOR") is not null;
+        var noColorCfg = config.TryGetValue(ConfigKeys.NoColor, out var noColor) && bool.TryParse(noColor, out var noColorEnabled) && noColorEnabled;
+        if (noColorEnv || noColorCfg)
             AnsiConsole.Profile.Capabilities.ColorSystem = ColorSystem.NoColors;
 
         var root = new RootCommand("mdl - CLI for semantic models");
