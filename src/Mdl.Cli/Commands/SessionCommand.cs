@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Mdl.App.Session;
 using Mdl.Cli.Output;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -50,7 +51,7 @@ internal sealed class SessionCommand : ICommandModule
             return CommandOutput.Render(
                 new SessionHandler().Clear(),
                 format,
-                result => Console.WriteLine(result.Cleared ? "Cleared current session." : "No active session."));
+                result => AnsiConsole.MarkupLine(result.Cleared ? Styling.Success("Cleared current session.") : Styling.Muted("No active session.")));
         });
         return command;
     }
@@ -80,9 +81,9 @@ internal sealed class SessionCommand : ICommandModule
             return CommandOutput.Render(
                 new SessionHandler().Prune(parseResult.GetValue(allOption), parseResult.GetValue(dryRunOption)),
                 format,
-                result => Console.WriteLine(result.DryRun
-                    ? $"Would remove {result.Removed} session(s)."
-                    : $"Removed {result.Removed} session(s)."));
+                result => AnsiConsole.MarkupLine(result.DryRun
+                    ? Styling.Warning($"Would remove {result.Removed} session(s).")
+                    : Styling.Success($"Removed {result.Removed} session(s).")));
         });
         return command;
     }
@@ -98,17 +99,17 @@ internal sealed class SessionCommand : ICommandModule
 
     private static void RenderShowResult(SessionShowResult result)
     {
-        Console.WriteLine($"sessionId: {result.SessionId}");
-        Console.WriteLine($"kind:      {result.Kind}");
-        Console.WriteLine($"path:      {result.Path}");
-        Console.WriteLine($"exists:    {result.Exists}");
+        AnsiConsole.MarkupLine(Styling.KeyValue("sessionId: ", result.SessionId));
+        AnsiConsole.MarkupLine(Styling.KeyValue("kind:      ", result.Kind));
+        AnsiConsole.MarkupLine(Styling.KeyValue("path:      ", result.Path));
+        AnsiConsole.MarkupLine(Styling.KeyValue("exists:    ", result.Exists.ToString()));
         if (result.Active is not null)
-            Console.WriteLine($"model:     {result.Active.Model ?? ""}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("model:     ", result.Active.Model ?? ""));
     }
 
     private static void RenderList(SessionListResult result)
     {
         foreach (var session in result.Sessions)
-            Console.WriteLine($"{session.SessionId}\t{(session.Current ? "current" : "")}\t{session.Path}");
+            AnsiConsole.WriteLine($"{session.SessionId}\t{(session.Current ? "current" : "")}\t{session.Path}");
     }
 }

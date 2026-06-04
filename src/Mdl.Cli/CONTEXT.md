@@ -20,10 +20,11 @@ CLI entry point for `mdl`.
 
 - `Commands/` - one `ICommandModule` per command. Each module builds its `Command`, parses input,
   calls a handler, and renders the result. `Program` just registers every module on the root command.
-- `Output/` - shared output wiring used by every command:
+- `Output/` - shared output wiring used by every command. See `Output/CONTEXT.md` for details.
   - `OutputFormats` - the canonical `--format` option, aliases, and allowed values.
   - `JsonOutput` - the single JSON serializer (the `--format json` contract).
   - `CommandOutput` - format validation, human/JSON dispatch, diagnostic printing, exit-code mapping.
+  - `Styling` - color palette and markup helpers. Single source of truth for all color/style decisions.
 
 ## Rules
 
@@ -32,7 +33,9 @@ CLI entry point for `mdl`.
 - Do not access TOM, Power BI, XMLA, BIM, or TMDL APIs directly.
 - Do not hand-roll JSON output inside commands; serialize through `Output/JsonOutput`.
 - Add a new command as its own `ICommandModule` in `Commands/`; reuse `Output/` rather than re-deriving format handling.
-- CLI help, JSON field names, diagnostics, and human output must avoid versioned third-party product names or abbreviations for licensing-sensitive compatibility work. 
+- CLI help, JSON field names, diagnostics, and human output must avoid versioned third-party product names or abbreviations for licensing-sensitive compatibility work.
+- Use the color palette and helpers in `Output/Styling.cs`. See `/docs/cli-color-strategy.md` for the full palette, message categories, and migration status.
+- Do not hard-code ANSI escape codes or Spectre markup strings in commands. Use `Styling` helpers.
 
 ## Test
 

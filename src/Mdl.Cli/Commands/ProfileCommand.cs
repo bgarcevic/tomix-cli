@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Profile;
 using Mdl.App.State;
 using Mdl.Cli.Output;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -70,7 +71,7 @@ internal sealed class ProfileCommand : ICommandModule
             return CommandOutput.Render(
                 new ProfileHandler().Remove(parseResult.GetValue(nameArgument) ?? ""),
                 format,
-                result => Console.WriteLine(result.Removed ? $"Removed: {result.Name}" : $"Not found: {result.Name}"));
+                result => AnsiConsole.MarkupLine(result.Removed ? Styling.Success($"Removed: {result.Name}") : Styling.Warning($"Not found: {result.Name}")));
         });
         return command;
     }
@@ -124,7 +125,7 @@ internal sealed class ProfileCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => Console.WriteLine($"Saved profile: {data.Profile.Name}"));
+                data => AnsiConsole.MarkupLine(Styling.Success($"Saved profile: {data.Profile.Name}")));
         });
 
         return command;
@@ -136,17 +137,17 @@ internal sealed class ProfileCommand : ICommandModule
             return;
 
         foreach (var profile in result.Profiles.Values)
-            Console.WriteLine($"{profile.Name}\t{profile.Model ?? profile.Server ?? ""}\t{profile.Database ?? ""}");
+            AnsiConsole.WriteLine($"{profile.Name}\t{profile.Model ?? profile.Server ?? ""}\t{profile.Database ?? ""}");
     }
 
     private static void RenderProfile(CliProfile profile)
     {
-        Console.WriteLine($"name:        {profile.Name}");
-        Console.WriteLine($"server:      {profile.Server ?? ""}");
-        Console.WriteLine($"database:    {profile.Database ?? ""}");
-        Console.WriteLine($"model:       {profile.Model ?? ""}");
-        Console.WriteLine($"auth:        {profile.Auth ?? ""}");
-        Console.WriteLine($"description: {profile.Description ?? ""}");
+        AnsiConsole.MarkupLine(Styling.KeyValue("name:", $"        {profile.Name}"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("server:", $"      {profile.Server ?? ""}"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("database:", $"    {profile.Database ?? ""}"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("model:", $"       {profile.Model ?? ""}"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("auth:", $"        {profile.Auth ?? ""}"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("description:", $" {profile.Description ?? ""}"));
     }
 
     private static bool? ParseNullableBool(string? value)

@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Deploy;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -154,13 +155,13 @@ internal sealed class DeployCommand : ICommandModule
     {
         if (result.Status == "script")
         {
-            Console.WriteLine($"Source: {source}");
-            Console.WriteLine($"Script: {result.ScriptPath}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("Source:", source));
+            AnsiConsole.MarkupLine(Styling.KeyValue("Script:", result.ScriptPath ?? ""));
             return;
         }
 
         var name = string.IsNullOrWhiteSpace(result.Database) ? source : result.Database;
-        Console.WriteLine($"Deploying {name} to {result.Server} / {result.Database}...");
-        Console.WriteLine($"Deployed: {result.Status} ({result.DurationMs}ms)");
+        AnsiConsole.MarkupLine(Styling.Value($"Deploying {name} to {result.Server} / {result.Database}..."));
+        AnsiConsole.MarkupLine(Styling.Success($"Deployed: {result.Status} ({result.DurationMs}ms)"));
     }
 }

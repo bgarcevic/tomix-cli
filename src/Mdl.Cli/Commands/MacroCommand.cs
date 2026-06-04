@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Mdl.App.Macro;
 using Mdl.Cli.Output;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -52,7 +53,7 @@ internal sealed class MacroCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => Console.WriteLine($"Created: {data.Path}"),
+                data => AnsiConsole.MarkupLine(Styling.Success($"Created: {data.Path}")),
                 data => new { created = data.Path });
         });
 
@@ -221,7 +222,7 @@ internal sealed class MacroCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => Console.WriteLine($"Updated: Macro {data.Macro.Id} ({data.Macro.Name}) .{property}"),
+                data => AnsiConsole.MarkupLine(Styling.Success($"Updated: Macro {data.Macro.Id} ({data.Macro.Name}) .{property}")),
                 data => new { updated = data.Macro.Id, property, value });
         });
 
@@ -246,7 +247,7 @@ internal sealed class MacroCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => Console.WriteLine($"Sorted: {data.Count} macro(s) re-ordered and re-numbered."),
+                data => AnsiConsole.MarkupLine(Styling.Success($"Sorted: {data.Count} macro(s) re-ordered and re-numbered.")),
                 data => new { sorted = data.Count, path = data.Path });
         });
 
@@ -309,19 +310,19 @@ internal sealed class MacroCommand : ICommandModule
     {
         if (result.Macros.Count == 0)
         {
-            Console.WriteLine("No macros found.");
+            AnsiConsole.MarkupLine(Styling.Muted("No macros found."));
             return;
         }
 
-        Console.WriteLine($"Source: {result.Path}");
-        Console.WriteLine();
+        AnsiConsole.MarkupLine(Styling.KeyValue("Source:", result.Path ?? ""));
+        AnsiConsole.WriteLine();
         foreach (var macro in result.Macros)
         {
             var folder = string.IsNullOrWhiteSpace(macro.Folder) ? "" : $"{macro.Folder}\\";
-            Console.WriteLine($"{macro.Id}  {folder}{macro.DisplayName}");
+            AnsiConsole.WriteLine($"{macro.Id}  {folder}{macro.DisplayName}");
         }
 
-        Console.WriteLine($"{result.Macros.Count} macro(s)");
+        AnsiConsole.MarkupLine(Styling.Muted($"{result.Macros.Count} macro(s)"));
     }
 
     private static object ToListJson(MacroListResult result)
@@ -362,9 +363,9 @@ internal sealed class MacroCommand : ICommandModule
         };
 
         if (result.Action == "added")
-            Console.WriteLine($"{verb}: {result.Macro.Name} (ID: {result.Macro.Id}) to {result.Path}");
+            AnsiConsole.MarkupLine(Styling.Success($"{verb}: {result.Macro.Name} (ID: {result.Macro.Id}) to {result.Path}"));
         else
-            Console.WriteLine($"{verb}: Macro {result.Macro.Id} ({result.Macro.Name})");
+            AnsiConsole.MarkupLine(Styling.Success($"{verb}: Macro {result.Macro.Id} ({result.Macro.Name})"));
     }
 
     private static object ToSavedJson(MacroSavedResult result)

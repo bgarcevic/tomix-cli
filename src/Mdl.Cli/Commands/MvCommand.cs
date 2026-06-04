@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Mv;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -113,10 +114,10 @@ internal sealed class MvCommand : ICommandModule
 
     private static void Render(MoveModelObjectResult result)
     {
-        Console.WriteLine($"Renamed: {result.Moved} -> {result.To}");
+        AnsiConsole.MarkupLine(Styling.Success($"Renamed: {result.Moved} -> {result.To}"));
         if (result.Saved is false)
-            Console.WriteLine("Changes not saved. Use --save to persist.");
+            AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist."));
         else
-            Console.WriteLine($"Saved: {result.Saved}");
+            AnsiConsole.MarkupLine(Styling.Success($"Saved: {result.Saved}"));
     }
 }

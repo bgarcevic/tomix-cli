@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Config;
 using Mdl.Cli.Output;
 using Mdl.Core.Configuration;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -34,7 +35,7 @@ internal sealed class ConfigCommand : ICommandModule
             if (parseResult.GetValue(forceOption) || !File.Exists(MdlPaths.ConfigFile))
                 File.WriteAllText(MdlPaths.ConfigFile, "{\n}\n");
 
-            Console.WriteLine(MdlPaths.ConfigFile);
+            AnsiConsole.MarkupLine(Styling.Path(MdlPaths.ConfigFile));
             return 0;
         });
 
@@ -74,8 +75,8 @@ internal sealed class ConfigCommand : ICommandModule
 
         command.SetAction(_ =>
         {
-            Console.WriteLine($"configDir   {MdlPaths.ConfigDirectory}");
-            Console.WriteLine($"configFile  {MdlPaths.ConfigFile}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("configDir   ", MdlPaths.ConfigDirectory));
+            AnsiConsole.MarkupLine(Styling.KeyValue("configFile  ", MdlPaths.ConfigFile));
             return 0;
         });
 
@@ -104,16 +105,16 @@ internal sealed class ConfigCommand : ICommandModule
     {
         if (result.Values.Count == 0)
         {
-            Console.WriteLine("No configuration values set.");
+            AnsiConsole.MarkupLine(Styling.Muted("No configuration values set."));
             return;
         }
 
         var nameWidth = result.Values.Keys.Max(key => key.Length);
 
         foreach (var (key, value) in result.Values)
-            Console.WriteLine($"{key.PadRight(nameWidth)}  {value}");
+            AnsiConsole.MarkupLine(Styling.KeyValue(key.PadRight(nameWidth) + " ", value));
     }
 
     private static void RenderSet(ConfigSetResult result)
-        => Console.WriteLine($"{result.Key} = {result.Value}");
+        => AnsiConsole.MarkupLine(Styling.Success($"{result.Key} = {result.Value}"));
 }

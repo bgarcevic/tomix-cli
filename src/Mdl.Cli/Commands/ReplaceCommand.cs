@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Replace;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -119,14 +120,14 @@ internal sealed class ReplaceCommand : ICommandModule
 
     private static void Render(ReplaceModelTextResult result)
     {
-        Console.WriteLine($"Changes: {result.ChangeCount}");
+        AnsiConsole.MarkupLine(Styling.Value($"Changes: {result.ChangeCount}"));
         if (result.DryRun is true)
         {
             foreach (var preview in result.Previews ?? [])
-                Console.WriteLine($"{preview.ObjectPath}.{preview.Property}: {preview.Before} -> {preview.After}");
+                AnsiConsole.WriteLine($"{preview.ObjectPath}.{preview.Property}: {preview.Before} -> {preview.After}");
             return;
         }
 
-        Console.WriteLine(result.Saved is false ? "Saved: false" : $"Saved: {result.Saved}");
+        AnsiConsole.MarkupLine(result.Saved is false ? Styling.Warning("Saved: false") : Styling.Success($"Saved: {result.Saved}"));
     }
 }

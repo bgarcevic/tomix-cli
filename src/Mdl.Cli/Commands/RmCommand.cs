@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Rm;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -122,10 +123,10 @@ internal sealed class RmCommand : ICommandModule
         if (result.Removed is false)
             return;
 
-        Console.WriteLine($"Removed: {result.Removed}");
+        AnsiConsole.MarkupLine(Styling.Success($"Removed: {result.Removed}"));
         if (result.Saved is false)
-            Console.WriteLine("Changes not saved. Use --save to persist.");
+            AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist."));
         else if (result.Saved is not null)
-            Console.WriteLine($"Saved: {result.Saved}");
+            AnsiConsole.MarkupLine(Styling.Success($"Saved: {result.Saved}"));
     }
 }

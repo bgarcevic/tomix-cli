@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Info;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -45,13 +46,13 @@ internal sealed class InfoCommand : ICommandModule
 
     private static void Render(ModelSummary s)
     {
-        Console.WriteLine(s.Name);
-        Console.WriteLine();
-        Console.WriteLine($"Compatibility level: {s.CompatibilityLevel}");
-        Console.WriteLine($"Tables:              {s.Tables}");
-        Console.WriteLine($"Columns:             {s.Columns}");
-        Console.WriteLine($"Measures:            {s.Measures}");
-        Console.WriteLine($"Relationships:       {s.Relationships}");
-        Console.WriteLine($"Roles:               {s.Roles}");
+        AnsiConsole.MarkupLine(Styling.Title(s.Name));
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine(Styling.KeyValue("Compatibility level: ", s.CompatibilityLevel.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Tables:              ", s.Tables.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Columns:             ", s.Columns.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Measures:            ", s.Measures.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Relationships:       ", s.Relationships.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Roles:               ", s.Roles.ToString()));
     }
 }

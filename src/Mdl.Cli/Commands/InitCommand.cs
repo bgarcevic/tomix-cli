@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Mdl.App.Init;
 using Mdl.Cli.Output;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -76,9 +77,9 @@ internal sealed class InitCommand : ICommandModule
 
     private static void Render(InitModelResult result)
     {
-        Console.WriteLine($"Created: {result.Created}");
-        Console.WriteLine($"  Name:   {result.Name}");
-        Console.WriteLine($"  Format: {result.Format}");
-        Console.WriteLine($"  Compat: {result.CompatibilityLevel} ({result.CompatibilityMode})");
+        AnsiConsole.MarkupLine(Styling.Success($"Created: {result.Created}"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  Name:   ", result.Name));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  Format: ", result.Format));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  Compat: ", $"{result.CompatibilityLevel} ({result.CompatibilityMode})"));
     }
 }

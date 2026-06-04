@@ -4,6 +4,7 @@ using Mdl.App.Info;
 using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -75,7 +76,9 @@ internal sealed class ConnectCommand : ICommandModule
                 return CommandOutput.Render(
                     handler.Clear(),
                     format,
-                    result => Console.WriteLine(result.Cleared ? "Cleared active connection." : "No active connection."));
+                    result => AnsiConsole.MarkupLine(result.Cleared
+                        ? Styling.Success("Cleared active connection.")
+                        : Styling.Muted("No active connection.")));
 
             var server = parseResult.GetValue(serverArgument);
             var database = parseResult.GetValue(databaseArgument);
@@ -139,7 +142,7 @@ internal sealed class ConnectCommand : ICommandModule
 
             if (local && model is null && !ModelReference.IsLocalInstanceEndpoint(remoteServer))
             {
-                Console.WriteLine("Discovering Power BI Desktop instances...");
+                AnsiConsole.MarkupLine(Styling.Value("Discovering Power BI Desktop instances..."));
                 var endpoints = DiscoverPowerBiDesktopEndpoints();
                 if (endpoints.Count == 0)
                 {
@@ -209,7 +212,7 @@ internal sealed class ConnectCommand : ICommandModule
                             if (answer != "y" && answer != "yes")
                             {
                                 RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
-                                Console.WriteLine("Workspace setup cancelled.");
+                                AnsiConsole.MarkupLine(Styling.Warning("Workspace setup cancelled."));
                                 return 1;
                             }
                         }
@@ -314,17 +317,18 @@ internal sealed class ConnectCommand : ICommandModule
     {
         var s = result.Summary;
         var name = string.IsNullOrWhiteSpace(s.Name) ? "(unnamed)" : s.Name;
-        Console.WriteLine($"Model: {name}");
-        Console.WriteLine($"  CL: {s.CompatibilityLevel}");
-        Console.WriteLine($"  tables: {s.Tables}  measures: {s.Measures}  relationships: {s.Relationships}  roles: {s.Roles}");
-        Console.WriteLine();
-        Console.WriteLine(model is not null
-            ? $"Active: {Path.GetFullPath(model)}"
-            : $"Active: {remoteServer}{(string.IsNullOrWhiteSpace(database) ? "" : $" / {database}")}");
+        AnsiConsole.MarkupLine(Styling.KeyValue("Model:", name));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  CL:", $"{s.CompatibilityLevel}"));
+        AnsiConsole.MarkupLine(Styling.Muted($"  tables: {s.Tables}  measures: {s.Measures}  relationships: {s.Relationships}  roles: {s.Roles}"));
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine(model is not null
+            ? Styling.Success($"Active: {Styling.MarkupEscape(Path.GetFullPath(model))}")
+            : Styling.Success($"Active: {Styling.MarkupEscape(remoteServer ?? "")}{(string.IsNullOrWhiteSpace(database) ? "" : $" / {Styling.MarkupEscape(database)}")}"));
         if (!string.IsNullOrWhiteSpace(workspace))
-            Console.WriteLine(!string.IsNullOrWhiteSpace(database)
-                ? $"Mirror: {workspace} / {database}"
-                : $"Mirror: {workspace}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("Mirror:",
+                !string.IsNullOrWhiteSpace(database)
+                    ? $"{workspace} / {database}"
+                    : workspace));
     }
 
     private static IReadOnlyList<string> DiscoverPowerBiDesktopEndpoints()
@@ -414,47 +418,49 @@ internal sealed class ConnectCommand : ICommandModule
     {
         if (!result.Active || result.Connection is null)
         {
-            Console.WriteLine("No active connection.");
+            AnsiConsole.MarkupLine(Styling.Warning("No active connection."));
             return;
         }
 
         var connection = result.Connection;
         if (!string.IsNullOrWhiteSpace(connection.Model))
         {
-            Console.WriteLine("Active: local model");
-            Console.WriteLine($"Path: {Path.GetFullPath(connection.Model)}");
+            AnsiConsole.MarkupLine(Styling.Success("Active: local model"));
+            AnsiConsole.MarkupLine(Styling.KeyValue("Path:", Styling.MarkupEscape(Path.GetFullPath(connection.Model))));
         }
         else
         {
-            Console.WriteLine(string.IsNullOrWhiteSpace(connection.Database)
-                ? $"Active: {connection.Server}"
-                : $"Active: {connection.Server} / {connection.Database}");
+            AnsiConsole.MarkupLine(Styling.Success(
+                string.IsNullOrWhiteSpace(connection.Database)
+                    ? $"Active: {Styling.MarkupEscape(connection.Server ?? "")}"
+                    : $"Active: {Styling.MarkupEscape(connection.Server ?? "")} / {Styling.MarkupEscape(connection.Database)}"));
         }
 
         if (!string.IsNullOrWhiteSpace(connection.Workspace))
         {
             var mirrorDatabase = !string.IsNullOrWhiteSpace(connection.Database) ? connection.Database : null;
-            Console.WriteLine(mirrorDatabase is not null
-                ? $"Mirror: {connection.Workspace} / {mirrorDatabase}"
-                : $"Mirror: {connection.Workspace}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("Mirror:",
+                mirrorDatabase is not null
+                    ? $"{connection.Workspace} / {mirrorDatabase}"
+                    : connection.Workspace));
         }
     }
 
     private static void RenderConnection(CliConnectionState connection)
     {
         if (!string.IsNullOrWhiteSpace(connection.Profile))
-            Console.WriteLine($"profile:  {connection.Profile}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("profile:", connection.Profile));
         if (!string.IsNullOrWhiteSpace(connection.Model))
-            Console.WriteLine($"model:    {connection.Model}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("model:", connection.Model));
         if (!string.IsNullOrWhiteSpace(connection.Server))
-            Console.WriteLine($"server:   {connection.Server}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("server:", connection.Server));
         if (!string.IsNullOrWhiteSpace(connection.Database))
-            Console.WriteLine($"database: {connection.Database}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("database:", connection.Database));
         if (!string.IsNullOrWhiteSpace(connection.Workspace))
-            Console.WriteLine($"workspace: {connection.Workspace}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("workspace:", connection.Workspace));
         if (!string.IsNullOrWhiteSpace(connection.WorkspaceFormat))
-            Console.WriteLine($"workspace-format: {connection.WorkspaceFormat}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("workspace-format:", connection.WorkspaceFormat));
         if (!string.IsNullOrWhiteSpace(connection.WorkspaceAuth))
-            Console.WriteLine($"workspace-auth: {connection.WorkspaceAuth}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("workspace-auth:", connection.WorkspaceAuth));
     }
 }

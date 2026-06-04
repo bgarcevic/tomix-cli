@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Add;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -140,13 +141,13 @@ internal sealed class AddCommand : ICommandModule
 
     private static void Render(AddModelObjectResult result)
     {
-        Console.WriteLine($"Added: {result.Added}");
+        AnsiConsole.MarkupLine(Styling.Success($"Added: {result.Added}"));
         if (result.Staged == true)
-            Console.WriteLine("Staged. Run 'mdl stage commit' to promote.");
+            AnsiConsole.MarkupLine(Styling.Guidance("Staged. Run 'mdl stage commit' to promote."));
         else if (result.Saved is false)
-            Console.WriteLine("Changes not saved. Use --save to persist or --stage to stage.");
+            AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist or --stage to stage."));
         else
-            Console.WriteLine($"Saved: {result.Saved}");
+            AnsiConsole.MarkupLine(Styling.Success($"Saved: {result.Saved}"));
     }
 
     internal static (string? PrimaryValue, IReadOnlyList<ModelPropertyAssignment> Properties) ParseInterleavedQi(

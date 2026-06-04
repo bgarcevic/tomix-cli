@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using Mdl.App.Validate;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -98,13 +99,13 @@ internal sealed class ValidateCommand : ICommandModule
         bool includeBanner)
     {
         if (includeBanner)
-            Console.WriteLine("Validating...");
-        Console.WriteLine("Validating: (unnamed)");
-        Console.WriteLine();
+            AnsiConsole.MarkupLine(Styling.Value("Validating..."));
+        AnsiConsole.MarkupLine(Styling.Muted("Validating: (unnamed)"));
+        AnsiConsole.WriteLine();
 
         if (result.Valid)
         {
-            Console.WriteLine("No validation errors found.");
+            AnsiConsole.MarkupLine(Styling.Success("No validation errors found."));
             return;
         }
 
@@ -130,25 +131,25 @@ internal sealed class ValidateCommand : ICommandModule
 
         if (hasErrors)
         {
-            Console.WriteLine("Errors");
+            AnsiConsole.MarkupLine(Styling.Error("Errors"));
             RenderTable(allRows.Where(r => r.Kind == "Error").ToList());
         }
 
         if (hasWarnings)
         {
-            Console.WriteLine("Warnings");
+            AnsiConsole.MarkupLine(Styling.Warning("Warnings"));
             RenderTable(allRows.Where(r => r.Kind == "Warning").ToList());
         }
 
-        Console.WriteLine();
-        Console.WriteLine($"  Errors:        {result.Errors.Count}");
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Errors:", result.Errors.Count.ToString())}");
 
         if (!errorsOnly)
         {
-            Console.WriteLine($"  Warnings:      {result.Warnings.Count}");
+            AnsiConsole.MarkupLine($"  {Styling.KeyValue("Warnings:", result.Warnings.Count.ToString())}");
         }
 
-        Console.WriteLine("  Anti-patterns: 0");
+        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Anti-patterns:", "0")}");
     }
 
     private static void RenderTable(IReadOnlyList<(string Kind, string Message, string Object, string Line)> rows)
@@ -156,20 +157,15 @@ internal sealed class ValidateCommand : ICommandModule
         if (rows.Count == 0)
             return;
 
-        var msgWidth = Math.Max("Message".Length, rows.Max(r => r.Message.Length)) + 1;
-        var objWidth = Math.Max("Object".Length, rows.Max(r => r.Object.Length));
-        var lineWidth = Math.Max("Line".Length, rows.Max(r => r.Line.Length)) + 2;
-        var tableWidth = 2 + msgWidth + 1 + (objWidth + 2) + 1 + (lineWidth + 1);
-        var blank = new string(' ', tableWidth);
-
-        Console.WriteLine(blank);
-        Console.WriteLine($"  {"Message".PadRight(msgWidth)}│ {"Object".PadRight(objWidth)} │ {"Line".PadRight(lineWidth)}");
-        Console.WriteLine($" {new string('─', msgWidth + 1)}┼{new string('─', objWidth + 2)}┼{new string('─', lineWidth)} ");
+        var table = Styling.NewTable("Message", "Object", "Line");
 
         foreach (var row in rows)
-            Console.WriteLine($"  {row.Message.PadRight(msgWidth)}│ {row.Object.PadRight(objWidth)} │ {row.Line.PadRight(lineWidth)}");
+            table.AddRow(
+                Styling.MarkupEscape(row.Message),
+                Styling.MarkupEscape(row.Object),
+                Styling.MarkupEscape(row.Line));
 
-        Console.WriteLine(blank);
+        AnsiConsole.Write(table);
     }
 
     private static void EmitCi(string? ci, ValidateModelResult result)

@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Save;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -109,9 +110,9 @@ internal sealed class SaveCommand : ICommandModule
 
     private static void Render(SaveModelResult result, string source)
     {
-        Console.WriteLine($"Source: {source}");
-        Console.WriteLine($"Saving ({result.Format})...");
-        Console.WriteLine($"Saved: {result.Saved} ({result.Format})");
+        AnsiConsole.MarkupLine(Styling.KeyValue("Source:", source));
+        AnsiConsole.MarkupLine(Styling.Value($"Saving ({result.Format})..."));
+        AnsiConsole.MarkupLine(Styling.Success($"Saved: {result.Saved} ({result.Format})"));
     }
 
     private static void RenderCsv(SaveModelResult result)

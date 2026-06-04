@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Info;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -50,15 +51,15 @@ internal sealed class LoadCommand : ICommandModule
     private static void Render(InfoModelResult result)
     {
         var summary = result.Summary;
-        Console.WriteLine($"Loaded: {summary.Name}");
+        AnsiConsole.MarkupLine(Styling.Success($"Loaded: {summary.Name}"));
         if (summary.DatabaseName is null)
-            Console.WriteLine($"  name:          {summary.Name}");
-        Console.WriteLine($"  database:      {summary.DatabaseName ?? ""}");
-        Console.WriteLine($"  compatLevel:   {summary.CompatibilityLevel}");
-        Console.WriteLine($"  tables:        {summary.Tables}");
-        Console.WriteLine($"  measures:      {summary.Measures}");
-        Console.WriteLine($"  columns:       {summary.Columns}");
-        Console.WriteLine($"  relationships: {summary.Relationships}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("  name:          ", summary.Name));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  database:      ", summary.DatabaseName ?? ""));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  compatLevel:   ", summary.CompatibilityLevel.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  tables:        ", summary.Tables.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  measures:      ", summary.Measures.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  columns:       ", summary.Columns.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  relationships: ", summary.Relationships.ToString()));
     }
 
     private static object ToReferenceJson(InfoModelResult result)

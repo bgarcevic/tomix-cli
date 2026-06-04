@@ -2,6 +2,7 @@ using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Mdl.Core.Diagnostics;
+using Spectre.Console;
 
 namespace Mdl.Cli.Output;
 
@@ -26,15 +27,21 @@ internal static class ErrorOutput
             return;
         }
 
+        var errConsole = AnsiConsole.Create(new AnsiConsoleSettings
+        {
+            Out = new AnsiConsoleOutput(Console.Error)
+        });
+
         foreach (var diagnostic in diagnostics)
-            Console.Error.WriteLine($"{Label(diagnostic.Severity)}: {diagnostic.Message}");
+        {
+            var label = diagnostic.Severity switch
+            {
+                DiagnosticSeverity.Info => Styling.SeverityMarkup("Info"),
+                DiagnosticSeverity.Warning => Styling.SeverityMarkup("Warning"),
+                _ => Styling.SeverityMarkup("Error")
+            };
+            var message = Styling.MarkupEscape(diagnostic.Message);
+            errConsole.MarkupLine($"{label}: {message}");
+        }
     }
-
-    private static string Label(DiagnosticSeverity severity) => severity switch
-    {
-        DiagnosticSeverity.Info => "Info",
-        DiagnosticSeverity.Warning => "Warning",
-        _ => "Error"
-    };
-
 }

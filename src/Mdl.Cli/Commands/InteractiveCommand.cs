@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.Diagnostics;
 using Mdl.App.Interactive;
 using Mdl.Cli.Output;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -51,16 +52,16 @@ internal sealed class InteractiveCommand : ICommandModule
 
     private static void RenderStart(InteractiveStartResult result)
     {
-        Console.WriteLine("mdl interactive");
-        Console.WriteLine($"sessionId: {result.SessionId}");
+        AnsiConsole.MarkupLine(Styling.Title("mdl interactive"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("sessionId:", result.SessionId));
         if (result.Connection?.Model is not null)
-            Console.WriteLine($"model:     {result.Connection.Model}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("model:", Styling.Path(result.Connection.Model)));
         else if (result.Connection?.Server is not null)
-            Console.WriteLine($"server:    {result.Connection.Server}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("server:", Styling.Path(result.Connection.Server)));
         else
-            Console.WriteLine("No active model. Use connect to set one.");
+            AnsiConsole.MarkupLine(Styling.Warning("No active model. Use connect to set one."));
 
-        Console.WriteLine("Type 'exit' to leave.");
+        AnsiConsole.MarkupLine(Styling.Guidance("Type 'exit' to leave."));
     }
 
     private static object ProjectJson(InteractiveStartResult result)
@@ -76,11 +77,11 @@ internal sealed class InteractiveCommand : ICommandModule
     {
         while (true)
         {
-            Console.Write("mdl> ");
+            AnsiConsole.Markup(Styling.Title("mdl") + "> ");
             var line = Console.ReadLine();
             if (line is null)
             {
-                Console.WriteLine();
+                AnsiConsole.WriteLine();
                 return 0;
             }
 

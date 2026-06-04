@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Deps;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -109,8 +110,8 @@ internal sealed class DepsCommand : ICommandModule
 
             if (result.Data is null && OutputFormats.IsTextLike(formatValue))
             {
-                Console.WriteLine("Running semantic analysis...");
-                Console.WriteLine();
+                AnsiConsole.MarkupLine(Styling.Value("Running semantic analysis..."));
+                AnsiConsole.WriteLine();
             }
 
             return CommandOutput.Render(
@@ -126,33 +127,38 @@ internal sealed class DepsCommand : ICommandModule
 
     private static void Render(DepsModelResult result, bool showUpstream, bool showDownstream)
     {
-        Console.WriteLine("Running semantic analysis...");
-        Console.WriteLine();
-        Console.WriteLine($"Dependencies for {result.Path} ({result.Type})");
+        AnsiConsole.MarkupLine(Styling.Value("Running semantic analysis..."));
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine(Styling.Title($"Dependencies for {result.Path} ({result.Type})"));
         if (showUpstream)
         {
-            Console.WriteLine();
+            AnsiConsole.WriteLine();
             RenderSection("Upstream (depends on)", result.Upstream);
         }
 
         if (showDownstream)
         {
-            Console.WriteLine();
+            AnsiConsole.WriteLine();
             RenderSection("Downstream (referenced by)", result.Downstream);
         }
     }
 
     private static void RenderSection(string title, IReadOnlyList<DependencyObject> dependencies)
     {
-        Console.WriteLine($"  {title}: {dependencies.Count}");
+        AnsiConsole.MarkupLine(Styling.Bold($"  {title}: {dependencies.Count}"));
         if (dependencies.Count == 0)
         {
-            Console.WriteLine("    None");
+            AnsiConsole.MarkupLine($"    {Styling.Muted("None")}");
             return;
         }
 
+        var table = Styling.NewTable("Type", "Reference", "Path");
         foreach (var dependency in dependencies)
-            Console.WriteLine($"    {dependency.Type,-18} {dependency.Reference,-28} {dependency.Path}");
+            table.AddRow(
+                Styling.MarkupEscape(dependency.Type),
+                Styling.MarkupEscape(dependency.Reference),
+                Styling.MarkupEscape(dependency.Path));
+        AnsiConsole.Write(table);
     }
 
     private static object ToReferenceJson(

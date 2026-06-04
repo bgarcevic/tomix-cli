@@ -1,10 +1,15 @@
 using System.CommandLine;
+using System.CommandLine.Help;
 using System.Reflection;
+using Mdl.App.Config;
 using Mdl.App.Format;
 using Mdl.Cli.Commands;
+using Mdl.Cli.Output;
+using Mdl.Core.Configuration;
 using Mdl.Core.Models;
 using Mdl.Provider.Tom;
 using Mdl.Provider.Tmdl;
+using Spectre.Console;
 
 namespace Mdl.Cli;
 
@@ -12,6 +17,10 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
+        var config = new MdlConfigStore().Load();
+        if (config.TryGetValue(ConfigKeys.NoColor, out var noColor) && bool.TryParse(noColor, out var noColorEnabled) && noColorEnabled)
+            AnsiConsole.Profile.Capabilities.ColorSystem = ColorSystem.NoColors;
+
         var root = new RootCommand("mdl - CLI for semantic models");
         foreach (var option in GlobalOptions.All())
             root.Options.Add(option);
@@ -65,20 +74,25 @@ internal static class Program
         foreach (var module in modules)
             root.Subcommands.Add(module.Build());
 
-        if (RootHelpRenderer.IsRootHelpRequest(args))
-        {
-            RootHelpRenderer.Write(root, Console.Out);
-            return 0;
-        }
+        ApplySpectreHelp(root);
 
-        if (RootHelpRenderer.IsRootInvocation(args))
+        if (args.Length == 0)
         {
-            RootHelpRenderer.Write(root, Console.Out);
-            Console.Error.WriteLine("Required command was not provided.");
+            root.Parse(["--help"]).Invoke();
             return 0;
         }
 
         return root.Parse(args).Invoke();
+    }
+
+    private static void ApplySpectreHelp(Command command)
+    {
+        var helpOption = command.Options.OfType<HelpOption>().FirstOrDefault();
+        if (helpOption is not null)
+            helpOption.Action = new SpectreHelpAction();
+
+        foreach (var sub in command.Subcommands)
+            ApplySpectreHelp(sub);
     }
 
     private static string ResolveVersion()

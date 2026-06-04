@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Find;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -94,7 +95,7 @@ internal sealed class FindCommand : ICommandModule
         if (result.Matches.Count == 0)
         {
             if (!pathsOnly)
-                Console.WriteLine("No matches found.");
+                AnsiConsole.MarkupLine(Styling.Muted("No matches found."));
 
             return;
         }
@@ -102,7 +103,7 @@ internal sealed class FindCommand : ICommandModule
         if (pathsOnly)
         {
             foreach (var path in result.Matches.Select(m => m.Path).Distinct(StringComparer.OrdinalIgnoreCase))
-                Console.WriteLine(path);
+                AnsiConsole.WriteLine(path);
 
             return;
         }
@@ -113,37 +114,19 @@ internal sealed class FindCommand : ICommandModule
 
     private static void RenderMatchTable(IReadOnlyList<FindMatch> matches)
     {
-        var rows = matches
-            .Select(match => new[]
-            {
-                match.Path,
-                match.Type,
-                match.Property,
-                match.MatchedText,
-                match.Line.ToString()
-            })
-            .ToList();
+        var table = Styling.NewTable("Path", "Type", "Property", "Match", "Line");
 
-        var headers = new[] { "Path", "Type", "Property", "Match", "Line" };
-        var widths = Enumerable.Range(0, headers.Length)
-            .Select(i => Math.Max(headers[i].Length, rows.Max(row => row[i].Length)))
-            .ToArray();
+        foreach (var match in matches)
+            table.AddRow(
+                Styling.MarkupEscape(match.Path),
+                Styling.MarkupEscape(match.Type),
+                Styling.MarkupEscape(match.Property),
+                Styling.MarkupEscape(match.MatchedText),
+                match.Line.ToString());
 
-        var totalWidth = widths.Sum() + (headers.Length - 1) * 3 + 4;
-        Console.WriteLine(new string(' ', totalWidth));
-        Console.WriteLine(Row(headers, widths));
-        Console.WriteLine(Separator(widths));
-        foreach (var row in rows)
-            Console.WriteLine(Row(row, widths));
-        Console.WriteLine(new string(' ', totalWidth));
-        Console.WriteLine($"{matches.Count} match(es)");
+        AnsiConsole.Write(table);
+        AnsiConsole.MarkupLine(Styling.Muted($"{matches.Count} match(es)"));
     }
-
-    private static string Row(IReadOnlyList<string> cells, IReadOnlyList<int> widths)
-        => "  " + string.Join(" │ ", cells.Select((cell, index) => cell.PadRight(widths[index]))) + "  ";
-
-    private static string Separator(IReadOnlyList<int> widths)
-        => " " + string.Join("┼", widths.Select(width => new string('─', width + 2))) + " ";
 
     private static object ToReferenceJson(FindModelResult result)
         => new

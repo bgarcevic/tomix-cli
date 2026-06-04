@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Script;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -189,7 +190,7 @@ internal sealed class ScriptCommand : ICommandModule
 
     private static void RenderText(ScriptRunResult result, string format)
     {
-        Console.WriteLine($"Model: {result.ModelName}");
+        AnsiConsole.MarkupLine(Styling.Title($"Model: {result.ModelName}"));
 
         if (result.DryRun)
         {
@@ -197,13 +198,13 @@ internal sealed class ScriptCommand : ICommandModule
             {
                 if (script.Success)
                 {
-                    Console.WriteLine($"Compilation OK: {script.Source}");
+                    AnsiConsole.MarkupLine(Styling.Success($"Compilation OK: {script.Source}"));
                     continue;
                 }
 
-                Console.WriteLine($"Compilation failed: {script.Source}");
+                AnsiConsole.MarkupLine(Styling.Error($"Compilation failed: {script.Source}"));
                 foreach (var error in script.Errors)
-                    Console.WriteLine(error);
+                    AnsiConsole.WriteLine(error);
             }
 
             return;
@@ -212,31 +213,31 @@ internal sealed class ScriptCommand : ICommandModule
         for (var i = 0; i < result.Inputs.Count; i++)
         {
             var input = result.Inputs[i];
-            Console.WriteLine(result.Inputs.Count == 1
-                ? $"Script: {input.Source}"
-                : $"Script {i + 1}/{result.Inputs.Count}: {input.Source}");
+            AnsiConsole.MarkupLine(result.Inputs.Count == 1
+                ? Styling.Value($"Script: {input.Source}")
+                : Styling.Value($"Script {i + 1}/{result.Inputs.Count}: {input.Source}"));
 
             if (OutputFormats.IsTextLike(format))
-                Console.WriteLine($"Running {input.Source}...");
+                AnsiConsole.MarkupLine(Styling.Value($"Running {input.Source}..."));
 
             if (i < result.Messages.Count)
-                Console.WriteLine(result.Messages[i].Text);
+                AnsiConsole.WriteLine(result.Messages[i].Text);
         }
 
         if (!result.Success)
         {
             foreach (var error in result.CompileErrors)
-                Console.WriteLine(error);
+                AnsiConsole.WriteLine(error);
 
             if (!string.IsNullOrWhiteSpace(result.RuntimeError))
-                Console.WriteLine(result.RuntimeError);
+                AnsiConsole.WriteLine(result.RuntimeError);
 
             return;
         }
 
-        Console.WriteLine($"Done: {result.ScriptsExecuted} script(s) executed.");
+        AnsiConsole.MarkupLine(Styling.Success($"Done: {result.ScriptsExecuted} script(s) executed."));
         if (result.Saved is bool saved && saved == false)
-            Console.WriteLine("Changes not saved. Use --save to persist.");
+            AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist."));
     }
 
     private static object ToReferenceJson(ScriptRunResult result)

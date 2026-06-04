@@ -4,6 +4,7 @@ using Mdl.App.State;
 using Mdl.Auth;
 using Mdl.Cli.Output;
 using Mdl.Core.Authentication;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -124,7 +125,7 @@ internal sealed class AuthCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
-                data => Console.WriteLine(data.Existed ? "Logged out -- cached credentials cleared." : "Not logged in."));
+                data => AnsiConsole.MarkupLine(data.Existed ? Styling.Success("Logged out -- cached credentials cleared.") : Styling.Muted("Not logged in.")));
         });
         return command;
     }
@@ -148,7 +149,7 @@ internal sealed class AuthCommand : ICommandModule
 
     private static void RenderLogin(AuthLoginResult result)
     {
-        Console.WriteLine("Authenticated");
+        AnsiConsole.MarkupLine(Styling.Success("Authenticated"));
         RenderIdentity(result.Identity, includeMethodAndStorage: false);
     }
 
@@ -156,27 +157,27 @@ internal sealed class AuthCommand : ICommandModule
     {
         if (!result.LoggedIn || result.Identity is null)
         {
-            Console.WriteLine("Not logged in");
-            Console.WriteLine("Run 'mdl auth login' to authenticate.");
+            AnsiConsole.MarkupLine(Styling.Warning("Not logged in"));
+            AnsiConsole.MarkupLine(Styling.Guidance("Run 'mdl auth login' to authenticate."));
             return;
         }
 
-        Console.WriteLine("Logged in");
+        AnsiConsole.MarkupLine(Styling.Success("Logged in"));
         RenderIdentity(result.Identity, includeMethodAndStorage: true);
     }
 
     private static void RenderIdentity(AuthIdentity identity, bool includeMethodAndStorage)
     {
-        Console.WriteLine($"  Account:  {identity.Username}");
-        Console.WriteLine($"  Tenant:   {identity.TenantId ?? ""}");
+        AnsiConsole.MarkupLine(Styling.KeyValue("  Account:", identity.Username ?? ""));
+        AnsiConsole.MarkupLine(Styling.KeyValue("  Tenant:", identity.TenantId ?? ""));
         if (includeMethodAndStorage)
         {
-            Console.WriteLine($"  Method:   {MethodLabel(identity.Method)}");
-            Console.WriteLine($"  Storage:  {identity.Storage}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("  Method:", MethodLabel(identity.Method)));
+            AnsiConsole.MarkupLine(Styling.KeyValue("  Storage:", identity.Storage ?? ""));
         }
 
         if (identity.ExpiresOn is { } expires)
-            Console.WriteLine($"  Expires:  {expires.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("  Expires:", $"{expires.ToLocalTime():yyyy-MM-dd HH:mm:ss}"));
     }
 
     private static string MethodLabel(AuthMethod method) => method switch

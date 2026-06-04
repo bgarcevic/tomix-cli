@@ -26,12 +26,15 @@ Open-source CLI for inspecting, validating, querying, testing, and deploying tab
 | Task | Go to | Read | Notes |
 |------|-------|------|-------|
 | Add or change a CLI command | `/src/Mdl.Cli`, `/src/Mdl.App` | `CONTEXT.md` in each folder | Keep CLI thin; put behavior in handlers |
+| Change command output or color styling | `/src/Mdl.Cli/Output` | `Output/CONTEXT.md`, `/docs/cli-color-strategy.md` | Use `Styling` helpers; do not hard-code ANSI |
 | Add domain types, diagnostics, paths, or result models | `/src/Mdl.Core` | `CONTEXT.md` | Core must stay dependency-light |
 | Change command output | `/src/Mdl.Cli/Output`, `/tests/Mdl.GoldenTests` | `CONTEXT.md` in relevant folders | Preserve JSON contracts |
 | Add TMDL or TOM support | `/src/Mdl.Provider.*` | Provider `CONTEXT.md` files | Do not leak provider-specific types |
 | Add or change tests | `/tests` | `CONTEXT.md` | Prefer fast deterministic tests |
 | Add documentation or samples | `/docs`, `/samples` | `CONTEXT.md` in each folder | Keep examples copy-pasteable |
 | Change repo automation | `/.github` | `CONTEXT.md` | Keep CI fast for contributors |
+| Migrate Console.WriteLine to Spectre | `/src/Mdl.Cli/Commands` | `/docs/spectre-migration.md` | Follow migration tracker phases |
+| Change the color palette or message categories | `/src/Mdl.Cli/Output/Styling.cs` | `/docs/cli-color-strategy.md` | Update palette in one place only |
 
 ## Local Context Files
 

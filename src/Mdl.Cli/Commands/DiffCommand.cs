@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Diff;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -63,19 +64,19 @@ internal sealed class DiffCommand : ICommandModule
         bool includeComparingLine)
     {
         if (includeComparingLine)
-            Console.WriteLine("Comparing models...");
+            AnsiConsole.MarkupLine(Styling.Value("Comparing models..."));
 
         if (!result.HasChanges)
         {
-            Console.WriteLine("Models are identical");
+            AnsiConsole.MarkupLine(Styling.Success("Models are identical"));
             return;
         }
 
-        Console.WriteLine($"Left:  {left}");
-        Console.WriteLine($"Right: {right}");
-        Console.WriteLine(
-            $"{result.Summary.Added} added, {result.Summary.Removed} removed, {result.Summary.Modified} modified");
-        Console.WriteLine();
+        AnsiConsole.MarkupLine(Styling.KeyValue("Left:", left));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Right:", right));
+        AnsiConsole.MarkupLine(
+            Styling.Bold($"{result.Summary.Added} added, {result.Summary.Removed} removed, {result.Summary.Modified} modified"));
+        AnsiConsole.WriteLine();
 
         foreach (var change in result.Changes)
             RenderChange(change);
@@ -86,15 +87,15 @@ internal sealed class DiffCommand : ICommandModule
         switch (change.Action)
         {
             case "added":
-                Console.WriteLine($"  + {change.ObjectType} {change.Path}");
+                AnsiConsole.MarkupLine($"  {Styling.Success("+")} {Styling.MarkupEscape(change.ObjectType)} {Styling.Path(change.Path)}");
                 break;
             case "removed":
-                Console.WriteLine($"  - {change.ObjectType} {change.Path}");
+                AnsiConsole.MarkupLine($"  {Styling.Error("-")} {Styling.MarkupEscape(change.ObjectType)} {Styling.Path(change.Path)}");
                 break;
             case "modified":
-                Console.WriteLine($"  ~ {change.ObjectType} {change.Path}");
-                Console.WriteLine($"    - {change.OldValue}");
-                Console.WriteLine($"    + {change.NewValue}");
+                AnsiConsole.MarkupLine($"  {Styling.Warning("~")} {Styling.MarkupEscape(change.ObjectType)} {Styling.Path(change.Path)}");
+                AnsiConsole.MarkupLine($"    {Styling.Error($"- {change.OldValue}")}");
+                AnsiConsole.MarkupLine($"    {Styling.Success($"+ {change.NewValue}")}");
                 break;
         }
     }

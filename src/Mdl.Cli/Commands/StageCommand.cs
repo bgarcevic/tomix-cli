@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Stage;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -92,7 +93,7 @@ internal sealed class StageCommand : ICommandModule
             return CommandOutput.Render(
                 new StageHandler().Discard(ResolveModel(parseResult), all),
                 format,
-                result => Console.WriteLine($"Discarded {result.Discarded} staged change set(s)."));
+                result => AnsiConsole.MarkupLine(Styling.Success($"Discarded {result.Discarded} staged change set(s).")));
         });
         return command;
     }
@@ -110,40 +111,40 @@ internal sealed class StageCommand : ICommandModule
     {
         if (!result.Staged)
         {
-            Console.WriteLine($"Nothing staged for {result.Source}.");
+            AnsiConsole.MarkupLine(Styling.Muted($"Nothing staged for {result.Source}."));
             return;
         }
 
-        Console.WriteLine($"Source:   {result.Source}");
-        Console.WriteLine($"Staged:   {result.WorkingCopy}  ({result.Serialization})");
+        AnsiConsole.MarkupLine(Styling.KeyValue("Source:", $"   {result.Source}"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Staged:", $"   {result.WorkingCopy}  ({result.Serialization})"));
         if (result.Workspace)
-            Console.WriteLine("Workspace: yes (commit syncs local + remote)");
-        Console.WriteLine($"Updated:  {result.UpdatedUtc?.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
-        Console.WriteLine($"Ops:      {result.OpCount}");
+            AnsiConsole.MarkupLine(Styling.Value($"Workspace: yes (commit syncs local + remote)"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Updated:", $"  {result.UpdatedUtc?.ToLocalTime():yyyy-MM-dd HH:mm:ss}"));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Ops:", $"      {result.OpCount}"));
         foreach (var op in result.Ops)
-            Console.WriteLine($"  {op.Seq}. {op.Summary}");
-        Console.WriteLine("Run 'mdl stage commit' to promote, or 'mdl stage discard' to drop.");
+            AnsiConsole.WriteLine($"  {op.Seq}. {op.Summary}");
+        AnsiConsole.MarkupLine(Styling.Guidance("Run 'mdl stage commit' to promote, or 'mdl stage discard' to drop."));
     }
 
     private static void RenderList(StageListResult result)
     {
         if (result.Staged.Count == 0)
         {
-            Console.WriteLine("No staged models in this session.");
+            AnsiConsole.MarkupLine(Styling.Muted("No staged models in this session."));
             return;
         }
 
         foreach (var entry in result.Staged)
-            Console.WriteLine($"{entry.Source}\t{entry.OpCount} op(s)\t{entry.UpdatedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+            AnsiConsole.WriteLine($"{entry.Source}\t{entry.OpCount} op(s)\t{entry.UpdatedUtc.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
     }
 
     private static void RenderCommit(StageCommitResult result)
     {
-        Console.WriteLine($"Committed {result.OpsCommitted} staged change(s).");
+        AnsiConsole.MarkupLine(Styling.Success($"Committed {result.OpsCommitted} staged change(s)."));
         if (result.LocalSaved is not null)
-            Console.WriteLine($"Local:  {result.LocalSaved}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("Local:", $"  {result.LocalSaved}"));
         if (result.RemoteDeployed)
-            Console.WriteLine($"Remote: {result.Server}{(string.IsNullOrEmpty(result.Database) ? "" : $" / {result.Database}")}");
+            AnsiConsole.MarkupLine(Styling.KeyValue("Remote:", $" {result.Server}{(string.IsNullOrEmpty(result.Database) ? "" : $" / {result.Database}")}"));
     }
 
     private static ModelReference ResolveModel(ParseResult parseResult)

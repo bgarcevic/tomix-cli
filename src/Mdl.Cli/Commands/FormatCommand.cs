@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Format;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -140,19 +141,19 @@ internal sealed class FormatCommand : ICommandModule
         switch (result)
         {
             case InlineFormatResult inline:
-                Console.WriteLine(inline.Formatted);
+                AnsiConsole.WriteLine(inline.Formatted);
                 foreach (var error in inline.Errors)
                     Console.Error.WriteLine(error);
                 break;
 
             case ObjectFormatResult obj:
-                Console.WriteLine(obj.Formatted);
+                AnsiConsole.WriteLine(obj.Formatted);
                 break;
 
             case ModelFormatResult model:
-                Console.WriteLine($"Formatted: {model.Formatted}");
-                Console.WriteLine($"Unchanged: {model.Unchanged}");
-                Console.WriteLine($"Failed: {model.Failed}");
+                AnsiConsole.MarkupLine(Styling.Success($"Formatted: {model.Formatted}"));
+                AnsiConsole.MarkupLine(Styling.Warning($"Unchanged: {model.Unchanged}"));
+                AnsiConsole.MarkupLine(Styling.Error($"Failed: {model.Failed}"));
                 break;
         }
     }

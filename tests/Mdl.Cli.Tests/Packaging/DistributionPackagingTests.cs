@@ -1,10 +1,22 @@
 using System.Xml.Linq;
-using Mdl.Cli.Tests.Compatibility;
 
 namespace Mdl.Cli.Tests.Packaging;
 
 public sealed class DistributionPackagingTests
 {
+    private static string RepositoryRoot => FindRepositoryRoot();
+
+    private static string FindRepositoryRoot()
+    {
+        var dir = AppContext.BaseDirectory;
+        while (dir is not null)
+        {
+            if (File.Exists(Path.Combine(dir, "global.json")) || File.Exists(Path.Combine(dir, ".git", "HEAD")))
+                return dir;
+            dir = Directory.GetParent(dir)?.FullName;
+        }
+        return AppContext.BaseDirectory;
+    }
     private static readonly string[] RequiredRuntimeIdentifiers =
     [
         "win-x64",
@@ -18,7 +30,7 @@ public sealed class DistributionPackagingTests
     [Fact]
     public void CliProjectDeclaresRequiredRuntimeIdentifiers()
     {
-        var projectPath = Path.Combine(CliProcess.RepositoryRoot, "src", "Mdl.Cli", "Mdl.Cli.csproj");
+        var projectPath = Path.Combine(RepositoryRoot, "src", "Mdl.Cli", "Mdl.Cli.csproj");
         var document = XDocument.Load(projectPath);
 
         var declared = document.Descendants("RuntimeIdentifiers")
@@ -34,7 +46,7 @@ public sealed class DistributionPackagingTests
     [Fact]
     public void ReleaseWorkflowPublishesRequiredRuntimeArchives()
     {
-        var workflowPath = Path.Combine(CliProcess.RepositoryRoot, ".github", "workflows", "release.yml");
+        var workflowPath = Path.Combine(RepositoryRoot, ".github", "workflows", "release.yml");
         var workflow = File.ReadAllText(workflowPath);
 
         foreach (var runtimeIdentifier in RequiredRuntimeIdentifiers)

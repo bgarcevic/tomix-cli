@@ -3,6 +3,7 @@ using Mdl.App.Bpa;
 using Mdl.Cli.Output;
 using Mdl.Core.Bpa;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -441,74 +442,69 @@ internal sealed class BpaCommand : ICommandModule
 
     private static void RenderRun(BpaRunResult result, bool noMultiline)
     {
-        Console.WriteLine($"Running BPA analysis on '{result.ModelName}'...");
-        Console.WriteLine();
+        AnsiConsole.MarkupLine(Styling.Value($"Running BPA analysis on {result.ModelName}..."));
+        AnsiConsole.WriteLine();
 
         if (result.Violations.Count == 0)
         {
-            Console.WriteLine("No BPA violations found.");
+            AnsiConsole.MarkupLine(Styling.Success("No BPA violations found."));
             return;
         }
 
-        var rows = result.Violations.Select(v =>
+        var table = Styling.NewTable("Rule", "Severity", "Type", "Object", "Description");
+
+        foreach (var v in result.Violations)
         {
             var desc = CollapseDescription(v.Description);
-            return (RuleName: v.RuleName, Severity: v.Severity, SeverityText: v.Severity.ToString(), ObjectType: v.ObjectType, ObjectName: v.ObjectName, desc);
-        }).ToList();
-
-        var nameWidth = Math.Max("Rule".Length, rows.Max(r => Math.Min(r.RuleName.Length, 50)));
-        var sevWidth = Math.Max("Severity".Length, rows.Max(r => r.SeverityText.Length));
-        var typeWidth = Math.Max("Type".Length, rows.Max(r => Math.Min(r.ObjectType.Length, 20)));
-        var objWidth = Math.Max("Object".Length, rows.Max(r => Math.Min(r.ObjectName.Length, 40)));
-        var descWidth = Math.Max("Description".Length, Math.Min(rows.Max(r => r.desc.Length), 60));
-
-        Console.WriteLine($"  {"Rule".PadRight(nameWidth)}   {"Severity".PadRight(sevWidth)}   {"Type".PadRight(typeWidth)}   {"Object".PadRight(objWidth)}   {"Description".PadRight(descWidth)}");
-        Console.WriteLine($"  {new string('-', nameWidth)}   {new string('-', sevWidth)}   {new string('-', typeWidth)}   {new string('-', objWidth)}   {new string('-', descWidth)}");
-
-        foreach (var row in rows)
-        {
-            var name = Truncate(row.RuleName, nameWidth);
-            var sev = SeverityColored(Truncate(row.SeverityText, sevWidth), row.Severity);
-            var type = Truncate(row.ObjectType, typeWidth);
-            var obj = Truncate(row.ObjectName, objWidth);
-            var desc = Truncate(row.desc, descWidth);
-            Console.WriteLine($"  {name.PadRight(nameWidth)}   {sev.PadRight(sevWidth + AnsiOverhead(row.Severity))}   {type.PadRight(typeWidth)}   {obj.PadRight(objWidth)}   {desc}");
+            table.AddRow(
+                Styling.MarkupEscape(Truncate(v.RuleName, 50)),
+                SeverityMarkup(v.Severity),
+                Styling.MarkupEscape(Truncate(v.ObjectType, 20)),
+                Styling.MarkupEscape(Truncate(v.ObjectName, 40)),
+                Styling.MarkupEscape(Truncate(desc, 60)));
         }
 
-        Console.WriteLine();
+        AnsiConsole.Write(table);
+        AnsiConsole.WriteLine();
+
         var errorCount = result.Violations.Count(v => v.Severity == BpaSeverity.Error);
         var warningCount = result.Violations.Count(v => v.Severity == BpaSeverity.Warning);
         var infoCount = result.Violations.Count(v => v.Severity == BpaSeverity.Info);
-        Console.WriteLine($"  Rules evaluated:  {result.RulesEvaluated}");
-        Console.WriteLine($"  Violations:       {result.Violations.Count}  ({SeverityColored($"{errorCount} errors", BpaSeverity.Error)}, {SeverityColored($"{warningCount} warnings", BpaSeverity.Warning)}, {infoCount} info)");
+
+        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Rules evaluated:", result.RulesEvaluated.ToString())}");
+        AnsiConsole.MarkupLine("  {0}  ({1}, {2}, {3} info)",
+            Styling.KeyValue("Violations:", result.Violations.Count.ToString()),
+            Styling.Error($"{errorCount} errors"),
+            Styling.Warning($"{warningCount} warnings"),
+            infoCount);
 
         var byCategory = result.Violations.GroupBy(v => v.Category)
             .OrderByDescending(g => g.Count());
         foreach (var group in byCategory)
-            Console.WriteLine($"    {group.Key}: {group.Count()}");
+            AnsiConsole.MarkupLine("    {0}: {1}", Styling.MarkupEscape(group.Key), group.Count());
 
         if (result.DurationMs > 0)
-            Console.WriteLine($"  Duration:         {result.DurationMs}ms");
+            AnsiConsole.MarkupLine($"  {Styling.KeyValue("Duration:", $"{result.DurationMs}ms")}");
 
         if (result.FixesApplied > 0)
         {
-            Console.WriteLine($"  Fixes applied:    {result.FixesApplied}");
+            AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes applied:", result.FixesApplied.ToString())}");
             if (result.FixesSkipped > 0)
-                Console.WriteLine($"  Fixes skipped:    {result.FixesSkipped}");
+                AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes skipped:", result.FixesSkipped.ToString())}");
             if (result.Saved)
-                Console.WriteLine("  Model saved.");
+                AnsiConsole.MarkupLine($"  {Styling.Success("Model saved.")}");
         }
         else if (result.FixesSkipped > 0)
         {
-            Console.WriteLine($"  Fixes skipped:    {result.FixesSkipped}");
+            AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes skipped:", result.FixesSkipped.ToString())}");
         }
 
         if (result.FixErrors is { Count: > 0 })
         {
-            Console.WriteLine();
-            Console.WriteLine("  Fix errors:");
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine($"  {Styling.Error("Fix errors:")}");
             foreach (var err in result.FixErrors)
-                Console.WriteLine($"    {err}");
+                AnsiConsole.MarkupLine("    {0}", Styling.MarkupEscape(err));
         }
     }
 
@@ -526,48 +522,36 @@ internal sealed class BpaCommand : ICommandModule
         return firstLine;
     }
 
-    private static string SeverityColored(string text, BpaSeverity severity)
-    {
-        if (!Console.IsOutputRedirected)
+    private static string SeverityMarkup(BpaSeverity severity)
+        => Styling.SeverityMarkup(severity switch
         {
-            return severity switch
-            {
-                BpaSeverity.Error => $"\e[1;31m{text}\e[0m",
-                BpaSeverity.Warning => $"\e[1;33m{text}\e[0m",
-                _ => $"\e[36m{text}\e[0m"
-            };
-        }
-
-        return text;
-    }
-
-    private static int AnsiOverhead(BpaSeverity severity) => Console.IsOutputRedirected ? 0 : 9;
+            BpaSeverity.Error => "Error",
+            BpaSeverity.Warning => "Warning",
+            _ => "Info"
+        });
 
     private static void RenderRulesList(BpaRulesListResult result)
     {
         if (result.Rules.Count == 0)
         {
-            Console.WriteLine("No BPA rules available.");
+            AnsiConsole.MarkupLine(Styling.Warning("No BPA rules available."));
             return;
         }
 
-        var rows = result.Rules.Select(r => (r.Id, r.Name, r.Category, Severity: r.Severity.ToString(), r.Scope)).ToList();
+        var table = Styling.NewTable("ID", "Name", "Category", "Severity");
 
-        var idWidth = Math.Max("ID".Length, rows.Max(r => Math.Min(r.Id.Length, 45)));
-        var nameWidth = Math.Max("Name".Length, rows.Max(r => Math.Min(r.Name.Length, 55)));
-        var catWidth = Math.Max("Category".Length, rows.Max(r => Math.Min(r.Category.Length, 20)));
-        var sevWidth = Math.Max("Severity".Length, rows.Max(r => r.Severity.Length));
-
-        Console.WriteLine($"  {"ID".PadRight(idWidth)}   {"Name".PadRight(nameWidth)}   {"Category".PadRight(catWidth)}   {"Severity".PadRight(sevWidth)}");
-        Console.WriteLine($"  {new string('-', idWidth)}   {new string('-', nameWidth)}   {new string('-', catWidth)}   {new string('-', sevWidth)}");
-
-        foreach (var row in rows)
+        foreach (var r in result.Rules)
         {
-            Console.WriteLine($"  {Truncate(row.Id, idWidth).PadRight(idWidth)}   {Truncate(row.Name, nameWidth).PadRight(nameWidth)}   {Truncate(row.Category, catWidth).PadRight(catWidth)}   {row.Severity}");
+            table.AddRow(
+                Styling.MarkupEscape(Truncate(r.Id, 45)),
+                Styling.MarkupEscape(Truncate(r.Name, 55)),
+                Styling.MarkupEscape(Truncate(r.Category, 20)),
+                SeverityMarkup(r.Severity));
         }
 
-        Console.WriteLine();
-        Console.WriteLine($"  Total rules: {result.Rules.Count}");
+        AnsiConsole.Write(table);
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Total rules:", result.Rules.Count.ToString())}");
     }
 
     private static void EmitCi(string? ci, IReadOnlyList<BpaViolation> violations)

@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Doctor;
 using Mdl.Cli.Output;
 using Mdl.Core.Doctor;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -36,25 +37,25 @@ internal sealed class DoctorCommand : ICommandModule
 
     private static void Render(DoctorResult result)
     {
-        Console.WriteLine("MDL doctor");
-        Console.WriteLine();
-        Console.WriteLine($"Version:          {result.Version}");
-        Console.WriteLine($"Operating system: {result.OperatingSystem}");
-        Console.WriteLine($".NET version:     {result.DotNetVersion}");
-        Console.WriteLine($"Config directory: {result.ConfigDirectory}");
-        Console.WriteLine();
+        AnsiConsole.MarkupLine(Styling.Title("MDL doctor"));
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine(Styling.KeyValue("Version:          ", result.Version));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Operating system: ", result.OperatingSystem));
+        AnsiConsole.MarkupLine(Styling.KeyValue(".NET version:     ", result.DotNetVersion));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Config directory: ", result.ConfigDirectory));
+        AnsiConsole.WriteLine();
 
         foreach (var check in result.Checks)
         {
-            var status = check.Status switch
+            var statusMarkup = check.Status switch
             {
-                DoctorCheckStatus.Pass => "OK",
-                DoctorCheckStatus.Warning => "WARN",
-                DoctorCheckStatus.Fail => "FAIL",
-                _ => "UNKNOWN"
+                DoctorCheckStatus.Pass => Styling.Success("OK"),
+                DoctorCheckStatus.Warning => Styling.Warning("WARN"),
+                DoctorCheckStatus.Fail => Styling.Error("FAIL"),
+                _ => Styling.Muted("UNKNOWN")
             };
 
-            Console.WriteLine($"{status,-7} {check.Name}: {check.Message}");
+            AnsiConsole.MarkupLine($"{statusMarkup} {Styling.MarkupEscape(check.Name)}: {Styling.MarkupEscape(check.Message)}");
         }
     }
 }

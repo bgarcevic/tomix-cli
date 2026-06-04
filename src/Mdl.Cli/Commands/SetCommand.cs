@@ -2,6 +2,7 @@ using System.CommandLine;
 using Mdl.App.Set;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -125,16 +126,16 @@ internal sealed class SetCommand : ICommandModule
     {
         if (string.IsNullOrEmpty(result.Property))
         {
-            Console.WriteLine($"Reverted staged changes for {result.Set}.");
+            AnsiConsole.MarkupLine(Styling.Success($"Reverted staged changes for {result.Set}."));
             return;
         }
 
-        Console.WriteLine($"Set: {result.Set}.{result.Property}");
+        AnsiConsole.MarkupLine(Styling.Success($"Set: {result.Set}.{result.Property}"));
         if (result.Staged == true)
-            Console.WriteLine("Staged. Run 'mdl stage commit' to promote.");
+            AnsiConsole.MarkupLine(Styling.Guidance("Staged. Run 'mdl stage commit' to promote."));
         else if (result.Saved is false)
-            Console.WriteLine("Changes not saved. Use --save to persist or --stage to stage.");
+            AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist or --stage to stage."));
         else
-            Console.WriteLine($"Saved: {result.Saved}");
+            AnsiConsole.MarkupLine(Styling.Success($"Saved: {result.Saved}"));
     }
 }
