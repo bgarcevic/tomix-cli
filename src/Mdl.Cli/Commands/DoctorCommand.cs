@@ -45,6 +45,13 @@ internal sealed class DoctorCommand : ICommandModule
         AnsiConsole.MarkupLine(Styling.KeyValue("Config directory: ", result.ConfigDirectory));
         AnsiConsole.WriteLine();
 
+        var caps = AnsiConsole.Profile.Capabilities;
+        AnsiConsole.MarkupLine(Styling.KeyValue("Interactive:      ", caps.Interactive.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Ansi:             ", caps.Ansi.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Color system:     ", caps.ColorSystem.ToString()));
+        AnsiConsole.MarkupLine(Styling.KeyValue("Output redirected:", Console.IsOutputRedirected.ToString()));
+        AnsiConsole.WriteLine();
+
         foreach (var check in result.Checks)
         {
             var statusMarkup = check.Status switch

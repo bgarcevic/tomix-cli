@@ -53,6 +53,14 @@ and the API surface that major versions protect.
 - Replace `ModelSourceResolver` static calls with `ActiveModelResolver` instance in all commands.
 - `DoctorHandlerTests` parameterized for multiple version strings.
 - CI release workflow: add `fetch-depth: 0` for MinVer tag resolution.
+- `doctor` now reports terminal capabilities (interactive, ANSI, color system, output
+  redirected) to aid diagnosing rendering issues.
+
+### Fixed
+
+- `scripts/install-dev.ps1` now clears stale packed tool packages before packing, so it
+  reliably installs the current build (NuGet otherwise resolved an older `0.1.0-dev`
+  prerelease that outranks `0.1.0-alpha.N`).
 
 ### Removed
 

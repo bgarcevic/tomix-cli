@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.CommandLine.Help;
 using System.Reflection;
+using System.Text;
 using Mdl.App.Auth;
 using Mdl.App.Config;
 using Mdl.App.Format;
@@ -19,6 +20,9 @@ internal static class Program
 {
     private static int Main(string[] args)
     {
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.InputEncoding = Encoding.UTF8;
+
         var config = new MdlConfigStore().Load();
         var noColorEnv = Environment.GetEnvironmentVariable("NO_COLOR") is not null;
         var noColorCfg = config.TryGetValue(ConfigKeys.NoColor, out var noColor) && bool.TryParse(noColor, out var noColorEnabled) && noColorEnabled;
