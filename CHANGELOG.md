@@ -30,6 +30,9 @@ and the API surface that major versions protect.
 - Interactive REPL with stdin piping.
 - `--version` and `doctor` for environment diagnostics.
 - CI release workflow: native binaries for 6 RIDs + .NET tool package.
+- Install scripts (`install/install.sh` for Linux/macOS, `install/install.ps1` for Windows) with checksum verification and no-admin installs.
+- CI workflow for pull requests and pushes to main (ubuntu + windows).
+- Release job that publishes GitHub Release with checksums.txt on `v*` tags.
 - `hint` field on `MdlDiagnostic` and `MdlResult.Fail()` for actionable error guidance.
 - `--dry-run` option on `deploy` to preview changes without deploying.
 - `--yes` / `-y` global option to skip confirmation prompts.
