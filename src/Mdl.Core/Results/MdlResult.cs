@@ -20,7 +20,8 @@ public sealed record MdlResult<T>(
     public static MdlResult<T> Fail(
         string code,
         string message,
-        int exitCode = 1)
+        int exitCode = 1,
+        string? hint = null)
     {
         return new MdlResult<T>(
             Success: false,
@@ -30,7 +31,8 @@ public sealed record MdlResult<T>(
                 new MdlDiagnostic(
                     Code: code,
                     Severity: DiagnosticSeverity.Error,
-                    Message: message)
+                    Message: message,
+                    Hint: hint)
             ],
             ExitCode: exitCode);
     }

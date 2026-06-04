@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Deploy;
+using Mdl.App.Diff;
 using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
@@ -78,11 +79,15 @@ internal sealed class DeployCommand : ICommandModule
         };
         var forceOption = new Option<bool>("--force")
         {
-            Description = "Skip interactive confirmation prompt before deploying"
+            Description = "Force deployment, bypassing validation checks"
         };
         var ciOption = new Option<string?>("--ci")
         {
             Description = "Emit CI logging commands to stderr: vsts (Azure DevOps), github (GitHub Actions)"
+        };
+        var dryRunOption = new Option<bool>("--dry-run")
+        {
+            Description = "Preview what would change on the remote target without deploying"
         };
 
         var command = new Command("deploy", "Deploy a semantic model to a workspace (--xmla for script-only, --skip-bpa to bypass)")
@@ -102,7 +107,8 @@ internal sealed class DeployCommand : ICommandModule
             fixBpaOption,
             bpaRulesOption,
             forceOption,
-            ciOption
+            ciOption,
+            dryRunOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -117,6 +123,13 @@ internal sealed class DeployCommand : ICommandModule
 
             var server = parseResult.GetValue(GlobalOptions.Server);
             var database = parseResult.GetValue(GlobalOptions.Database);
+            var dryRun = parseResult.GetValue(dryRunOption);
+
+            if (!dryRun && !ConfirmationHelper.ConfirmOrAbort(
+                "Deploy", $"{database ?? reference.Value} to {server ?? "workspace"}",
+                parseResult.GetValue(GlobalOptions.Yes),
+                parseResult.GetValue(GlobalOptions.NonInteractive)))
+                return 1;
 
             var result = await new DeployModelHandler(_providers).HandleAsync(
                 new DeployModelRequest(
@@ -131,7 +144,8 @@ internal sealed class DeployCommand : ICommandModule
                     parseResult.GetValue(bpaRulesOption),
                     parseResult.GetValue(xmlaOption),
                     parseResult.GetValue(forceOption),
-                    parseResult.GetValue(ciOption)),
+                    parseResult.GetValue(ciOption),
+                    dryRun),
                 cancellationToken);
 
             if (result.Data is not null && result.Data.ScriptPath == "-" && result.Data.Script is not null)
@@ -161,8 +175,55 @@ internal sealed class DeployCommand : ICommandModule
             return;
         }
 
-        var name = string.IsNullOrWhiteSpace(result.Database) ? source : result.Database;
-        AnsiConsole.MarkupLine(Styling.Value($"Deploying {name} to {result.Server} / {result.Database}..."));
+        if (result.Status == "dry-run")
+        {
+            var name = string.IsNullOrWhiteSpace(result.Database) ? source : result.Database;
+            AnsiConsole.MarkupLine(Styling.Value($"Dry run: {name} to {result.Server} / {result.Database}"));
+
+            if (result.Diff is not null)
+            {
+                if (!result.Diff.HasChanges)
+                {
+                    AnsiConsole.MarkupLine(Styling.Success("No changes — local and remote are identical."));
+                    return;
+                }
+
+                var s = result.Diff.Summary;
+                AnsiConsole.MarkupLine(Styling.Bold(
+                    $"{s.Added} added, {s.Removed} removed, {s.Modified} modified"));
+                AnsiConsole.WriteLine();
+
+                foreach (var change in result.Diff.Changes)
+                    RenderDiffChange(change);
+            }
+            else
+            {
+                AnsiConsole.MarkupLine(Styling.Muted("Remote target not reachable or not specified — showing deploy plan only."));
+            }
+
+            return;
+        }
+
+        var deployName = string.IsNullOrWhiteSpace(result.Database) ? source : result.Database;
+        AnsiConsole.MarkupLine(Styling.Value($"Deploying {deployName} to {result.Server} / {result.Database}..."));
         AnsiConsole.MarkupLine(Styling.Success($"Deployed: {result.Status} ({result.DurationMs}ms)"));
+    }
+
+    private static void RenderDiffChange(DiffChange change)
+    {
+        switch (change.Action)
+        {
+            case "added":
+                AnsiConsole.MarkupLine($"  {Styling.Success("+")} {Styling.MarkupEscape(change.ObjectType)} {Styling.Path(change.Path)}");
+                break;
+            case "removed":
+                AnsiConsole.MarkupLine($"  {Styling.Error("-")} {Styling.MarkupEscape(change.ObjectType)} {Styling.Path(change.Path)}");
+                break;
+            case "modified":
+                AnsiConsole.MarkupLine($"  {Styling.Warning("~")} {Styling.MarkupEscape(change.ObjectType)} {Styling.Path(change.Path)}");
+                AnsiConsole.MarkupLine($"    {Styling.Error($"- {change.OldValue}")}");
+                AnsiConsole.MarkupLine($"    {Styling.Success($"+ {change.NewValue}")}");
+                break;
+        }
     }
 }

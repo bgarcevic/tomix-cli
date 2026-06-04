@@ -38,7 +38,8 @@ public sealed class AddModelObjectHandler
             return MdlResult<AddModelObjectResult>.Fail(
                 "MDL_NO_PROVIDER",
                 $"No provider can open model: {context.EffectiveModel.Value}",
-                exitCode: 2);
+                exitCode: 2,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
         if (session is not IModelMutationSession mutator)

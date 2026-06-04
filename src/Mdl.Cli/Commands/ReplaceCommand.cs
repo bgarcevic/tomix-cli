@@ -94,17 +94,26 @@ internal sealed class ReplaceCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
+            var pattern = parseResult.GetValue(patternArgument) ?? "";
+            var dryRun = parseResult.GetValue(dryRunOption);
+
+            if (!dryRun && !ConfirmationHelper.ConfirmOrAbort(
+                "Replace", $"'{pattern}'",
+                parseResult.GetValue(GlobalOptions.Yes),
+                parseResult.GetValue(GlobalOptions.NonInteractive)))
+                return 1;
+
             var result = await new ReplaceModelTextHandler(_providers).HandleAsync(
                 new ReplaceModelTextRequest(
                     new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
-                    parseResult.GetValue(patternArgument) ?? "",
+                    pattern,
                     parseResult.GetValue(replacementArgument) ?? "",
                     parseResult.GetValue(inOption) ?? "all",
                     parseResult.GetValue(regexOption),
                     parseResult.GetValue(caseSensitiveOption),
-                    parseResult.GetValue(dryRunOption),
+                    dryRun,
                     parseResult.GetValue(saveOption),
                     parseResult.GetValue(saveToOption),
                     parseResult.GetValue(serializationOption) ?? "",

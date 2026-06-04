@@ -12,6 +12,16 @@ internal sealed partial class LsRenderer
 
     public static void Render(LsModelResult data, bool pathsOnly, bool noMultiline)
     {
+        if (data.Objects.Count == 0)
+        {
+            if (pathsOnly)
+                return;
+
+            AnsiConsole.MarkupLine(Styling.Muted("No objects found."));
+            AnsiConsole.MarkupLine(Styling.Guidance("  → Try: mdl ls, mdl ls --type table, or mdl ls \"Sa*\""));
+            return;
+        }
+
         if (pathsOnly)
         {
             foreach (var obj in data.Objects)

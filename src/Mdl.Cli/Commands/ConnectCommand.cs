@@ -146,13 +146,15 @@ internal sealed class ConnectCommand : ICommandModule
                 var endpoints = DiscoverPowerBiDesktopEndpoints();
                 if (endpoints.Count == 0)
                 {
-                    Console.Error.WriteLine("Error: No running Power BI Desktop instances found. Start Power BI Desktop and open a report, then retry.");
+                    var err = AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
+                    err.MarkupLine(Styling.Error("No running Power BI Desktop instances found. Start Power BI Desktop and open a report, then retry."));
                     return 1;
                 }
 
                 if (endpoints.Count > 1 && string.IsNullOrWhiteSpace(database))
                 {
-                    Console.Error.WriteLine("Error: Multiple Power BI Desktop instances found. Specify a semantic model name.");
+                    var err = AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
+                    err.MarkupLine(Styling.Error("Multiple Power BI Desktop instances found. Specify a semantic model name."));
                     return 1;
                 }
 
@@ -182,8 +184,7 @@ internal sealed class ConnectCommand : ICommandModule
 
                 if (!infoResult.Success)
                 {
-                    foreach (var diag in infoResult.Diagnostics)
-                        Console.Error.WriteLine($"Error: {diag.Message}");
+                    ErrorOutput.Write(infoResult.Diagnostics, null);
                     return infoResult.ExitCode == 0 ? 1 : infoResult.ExitCode;
                 }
 
@@ -198,23 +199,14 @@ internal sealed class ConnectCommand : ICommandModule
 
                     if (workspaceResult.Success)
                     {
-                        if (!force)
+                        if (!force && !ConfirmationHelper.ConfirmOrAbort(
+                            "Overwrite workspace target", $"'{database}' on {workspace}",
+                            parseResult.GetValue(GlobalOptions.Yes),
+                            parseResult.GetValue(GlobalOptions.NonInteractive)))
                         {
-                            if (Console.IsInputRedirected)
-                            {
-                                RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
-                                Console.Error.WriteLine($"Error: Workspace target '{database}' already exists on {workspace}. Use --force to overwrite.");
-                                return 1;
-                            }
-
-                            Console.Error.Write($"Workspace target {database} already exists on {workspace}. Overwrite? [y/n] (n): ");
-                            var answer = Console.ReadLine()?.Trim().ToLowerInvariant();
-                            if (answer != "y" && answer != "yes")
-                            {
-                                RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
-                                AnsiConsole.MarkupLine(Styling.Warning("Workspace setup cancelled."));
-                                return 1;
-                            }
+                            RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
+                            AnsiConsole.MarkupLine(Styling.Warning("Workspace setup cancelled."));
+                            return 1;
                         }
                     }
                     else if (workspaceResult.Diagnostics.Any(d => d.Code == "MDL_DATABASE_NOT_FOUND"))
@@ -224,8 +216,9 @@ internal sealed class ConnectCommand : ICommandModule
                     else
                     {
                         RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
+                        var errConsole = AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
                         foreach (var diag in workspaceResult.Diagnostics)
-                            Console.Error.WriteLine($"Error: Could not reach workspace server: {WorkspaceConnectMessage(workspace, diag.Message)}");
+                            errConsole.MarkupLine(Styling.Error($"Could not reach workspace server: {Styling.MarkupEscape(WorkspaceConnectMessage(workspace, diag.Message))}"));
                         return workspaceResult.ExitCode == 0 ? 1 : workspaceResult.ExitCode;
                     }
                 }
@@ -278,7 +271,8 @@ internal sealed class ConnectCommand : ICommandModule
 
     private static int RenderWorkspaceOptionError(string message)
     {
-        Console.Error.WriteLine($"Error: {message}");
+        var err = AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
+        err.MarkupLine(Styling.Error(Styling.MarkupEscape(message)));
         return 1;
     }
 

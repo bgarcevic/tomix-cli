@@ -1,4 +1,5 @@
 using Mdl.App.Bpa;
+using Mdl.App.Diff;
 using Mdl.App.State;
 using Mdl.Core.Authentication;
 using Mdl.Core.Bpa;
@@ -29,14 +30,16 @@ public sealed class DeployModelHandler
             return MdlResult<DeployModelResult>.Fail(
                 "MDL_NO_MODEL",
                 "No model specified. Use --model <path>, --server <url> --database <name>, --local, or set an active connection with 'mdl connect'.",
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Specify a model path or use --recent.");
 
         var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
         if (provider is null)
             return MdlResult<DeployModelResult>.Fail(
                 "MDL_NO_PROVIDER",
                 $"No provider can open model: {request.Model.Value}",
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         await using var session = await provider.OpenAsync(request.Model, cancellationToken);
 
@@ -59,7 +62,8 @@ public sealed class DeployModelHandler
             return MdlResult<DeployModelResult>.Fail(
                 "MDL_DEPLOY_NO_TARGET",
                 "No target workspace specified. Use -s/--server or set an active connection with 'mdl connect'.",
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Specify --workspace or --server and --database.");
 
         var deployRequest = new ModelDeployRequest(
             server,
@@ -67,6 +71,26 @@ public sealed class DeployModelHandler
             request.DeployFull,
             request.CreateOnly,
             request.Force);
+
+        if (request.DryRun)
+        {
+            DiffModelResult? diff = null;
+
+            if (!string.IsNullOrWhiteSpace(server) && !string.IsNullOrWhiteSpace(database))
+            {
+                var remoteRef = ModelReference.Remote(server, database);
+                var diffHandler = new DiffModelHandler(_providers);
+                var diffResult = await diffHandler.HandleAsync(
+                    new DiffModelRequest(request.Model, remoteRef),
+                    cancellationToken);
+
+                if (diffResult.Success)
+                    diff = diffResult.Data;
+            }
+
+            return MdlResult<DeployModelResult>.Ok(new DeployModelResult(
+                server, database ?? request.Model.Value, "dry-run", null, null, null, diff));
+        }
 
         if (!string.IsNullOrWhiteSpace(request.XmlaOutput))
         {
@@ -95,15 +119,18 @@ public sealed class DeployModelHandler
         }
         catch (AuthenticationRequiredException ex)
         {
-            return MdlResult<DeployModelResult>.Fail("MDL_AUTH_REQUIRED", ex.Message, exitCode: 1);
+            return MdlResult<DeployModelResult>.Fail("MDL_AUTH_REQUIRED", ex.Message, exitCode: 1,
+                hint: "Run 'mdl auth login' to authenticate, or use --auth spn for service principal.");
         }
         catch (InvalidOperationException ex)
         {
-            return MdlResult<DeployModelResult>.Fail("MDL_DEPLOY_FAILED", ex.Message, exitCode: 1);
+            return MdlResult<DeployModelResult>.Fail("MDL_DEPLOY_FAILED", ex.Message, exitCode: 1,
+                hint: "Check that the target workspace exists and you have deploy permissions.");
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            return MdlResult<DeployModelResult>.Fail("MDL_DEPLOY_FAILED", $"Deploy to '{server}' failed: {ex.InnerException?.Message ?? ex.Message}", exitCode: 1);
+            return MdlResult<DeployModelResult>.Fail("MDL_DEPLOY_FAILED", $"Deploy to '{server}' failed: {ex.InnerException?.Message ?? ex.Message}", exitCode: 1,
+                hint: "Check that the target workspace exists and you have deploy permissions.");
         }
     }
 

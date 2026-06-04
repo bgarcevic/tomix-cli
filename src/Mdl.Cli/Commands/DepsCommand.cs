@@ -87,8 +87,7 @@ internal sealed class DepsCommand : ICommandModule
             {
                 if (!ModelObjectKindParser.TryParse(typeValue, out var parsed))
                 {
-                    Console.Error.WriteLine("Invalid --type value.");
-                    return 2;
+                    return TypeValidation.WriteInvalidTypeError();
                 }
 
                 type = parsed;

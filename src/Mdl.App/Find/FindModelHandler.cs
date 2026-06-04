@@ -22,7 +22,8 @@ public sealed class FindModelHandler
             return MdlResult<FindModelResult>.Fail(
                 code: "MDL_NO_PROVIDER",
                 message: $"No provider can open model: {request.Model.Value}",
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         await using var session = await provider.OpenAsync(request.Model, cancellationToken);
         var snapshot = await session.GetSnapshotAsync(cancellationToken);

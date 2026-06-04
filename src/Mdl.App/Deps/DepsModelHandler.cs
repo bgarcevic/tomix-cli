@@ -34,7 +34,8 @@ public sealed partial class DepsModelHandler
             return MdlResult<DepsModelResult>.Fail(
                 code: "MDL_NO_PROVIDER",
                 message: $"No provider can open model: {request.Model.Value}",
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         await using var session = await provider.OpenAsync(request.Model, cancellationToken);
         var snapshot = await session.GetSnapshotAsync(cancellationToken);
@@ -44,7 +45,8 @@ public sealed partial class DepsModelHandler
             return MdlResult<DepsModelResult>.Fail(
                 code: "MDL_OBJECT_NOT_FOUND",
                 message: ModelObjectLookup.NotFoundMessage(request.Path),
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Run 'mdl ls' to list available objects, or 'mdl ls Sa*' to filter.");
 
         if (targetMatches.Count > 1)
             return MdlResult<DepsModelResult>.Fail(

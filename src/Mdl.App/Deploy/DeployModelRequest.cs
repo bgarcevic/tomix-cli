@@ -14,4 +14,5 @@ public sealed record DeployModelRequest(
     string[]? BpaRules,
     string? XmlaOutput,
     bool Force,
-    string? Ci);
+    string? Ci,
+    bool DryRun = false);

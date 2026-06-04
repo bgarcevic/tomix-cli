@@ -21,9 +21,16 @@ internal static class ErrorOutput
         {
             var error = diagnostics.FirstOrDefault(d => d.Severity is DiagnosticSeverity.Error or DiagnosticSeverity.Fatal)
                 ?? diagnostics.FirstOrDefault();
-            Console.Error.WriteLine(JsonSerializer.Serialize(
-                new Dictionary<string, string> { ["error"] = error?.Message ?? "" },
-                Options));
+
+            var errorObj = new Dictionary<string, string?>
+            {
+                ["error"] = error?.Message ?? "",
+                ["code"] = error?.Code,
+                ["severity"] = error?.Severity.ToString(),
+                ["hint"] = error?.Hint
+            };
+
+            Console.Error.WriteLine(JsonSerializer.Serialize(errorObj, Options));
             return;
         }
 
@@ -42,6 +49,9 @@ internal static class ErrorOutput
             };
             var message = Styling.MarkupEscape(diagnostic.Message);
             errConsole.MarkupLine($"{label}: {message}");
+
+            if (!string.IsNullOrEmpty(diagnostic.Hint))
+                errConsole.MarkupLine($"  {Styling.Guidance($"→ {diagnostic.Hint}")}");
         }
     }
 }

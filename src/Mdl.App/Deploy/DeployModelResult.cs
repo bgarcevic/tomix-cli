@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
 
+using Mdl.App.Diff;
+
 namespace Mdl.App.Deploy;
 
 public sealed record DeployModelResult(
@@ -13,4 +15,5 @@ public sealed record DeployModelResult(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     string? ScriptPath,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? Script);
+    string? Script,
+    DiffModelResult? Diff = null);

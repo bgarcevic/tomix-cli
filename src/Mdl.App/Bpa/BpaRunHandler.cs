@@ -21,7 +21,8 @@ public sealed class BpaRunHandler
             return MdlResult<BpaRunResult>.Fail(
                 "MDL_NO_PROVIDER",
                 $"No provider can open model: {request.Model.Value}",
-                exitCode: 2);
+                exitCode: 2,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         if (!TryParseFailOn(request.FailOn, out var failOnSeverity, out var failOnError))
             return MdlResult<BpaRunResult>.Fail(

@@ -96,7 +96,10 @@ internal sealed class FindCommand : ICommandModule
         if (result.Matches.Count == 0)
         {
             if (!pathsOnly)
-                AnsiConsole.MarkupLine(Styling.Muted("No matches found."));
+            {
+                AnsiConsole.MarkupLine(Styling.Muted($"No matches for '{Styling.MarkupEscape(result.Pattern)}'."));
+                AnsiConsole.MarkupLine(Styling.Guidance($"  → Try: mdl find \"{Styling.MarkupEscape(result.Pattern)}\" --type measure, or remove --case-sensitive"));
+            }
 
             return;
         }

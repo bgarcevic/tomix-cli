@@ -40,7 +40,8 @@ public sealed class ScriptHandler
             return MdlResult<ScriptRunResult>.Fail(
                 "MDL_NO_PROVIDER",
                 $"No provider can open model: {request.Model.Value}",
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         var stopwatch = Stopwatch.StartNew();
         try
@@ -88,14 +89,16 @@ public sealed class ScriptHandler
         }
         catch (AuthenticationRequiredException ex)
         {
-            return MdlResult<ScriptRunResult>.Fail("MDL_AUTH_REQUIRED", ex.Message, exitCode: 1);
+            return MdlResult<ScriptRunResult>.Fail("MDL_AUTH_REQUIRED", ex.Message, exitCode: 1,
+                hint: "Run 'mdl auth login' to authenticate, or use --auth spn for service principal.");
         }
         catch (Exception ex) when (request.Model.IsRemote && ex is not OperationCanceledException)
         {
             return MdlResult<ScriptRunResult>.Fail(
                 "MDL_CONNECT_FAILED",
                 RemoteConnectError.Describe(request.Model.Value, ex),
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Verify the server URL and credentials.");
         }
         catch (NotSupportedException ex)
         {

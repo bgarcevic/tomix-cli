@@ -84,7 +84,8 @@ public sealed class StageHandler
         var provider = providers.FirstOrDefault(p => p.CanOpen(workingReference));
         if (provider is null)
             return MdlResult<StageCommitResult>.Fail(
-                "MDL_NO_PROVIDER", $"No provider can open working copy: {manifest.WorkingCopy}", 2);
+                "MDL_NO_PROVIDER", $"No provider can open working copy: {manifest.WorkingCopy}", 2,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         string localSaved;
         try

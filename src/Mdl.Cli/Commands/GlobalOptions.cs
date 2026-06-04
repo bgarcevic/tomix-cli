@@ -62,11 +62,18 @@ internal static class GlobalOptions
         Recursive = true
     };
 
+    public static readonly Option<bool> Yes = new("--yes")
+    {
+        Description = "Skip confirmation prompts for destructive operations",
+        Recursive = true
+    };
+
     static GlobalOptions()
     {
         Model.Aliases.Add("-m");
         Server.Aliases.Add("-s");
         Database.Aliases.Add("-d");
+        Yes.Aliases.Add("-y");
         OutputFormat.Recursive = true;
     }
 
@@ -82,6 +89,7 @@ internal static class GlobalOptions
         yield return Recent;
         yield return Debug;
         yield return NonInteractive;
+        yield return Yes;
     }
 
     public static string OutputFormatValue(ParseResult parseResult)

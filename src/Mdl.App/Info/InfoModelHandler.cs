@@ -22,7 +22,8 @@ public sealed class InfoModelHandler
             return MdlResult<InfoModelResult>.Fail(
                 code: "MDL_NO_PROVIDER",
                 message: $"No provider can open model: {request.Model.Value}",
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         try
         {
@@ -37,14 +38,16 @@ public sealed class InfoModelHandler
         }
         catch (AuthenticationRequiredException ex)
         {
-            return MdlResult<InfoModelResult>.Fail("MDL_AUTH_REQUIRED", ex.Message, exitCode: 1);
+            return MdlResult<InfoModelResult>.Fail("MDL_AUTH_REQUIRED", ex.Message, exitCode: 1,
+                hint: "Run 'mdl auth login' to authenticate, or use --auth spn for service principal.");
         }
         catch (Exception ex) when (request.Model.IsRemote && ex is not OperationCanceledException)
         {
             return MdlResult<InfoModelResult>.Fail(
                 "MDL_CONNECT_FAILED",
                 RemoteConnectError.Describe(request.Model.Value, ex),
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Verify the server URL and credentials.");
         }
     }
 }

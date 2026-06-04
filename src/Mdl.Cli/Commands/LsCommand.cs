@@ -99,10 +99,7 @@ internal sealed class LsCommand : ICommandModule
             {
                 if (!ModelObjectKindParser.TryParse(typeValue, out var parsed))
                 {
-                    Console.Error.WriteLine(
-                        "Invalid --type value. Expected: table, measure, column, hierarchy, " +
-                        "partition, relationship, role, perspective, culture.");
-                    return 2;
+                    return TypeValidation.WriteInvalidTypeError();
                 }
 
                 type = parsed;

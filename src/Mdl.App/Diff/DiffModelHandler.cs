@@ -20,14 +20,16 @@ public sealed class DiffModelHandler
             return MdlResult<DiffModelResult>.Fail(
                 code: "MDL_NO_PROVIDER",
                 message: $"No provider can open model: {request.Left.Value}",
-                exitCode: 2);
+                exitCode: 2,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         var rightProvider = _providers.FirstOrDefault(p => p.CanOpen(request.Right));
         if (rightProvider is null)
             return MdlResult<DiffModelResult>.Fail(
                 code: "MDL_NO_PROVIDER",
                 message: $"No provider can open model: {request.Right.Value}",
-                exitCode: 2);
+                exitCode: 2,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         await using var leftSession = await leftProvider.OpenAsync(request.Left, cancellationToken);
         await using var rightSession = await rightProvider.OpenAsync(request.Right, cancellationToken);

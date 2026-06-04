@@ -29,7 +29,8 @@ public sealed class FormatModelHandler
             return MdlResult<FormatModelResult>.Fail(
                 "MDL_NO_PROVIDER",
                 $"No provider can open model: {request.Model.Value}",
-                exitCode: 2);
+                exitCode: 2,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         await using var session = await provider.OpenAsync(request.Model, cancellationToken);
         var snapshot = await session.GetSnapshotAsync(cancellationToken);
@@ -81,7 +82,8 @@ public sealed class FormatModelHandler
             return MdlResult<FormatModelResult>.Fail(
                 "MDL_OBJECT_NOT_FOUND",
                 $"Object not found: {request.Path}",
-                exitCode: 1);
+                exitCode: 1,
+                hint: "Run 'mdl ls' to list available objects, or 'mdl ls Sa*' to filter.");
 
         if (matches.Count > 1)
             return MdlResult<FormatModelResult>.Fail(

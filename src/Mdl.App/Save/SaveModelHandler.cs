@@ -21,7 +21,8 @@ public sealed class SaveModelHandler
             return MdlResult<SaveModelResult>.Fail(
                 code: "MDL_NO_PROVIDER",
                 message: $"No provider can open model: {request.Model.Value}",
-                exitCode: 2);
+                exitCode: 2,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         var outputPath = request.OutputPath;
         if (string.IsNullOrWhiteSpace(outputPath))

@@ -89,22 +89,30 @@ internal sealed class RmCommand : ICommandModule
             {
                 if (!ModelObjectKindParser.TryParse(typeValue, out var parsed))
                 {
-                    Console.Error.WriteLine("Invalid --type value.");
-                    return 2;
+                    return TypeValidation.WriteInvalidTypeError();
                 }
 
                 type = parsed;
             }
+
+            var path = parseResult.GetValue(pathArgument) ?? "";
+            var dryRun = parseResult.GetValue(dryRunOption);
+
+            if (!dryRun && !ConfirmationHelper.ConfirmOrAbort(
+                "Remove", path,
+                parseResult.GetValue(GlobalOptions.Yes),
+                parseResult.GetValue(GlobalOptions.NonInteractive)))
+                return 1;
 
             var result = await new RemoveModelObjectHandler(_providers).HandleAsync(
                 new RemoveModelObjectRequest(
                     new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
-                    parseResult.GetValue(pathArgument) ?? "",
+                    path,
                     type,
                     parseResult.GetValue(ifExistsOption),
-                    parseResult.GetValue(dryRunOption),
+                    dryRun,
                     parseResult.GetValue(saveOption),
                     parseResult.GetValue(saveToOption),
                     parseResult.GetValue(serializationOption) ?? "",

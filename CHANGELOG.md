@@ -30,9 +30,18 @@ and the API surface that major versions protect.
 - Interactive REPL with stdin piping.
 - `--version` and `doctor` for environment diagnostics.
 - CI release workflow: native binaries for 6 RIDs + .NET tool package.
+- `hint` field on `MdlDiagnostic` and `MdlResult.Fail()` for actionable error guidance.
+- `--dry-run` option on `deploy` to preview changes without deploying.
+- `--yes` / `-y` global option to skip confirmation prompts.
+- `ConfirmationHelper` for interactive confirmation on destructive operations (deploy, replace, rm, connect).
+- `TypeValidation` helper for consistent `--type` error messages.
+- `CONTRIBUTING.md`.
 
 ### Changed
 
+- Migrate remaining `Console.Error.WriteLine` calls to Spectre.Console styled output.
+- Enhance JSON error output to include `code`, `severity`, and `hint` fields.
+- Improve empty result messaging for `ls` and `find` with guidance hints.
 - Refactor auth: `AuthSettingsFactory` moved from CLI to `Mdl.App.Auth`.
 - Refactor `ModelObjectKindParser` moved from CLI to `Mdl.Core.Models`.
 - Replace `ModelSourceResolver` static calls with `ActiveModelResolver` instance in all commands.
@@ -41,4 +50,5 @@ and the API surface that major versions protect.
 
 ### Removed
 
+- Standalone `InfoCommand.cs` (consolidated into connect flow).
 - Hardcoded `<Version>` and `<IncludeSourceRevisionInInformationalVersion>` from `Mdl.Cli.csproj`.
