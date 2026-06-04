@@ -60,20 +60,24 @@ internal sealed class ValidateCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var format = GlobalOptions.OutputFormatValue(parseResult);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             if (!CommandOutput.TryValidateFormat(format))
                 return 2;
 
             var errorsOnly = parseResult.GetValue(errorsOnlyOption);
 
-            var result = await new ValidateModelHandler(_providers).HandleAsync(
-                new ValidateModelRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    errorsOnly,
-                    parseResult.GetValue(noWarningsOption) || errorsOnly,
-                    parseResult.GetValue(serverOnlyOption)),
-                cancellationToken);
+            var result = await CliSpinner.RunAsync(
+                "Validating model...",
+                () => new ValidateModelHandler(_providers).HandleAsync(
+                    new ValidateModelRequest(
+                        new ActiveModelResolver().ResolveReference(
+                            GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                            parseResult.GetValue(GlobalOptions.Database)),
+                        errorsOnly,
+                        parseResult.GetValue(noWarningsOption) || errorsOnly,
+                        parseResult.GetValue(serverOnlyOption)),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(format) || OutputFormats.IsCsv(format));
 
             if (result.Data is not null)
             {

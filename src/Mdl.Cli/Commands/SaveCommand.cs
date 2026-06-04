@@ -87,16 +87,20 @@ internal sealed class SaveCommand : ICommandModule
                 GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                 parseResult.GetValue(GlobalOptions.Database));
 
-            var result = await new SaveModelHandler(_providers).HandleAsync(
-                new SaveModelRequest(
-                    reference,
-                    outputPath,
-                    serialization,
-                    force,
-                    supportingFiles,
-                    fixBpa,
-                    bpaRules),
-                cancellationToken);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Saving model...",
+                () => new SaveModelHandler(_providers).HandleAsync(
+                    new SaveModelRequest(
+                        reference,
+                        outputPath,
+                        serialization,
+                        force,
+                        supportingFiles,
+                        fixBpa,
+                        bpaRules),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
             return CommandOutput.Render(
                 result,

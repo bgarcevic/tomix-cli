@@ -114,6 +114,7 @@ internal sealed class DeployCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var format = GlobalOptions.OutputFormatValue(parseResult);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             if (!CommandOutput.TryValidateFormat(format))
                 return 2;
 
@@ -131,22 +132,26 @@ internal sealed class DeployCommand : ICommandModule
                 parseResult.GetValue(GlobalOptions.NonInteractive)))
                 return 1;
 
-            var result = await new DeployModelHandler(_providers).HandleAsync(
-                new DeployModelRequest(
-                    reference,
-                    server,
-                    database,
-                    parseResult.GetValue(profileOption),
-                    parseResult.GetValue(deployFullOption),
-                    parseResult.GetValue(createOnlyOption),
-                    parseResult.GetValue(skipBpaOption),
-                    parseResult.GetValue(fixBpaOption),
-                    parseResult.GetValue(bpaRulesOption),
-                    parseResult.GetValue(xmlaOption),
-                    parseResult.GetValue(forceOption),
-                    parseResult.GetValue(ciOption),
-                    dryRun),
-                cancellationToken);
+            var spinnerLabel = dryRun ? "Previewing deployment..." : "Deploying model...";
+            var result = await CliSpinner.RunAsync(
+                spinnerLabel,
+                () => new DeployModelHandler(_providers).HandleAsync(
+                    new DeployModelRequest(
+                        reference,
+                        server,
+                        database,
+                        parseResult.GetValue(profileOption),
+                        parseResult.GetValue(deployFullOption),
+                        parseResult.GetValue(createOnlyOption),
+                        parseResult.GetValue(skipBpaOption),
+                        parseResult.GetValue(fixBpaOption),
+                        parseResult.GetValue(bpaRulesOption),
+                        parseResult.GetValue(xmlaOption),
+                        parseResult.GetValue(forceOption),
+                        parseResult.GetValue(ciOption),
+                        dryRun),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(format) || OutputFormats.IsCsv(format));
 
             if (result.Data is not null && result.Data.ScriptPath == "-" && result.Data.Script is not null)
             {

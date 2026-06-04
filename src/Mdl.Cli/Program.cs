@@ -89,7 +89,24 @@ internal static class Program
             return 0;
         }
 
-        return root.Parse(args).Invoke();
+        var parseResult = root.Parse(args);
+        if (parseResult.Errors.Count > 0)
+        {
+            var commandNames = root.Subcommands.Select(c => c.Name).ToList();
+            foreach (var error in parseResult.Errors)
+            {
+                if (error.Message.Contains("is not a valid command", StringComparison.OrdinalIgnoreCase) ||
+                    error.Message.Contains("Unrecognized command", StringComparison.OrdinalIgnoreCase) ||
+                    error.Message.Contains("Required command was not provided", StringComparison.OrdinalIgnoreCase))
+                {
+                    var firstArg = args.FirstOrDefault(a => !a.StartsWith('-'));
+                    if (firstArg is not null)
+                        DidYouMean.WriteSuggestion(firstArg, commandNames);
+                }
+            }
+        }
+
+        return parseResult.Invoke();
     }
 
     private static void ApplySpectreHelp(Command command)

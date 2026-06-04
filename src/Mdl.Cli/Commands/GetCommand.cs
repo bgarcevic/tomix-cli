@@ -4,6 +4,7 @@ using Mdl.App.Get;
 using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -68,13 +69,18 @@ internal sealed class GetCommand : ICommandModule
                 type = parsed;
             }
 
-            var result = await new GetModelHandler(_providers).HandleAsync(
-                new GetModelRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    path, query, type),
-                cancellationToken);
+            var reference = new ActiveModelResolver().ResolveReference(
+                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                parseResult.GetValue(GlobalOptions.Database));
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Loading model...",
+                () => new GetModelHandler(_providers).HandleAsync(
+                    new GetModelRequest(
+                        reference,
+                        path, query, type),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
             return CommandOutput.Render(
                 result,

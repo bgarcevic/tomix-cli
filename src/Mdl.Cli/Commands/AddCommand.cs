@@ -116,23 +116,29 @@ internal sealed class AddCommand : ICommandModule
             var value = InputValueResolver.Resolve(parsed.PrimaryValue, file);
             IReadOnlyList<ModelPropertyAssignment> properties = parsed.Properties;
 
-            var result = await new AddModelObjectHandler(_providers).HandleAsync(
-                new AddModelObjectRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    parseResult.GetValue(pathArgument) ?? "",
-                    parseResult.GetValue(typeOption),
-                    value,
-                    properties,
-                    parseResult.GetValue(ifNotExistsOption),
-                    parseResult.GetValue(saveOption),
-                    parseResult.GetValue(saveToOption),
-                    parseResult.GetValue(serializationOption) ?? "",
-                    parseResult.GetValue(forceOption),
-                    parseResult.GetValue(stageOption),
-                    parseResult.GetValue(revertOption)),
-                cancellationToken);
+            var reference = new ActiveModelResolver().ResolveReference(
+                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                parseResult.GetValue(GlobalOptions.Database));
+            var saving = parseResult.GetValue(saveOption) || !string.IsNullOrWhiteSpace(parseResult.GetValue(saveToOption));
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Saving...",
+                () => new AddModelObjectHandler(_providers).HandleAsync(
+                    new AddModelObjectRequest(
+                        reference,
+                        parseResult.GetValue(pathArgument) ?? "",
+                        parseResult.GetValue(typeOption),
+                        value,
+                        properties,
+                        parseResult.GetValue(ifNotExistsOption),
+                        parseResult.GetValue(saveOption),
+                        parseResult.GetValue(saveToOption),
+                        parseResult.GetValue(serializationOption) ?? "",
+                        parseResult.GetValue(forceOption),
+                        parseResult.GetValue(stageOption),
+                        parseResult.GetValue(revertOption)),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue));
 
             return CommandOutput.Render(result, formatValue, Render);
         });

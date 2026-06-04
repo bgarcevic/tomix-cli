@@ -142,28 +142,32 @@ internal sealed class BpaCommand : ICommandModule
         runCommand.SetAction(async (parseResult, cancellationToken) =>
         {
             var format = GlobalOptions.OutputFormatValue(parseResult);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             if (!CommandOutput.TryValidateFormat(format))
                 return 2;
 
             var ruleFiles = parseResult.GetValue(rulesOption);
             var ruleIds = parseResult.GetValue(ruleOption);
 
-            var result = await new BpaRunHandler(_providers).HandleAsync(
-                new BpaRunRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    ruleFiles,
-                    parseResult.GetValue(noDefaultsOption),
-                    parseResult.GetValue(pathOption),
-                    ruleIds,
-                    parseResult.GetValue(fixOption),
-                    parseResult.GetValue(rulesetOption),
-                    parseResult.GetValue(failOnOption),
-                    parseResult.GetValue(saveOption),
-                    parseResult.GetValue(saveToOption),
-                    parseResult.GetValue(serializationOption)),
-                cancellationToken);
+            var result = await CliSpinner.RunAsync(
+                "Running BPA analysis...",
+                () => new BpaRunHandler(_providers).HandleAsync(
+                    new BpaRunRequest(
+                        new ActiveModelResolver().ResolveReference(
+                            GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                            parseResult.GetValue(GlobalOptions.Database)),
+                        ruleFiles,
+                        parseResult.GetValue(noDefaultsOption),
+                        parseResult.GetValue(pathOption),
+                        ruleIds,
+                        parseResult.GetValue(fixOption),
+                        parseResult.GetValue(rulesetOption),
+                        parseResult.GetValue(failOnOption),
+                        parseResult.GetValue(saveOption),
+                        parseResult.GetValue(saveToOption),
+                        parseResult.GetValue(serializationOption)),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(format) || OutputFormats.IsCsv(format));
 
             var ci = parseResult.GetValue(ciOption);
 

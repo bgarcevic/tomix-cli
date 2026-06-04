@@ -183,10 +183,12 @@ the bottom for where each concern lives.
 
 ## Known gaps checklist
 
-- [ ] Grouped sections + Examples blocks in help
+- [x] Grouped sections + Examples blocks in help
 - [x] `NO_COLOR` / `TERM=dumb` handling verified or added
-- [ ] Confirmations with `--yes` on `rm`, `replace`, `deploy`; `--dry-run` on `deploy`
-- [ ] `--no-input` and `-q/--quiet` global flags
-- [ ] Empty-state messages with next-step hints on `ls`/`find`
-- [ ] "Did you mean?" suggestions for unknown subcommands
+- [x] Confirmations with `--yes` on `rm`, `replace`, `deploy`; `--dry-run` on `deploy`
+- [x] `-q/--quiet` global flag (suppresses spinners, progress, non-essential output)
+- [x] Empty-state messages with next-step hints on `ls`/`find`
+- [x] "Did you mean?" suggestions for unknown subcommands
+- [x] Spinners on slow commands (P0: deploy, bpa, connect, auth; P1: format, save, diff, validate, script, stage commit; P2: conditional for ls/get/find/deps/load/set/add/mv/rm/replace when remote or --save)
 - [ ] Ctrl-C handling audit on long-running remote operations
+- [ ] `--no-input` global flag (covered by `--non-interactive`; adding a duplicate is confusing)

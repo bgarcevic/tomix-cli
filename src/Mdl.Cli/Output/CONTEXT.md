@@ -18,6 +18,8 @@ Shared output wiring for all commands.
 - `JsonOutput` — single JSON serializer (the `--format json` contract).
 - `CsvOutput` — CSV serialization (the `--format csv` contract).
 - `ErrorOutput` — diagnostic rendering to stderr (JSON or colored text).
+- `DidYouMean` — Levenshtein-based "Did you mean?" suggestion helper for unknown subcommands.
+- `Spinner` — Spectre.Console Status spinner wrapper with auto-suppression (piped stdout, JSON/CSV, --quiet).
 - `LsRenderer` — Spectre.Console tables for the `ls` command.
 - `Styling` — color palette, markup helpers, and shared utilities. The single source of truth for all color/style decisions.
 

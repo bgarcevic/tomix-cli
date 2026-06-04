@@ -42,11 +42,15 @@ internal sealed class StageCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var format = GlobalOptions.OutputFormatValue(parseResult);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             if (!CommandOutput.TryValidateFormat(format))
                 return 2;
 
-            var result = await new StageHandler().CommitAsync(
-                ResolveModel(parseResult), _providers, parseResult.GetValue(forceOption), cancellationToken);
+            var result = await CliSpinner.RunAsync(
+                "Committing staged changes...",
+                () => new StageHandler().CommitAsync(
+                    ResolveModel(parseResult), _providers, parseResult.GetValue(forceOption), cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(format) || OutputFormats.IsCsv(format));
             return CommandOutput.Render(result, format, RenderCommit);
         });
         return command;

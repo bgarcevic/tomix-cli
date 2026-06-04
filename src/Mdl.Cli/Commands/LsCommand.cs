@@ -3,6 +3,7 @@ using Mdl.App.Ls;
 using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
+using Spectre.Console;
 
 namespace Mdl.Cli.Commands;
 
@@ -106,9 +107,13 @@ internal sealed class LsCommand : ICommandModule
             }
 
             var handler = new LsModelHandler(_providers);
-            var result = await handler.HandleAsync(
-                new LsModelRequest(reference, pathFilter, type),
-                cancellationToken);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Loading model...",
+                () => handler.HandleAsync(
+                    new LsModelRequest(reference, pathFilter, type),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
             return CommandOutput.Render(
                 result,

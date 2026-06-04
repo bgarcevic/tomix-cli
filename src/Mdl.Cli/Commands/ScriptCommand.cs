@@ -93,19 +93,23 @@ internal sealed class ScriptCommand : ICommandModule
             var explicitModel = GlobalOptions.ModelValue(parseResult)
                 ?? parseResult.GetValue(modelArgument)
                 ?? CollectModelArgument("script");
-            var result = await new ScriptHandler(_providers).HandleAsync(
-                new ScriptRunRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        explicitModel,
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    scriptFiles,
-                    expressions,
-                    parseResult.GetValue(dryRunOption),
-                    parseResult.GetValue(forceOption),
-                    parseResult.GetValue(saveOption),
-                    parseResult.GetValue(saveToOption),
-                    parseResult.GetValue(serializationOption)),
-                cancellationToken);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Running script...",
+                () => new ScriptHandler(_providers).HandleAsync(
+                    new ScriptRunRequest(
+                        new ActiveModelResolver().ResolveReference(
+                            explicitModel,
+                            parseResult.GetValue(GlobalOptions.Database)),
+                        scriptFiles,
+                        expressions,
+                        parseResult.GetValue(dryRunOption),
+                        parseResult.GetValue(forceOption),
+                        parseResult.GetValue(saveOption),
+                        parseResult.GetValue(saveToOption),
+                        parseResult.GetValue(serializationOption)),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
             return CommandOutput.Render(
                 result,

@@ -88,7 +88,11 @@ internal sealed class AuthCommand : ICommandModule
             if (method == AuthMethod.Interactive && !OutputFormats.IsJson(format))
                 Console.Error.WriteLine("Opening browser for authentication...");
 
-            var result = await handler.LoginAsync(options, cancellationToken);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Authenticating...",
+                () => handler.LoginAsync(options, cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(format));
             return CommandOutput.Render(result, format, RenderLogin, data => data.Identity);
         });
 

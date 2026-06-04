@@ -39,9 +39,13 @@ internal sealed class LoadCommand : ICommandModule
                 return 2;
 
             var handler = new InfoModelHandler(_providers);
-            var result = await handler.HandleAsync(
-                new InfoModelRequest(reference),
-                cancellationToken);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Loading model...",
+                () => handler.HandleAsync(
+                    new InfoModelRequest(reference),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue));
 
             return CommandOutput.Render(result, formatValue, Render, ToReferenceJson, errorFormat: errorFormat);
         });

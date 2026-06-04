@@ -178,9 +178,13 @@ internal sealed class ConnectCommand : ICommandModule
             if (validation is not null)
             {
                 var infoHandler = new InfoModelHandler(_providers);
-                var infoResult = await infoHandler.HandleAsync(
-                    new InfoModelRequest(validation),
-                    cancellationToken);
+                var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+                var infoResult = await CliSpinner.RunAsync(
+                    "Connecting...",
+                    () => infoHandler.HandleAsync(
+                        new InfoModelRequest(validation),
+                        cancellationToken),
+                    suppress: quiet || OutputFormats.IsJson(format) || OutputFormats.IsCsv(format));
 
                 if (!infoResult.Success)
                 {

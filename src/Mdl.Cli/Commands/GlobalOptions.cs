@@ -68,12 +68,19 @@ internal static class GlobalOptions
         Recursive = true
     };
 
+    public static readonly Option<bool> Quiet = new("--quiet")
+    {
+        Description = "Suppress non-essential output (spinners, progress, hints). Errors and data still print.",
+        Recursive = true
+    };
+
     static GlobalOptions()
     {
         Model.Aliases.Add("-m");
         Server.Aliases.Add("-s");
         Database.Aliases.Add("-d");
         Yes.Aliases.Add("-y");
+        Quiet.Aliases.Add("-q");
         OutputFormat.Recursive = true;
     }
 
@@ -90,6 +97,7 @@ internal static class GlobalOptions
         yield return Debug;
         yield return NonInteractive;
         yield return Yes;
+        yield return Quiet;
     }
 
     public static string OutputFormatValue(ParseResult parseResult)

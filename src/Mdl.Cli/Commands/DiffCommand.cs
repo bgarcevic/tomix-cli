@@ -36,16 +36,20 @@ internal sealed class DiffCommand : ICommandModule
         {
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
             var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
             var left = parseResult.GetValue(leftArgument) ?? "";
             var right = parseResult.GetValue(rightArgument) ?? "";
-            var result = await new DiffModelHandler(_providers).HandleAsync(
-                new DiffModelRequest(
-                    new ModelReference(left),
-                    new ModelReference(right)),
-                cancellationToken);
+            var result = await CliSpinner.RunAsync(
+                "Comparing models...",
+                () => new DiffModelHandler(_providers).HandleAsync(
+                    new DiffModelRequest(
+                        new ModelReference(left),
+                        new ModelReference(right)),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
             return CommandOutput.Render(
                 result,

@@ -104,22 +104,28 @@ internal sealed class RmCommand : ICommandModule
                 parseResult.GetValue(GlobalOptions.NonInteractive)))
                 return 1;
 
-            var result = await new RemoveModelObjectHandler(_providers).HandleAsync(
-                new RemoveModelObjectRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    path,
-                    type,
-                    parseResult.GetValue(ifExistsOption),
-                    dryRun,
-                    parseResult.GetValue(saveOption),
-                    parseResult.GetValue(saveToOption),
-                    parseResult.GetValue(serializationOption) ?? "",
-                    parseResult.GetValue(forceOption),
-                    parseResult.GetValue(stageOption),
-                    parseResult.GetValue(revertOption)),
-                cancellationToken);
+            var reference = new ActiveModelResolver().ResolveReference(
+                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                parseResult.GetValue(GlobalOptions.Database));
+            var saving = parseResult.GetValue(saveOption) || !string.IsNullOrWhiteSpace(parseResult.GetValue(saveToOption));
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Saving...",
+                () => new RemoveModelObjectHandler(_providers).HandleAsync(
+                    new RemoveModelObjectRequest(
+                        reference,
+                        path,
+                        type,
+                        parseResult.GetValue(ifExistsOption),
+                        dryRun,
+                        parseResult.GetValue(saveOption),
+                        parseResult.GetValue(saveToOption),
+                        parseResult.GetValue(serializationOption) ?? "",
+                        parseResult.GetValue(forceOption),
+                        parseResult.GetValue(stageOption),
+                        parseResult.GetValue(revertOption)),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue));
 
             return CommandOutput.Render(result, formatValue, Render);
         });

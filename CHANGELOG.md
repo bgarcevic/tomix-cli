@@ -39,6 +39,9 @@ and the API surface that major versions protect.
 - `ConfirmationHelper` for interactive confirmation on destructive operations (deploy, replace, rm, connect).
 - `TypeValidation` helper for consistent `--type` error messages.
 - `CONTRIBUTING.md`.
+- `--quiet` / `-q` global flag to suppress spinners, progress, and hints.
+- `Spinner` wrapper around Spectre.Console `Status` with auto-suppression for JSON/CSV/pipe/--quiet.
+- `DidYouMean` suggestion helper for unknown subcommands using Levenshtein distance.
 
 ### Changed
 

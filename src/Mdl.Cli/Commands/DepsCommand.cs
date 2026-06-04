@@ -93,20 +93,23 @@ internal sealed class DepsCommand : ICommandModule
                 type = parsed;
             }
 
-            var result = await new DepsModelHandler(_providers).HandleAsync(
-                new DepsModelRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    parseResult.GetValue(pathArgument),
-                    type,
-                    upstreamOnly,
-                    downstreamOnly,
-                    parseResult.GetValue(deepOption),
-                    parseResult.GetValue(unusedOption),
-                    parseResult.GetValue(hiddenOption),
-                    parseResult.GetValue(maxDepthOption)),
-                cancellationToken);
+            var result = await CliSpinner.RunAsync(
+                "Analyzing dependencies...",
+                () => new DepsModelHandler(_providers).HandleAsync(
+                    new DepsModelRequest(
+                        new ActiveModelResolver().ResolveReference(
+                            GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                            parseResult.GetValue(GlobalOptions.Database)),
+                        parseResult.GetValue(pathArgument),
+                        type,
+                        upstreamOnly,
+                        downstreamOnly,
+                        parseResult.GetValue(deepOption),
+                        parseResult.GetValue(unusedOption),
+                        parseResult.GetValue(hiddenOption),
+                        parseResult.GetValue(maxDepthOption)),
+                    cancellationToken),
+                suppress: parseResult.GetValue(GlobalOptions.Quiet) || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
             if (result.Data is null && OutputFormats.IsTextLike(formatValue))
             {

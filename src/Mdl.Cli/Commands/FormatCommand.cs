@@ -110,21 +110,25 @@ internal sealed class FormatCommand : ICommandModule
             }
 
             var expression = InputValueResolver.Resolve(parseResult.GetValue(expressionOption));
-            var result = await new FormatModelHandler(_providers, _formatter).HandleAsync(
-                new FormatModelRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    expression,
-                    parseResult.GetValue(pathOption),
-                    parseResult.GetValue(langOption) ?? "",
-                    type,
-                    parseResult.GetValue(longOption),
-                    parseResult.GetValue(semicolonsOption),
-                    parseResult.GetValue(noSpaceAfterFunctionOption),
-                    parseResult.GetValue(saveOption),
-                    parseResult.GetValue(saveToOption)),
-                cancellationToken);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
+            var result = await CliSpinner.RunAsync(
+                "Formatting...",
+                () => new FormatModelHandler(_providers, _formatter).HandleAsync(
+                    new FormatModelRequest(
+                        new ActiveModelResolver().ResolveReference(
+                            GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                            parseResult.GetValue(GlobalOptions.Database)),
+                        expression,
+                        parseResult.GetValue(pathOption),
+                        parseResult.GetValue(langOption) ?? "",
+                        type,
+                        parseResult.GetValue(longOption),
+                        parseResult.GetValue(semicolonsOption),
+                        parseResult.GetValue(noSpaceAfterFunctionOption),
+                        parseResult.GetValue(saveOption),
+                        parseResult.GetValue(saveToOption)),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
             return CommandOutput.Render(
                 result,

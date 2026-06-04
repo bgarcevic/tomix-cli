@@ -63,20 +63,25 @@ internal sealed class FindCommand : ICommandModule
             var pattern = parseResult.GetValue(patternArgument) ?? "";
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
             var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
+            var quiet = parseResult.GetValue(GlobalOptions.Quiet);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
 
-            var result = await new FindModelHandler(_providers).HandleAsync(
-                new FindModelRequest(
-                    new ActiveModelResolver().ResolveReference(
-                        GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                        parseResult.GetValue(GlobalOptions.Database)),
-                    pattern,
-                    parseResult.GetValue(inOption) ?? "all",
-                    parseResult.GetValue(regexOption),
-                    parseResult.GetValue(caseSensitiveOption)),
-                cancellationToken);
+            var reference = new ActiveModelResolver().ResolveReference(
+                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                parseResult.GetValue(GlobalOptions.Database));
+            var result = await CliSpinner.RunAsync(
+                "Searching...",
+                () => new FindModelHandler(_providers).HandleAsync(
+                    new FindModelRequest(
+                        reference,
+                        pattern,
+                        parseResult.GetValue(inOption) ?? "all",
+                        parseResult.GetValue(regexOption),
+                        parseResult.GetValue(caseSensitiveOption)),
+                    cancellationToken),
+                suppress: quiet || OutputFormats.IsJson(formatValue));
 
             var pathsOnly = parseResult.GetValue(pathsOnlyOption);
             var noMultiline = parseResult.GetValue(noMultilineOption);
