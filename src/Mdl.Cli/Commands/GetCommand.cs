@@ -1,6 +1,7 @@
 using System.CommandLine;
 using System.Globalization;
 using Mdl.App.Get;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 
@@ -70,7 +71,7 @@ internal sealed class GetCommand : ICommandModule
 
             var result = await new GetModelHandler(_providers).HandleAsync(
                 new GetModelRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
                     path, query, type),

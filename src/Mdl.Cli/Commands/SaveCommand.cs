@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Save;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -82,7 +83,7 @@ internal sealed class SaveCommand : ICommandModule
             var fixBpa = parseResult.GetValue(fixBpaOption);
             var bpaRules = parseResult.GetValue(bpaRulesOption);
 
-            var reference = ModelSourceResolver.ResolveReference(
+            var reference = new ActiveModelResolver().ResolveReference(
                 GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                 parseResult.GetValue(GlobalOptions.Database));
 

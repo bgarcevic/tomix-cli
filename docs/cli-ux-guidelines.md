@@ -138,6 +138,28 @@ the bottom for where each concern lives.
   renaming; changing human-oriented text is fine.
 - Don't repurpose a flag to mean something different — add a new one.
 
+## Versioning policy
+
+- Versions are derived from git tags by [MinVer](https://github.com/adamralph/minver).
+  Tag format: `v<major>.<minor>.<patch>` (e.g. `v1.2.3`). Pre-release tags:
+  `v1.2.3-alpha.1`, `v1.2.3-beta.2`. Between tags, MinVer auto-increments
+  pre-release identifiers based on commit count since the last tag.
+- Bump by tagging — no file edits required. Push the tag to trigger the
+  release workflow:
+  - **Patch** (`v1.0.1`): bug fixes, no new flags/fields/exit codes.
+  - **Minor** (`v1.1.0`): new commands, flags, JSON fields — backward-compatible.
+  - **Major** (`v2.0.0`): removed/renamed a flag, changed a JSON field name or
+    shape, changed an exit code, removed a subcommand.
+- The API surface that major versions protect:
+  - JSON output: field names, value types, envelope shape (`data`, `diagnostics`).
+  - Exit codes: numeric values and their meanings (see `CommandOutput`).
+  - CLI flags: names, aliases, value syntax, default behavior.
+  - Subcommand names and `noun verb` structure.
+- Human-readable output (colors, formatting, prose) is NOT covered by the
+  compatibility guarantee and may change in any version.
+- Maintain a `CHANGELOG.md` (Keep a Changelog format) in the repo root.
+  Update it in the same PR that ships the change.
+
 ## Configuration and environment
 
 - Precedence: flags > env vars > project config > user config > system config.
@@ -155,12 +177,14 @@ the bottom for where each concern lives.
 - JSON/CSV contracts → `Output/JsonOutput.cs`, `Output/CsvOutput.cs`
 - Recursive global flags → `Commands/GlobalOptions.cs`
 - Help rendering → `Output/HelpRenderer.cs` / `SpectreHelpAction`
+- Version resolution (`--version`, `doctor`) → `Program.ResolveVersion()` reads `AssemblyInformationalVersionAttribute` set by MinVer
+- Version derivation from git tags → `Directory.Build.props` (MinVer config)
 - One `ICommandModule` per command; commands stay thin, no business logic.
 
 ## Known gaps checklist
 
 - [ ] Grouped sections + Examples blocks in help
-- [ ] `NO_COLOR` / `TERM=dumb` handling verified or added
+- [x] `NO_COLOR` / `TERM=dumb` handling verified or added
 - [ ] Confirmations with `--yes` on `rm`, `replace`, `deploy`; `--dry-run` on `deploy`
 - [ ] `--no-input` and `-q/--quiet` global flags
 - [ ] Empty-state messages with next-step hints on `ls`/`find`

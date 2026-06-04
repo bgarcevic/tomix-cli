@@ -1,8 +1,10 @@
 using System.CommandLine;
 using System.CommandLine.Help;
 using System.Reflection;
+using Mdl.App.Auth;
 using Mdl.App.Config;
 using Mdl.App.Format;
+using Mdl.Auth;
 using Mdl.Cli.Commands;
 using Mdl.Cli.Output;
 using Mdl.Core.Configuration;
@@ -27,7 +29,9 @@ internal static class Program
         foreach (var option in GlobalOptions.All())
             root.Options.Add(option);
 
-        var tokenProvider = AuthSettingsFactory.CreateAuthenticator();
+        var tokenProvider = new MsalAuthenticator(
+            App.Auth.AuthSettingsFactory.Resolve(),
+            messageWriter: Console.Error.WriteLine);
         IReadOnlyList<IModelProvider> providers =
             [new TmdlModelProvider(tokenProvider), new TomFileModelProvider(tokenProvider), new TomServerModelProvider(tokenProvider)];
         var formatter = new CompositeExpressionFormatterClient(

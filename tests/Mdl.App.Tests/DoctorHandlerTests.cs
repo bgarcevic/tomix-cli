@@ -5,15 +5,18 @@ namespace Mdl.App.Tests;
 
 public sealed class DoctorHandlerTests
 {
-    [Fact]
-    public void Handle_ReturnsDoctorResult()
+    [Theory]
+    [InlineData("1.0.0")]
+    [InlineData("0.1.0-alpha.1")]
+    [InlineData("2.3.4-beta.5")]
+    public void Handle_ReturnsDoctorResult(string version)
     {
         var handler = new DoctorHandler();
 
-        var result = handler.Handle("0.1.0-test");
+        var result = handler.Handle(version);
 
         Assert.NotNull(result.Data);
-        Assert.Equal("0.1.0-test", result.Data.Version);
+        Assert.Equal(version, result.Data.Version);
         Assert.NotEmpty(result.Data.Checks);
     }
 
@@ -22,7 +25,7 @@ public sealed class DoctorHandlerTests
     {
         var handler = new DoctorHandler();
 
-        var result = handler.Handle("0.1.0-test");
+        var result = handler.Handle("1.0.0");
 
         Assert.Contains(result.Data!.Checks, check =>
             check.Name == "runtime" &&

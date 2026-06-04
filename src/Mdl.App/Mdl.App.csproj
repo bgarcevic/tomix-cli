@@ -1,6 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <ProjectReference Include="..\Mdl.Auth\Mdl.Auth.csproj" />
     <ProjectReference Include="..\Mdl.Core\Mdl.Core.csproj" />
   </ItemGroup>
 

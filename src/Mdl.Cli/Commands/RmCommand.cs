@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Rm;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -97,7 +98,7 @@ internal sealed class RmCommand : ICommandModule
 
             var result = await new RemoveModelObjectHandler(_providers).HandleAsync(
                 new RemoveModelObjectRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(pathArgument) ?? "",

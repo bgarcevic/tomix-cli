@@ -145,7 +145,7 @@ internal sealed class AuthCommand : ICommandModule
         => method is AuthMethod.ServicePrincipalSecret or AuthMethod.ServicePrincipalCertificate;
 
     private static MsalAuthenticator CreateAuthenticator(string? clientIdOverride, string? tenant)
-        => AuthSettingsFactory.CreateAuthenticator(clientIdOverride, tenant);
+        => new(App.Auth.AuthSettingsFactory.Resolve(clientIdOverride, tenant), messageWriter: Console.Error.WriteLine);
 
     private static void RenderLogin(AuthLoginResult result)
     {

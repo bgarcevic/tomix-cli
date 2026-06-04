@@ -1,8 +1,6 @@
-using Mdl.Core.Models;
+namespace Mdl.Core.Models;
 
-namespace Mdl.Cli.Commands;
-
-internal static class ModelObjectKindParser
+public static class ModelObjectKindParser
 {
     public static bool TryParse(string value, out ModelObjectKind kind)
     {

@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Info;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -28,7 +29,7 @@ internal sealed class LoadCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var path = parseResult.GetValue(modelArgument);
-            var reference = ModelSourceResolver.ResolveReference(
+            var reference = new ActiveModelResolver().ResolveReference(
                 GlobalOptions.ModelValue(parseResult) ?? path,
                 parseResult.GetValue(GlobalOptions.Database));
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);

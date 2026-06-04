@@ -1,5 +1,6 @@
 using System.CommandLine;
 using System.Xml.Linq;
+using Mdl.App.State;
 using Mdl.App.Validate;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
@@ -66,7 +67,7 @@ internal sealed class ValidateCommand : ICommandModule
 
             var result = await new ValidateModelHandler(_providers).HandleAsync(
                 new ValidateModelRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
                     errorsOnly,

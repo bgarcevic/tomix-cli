@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Stage;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -148,7 +149,7 @@ internal sealed class StageCommand : ICommandModule
     }
 
     private static ModelReference ResolveModel(ParseResult parseResult)
-        => ModelSourceResolver.ResolveReference(
+        => new ActiveModelResolver().ResolveReference(
             GlobalOptions.ModelValue(parseResult),
             parseResult.GetValue(GlobalOptions.Database));
 }

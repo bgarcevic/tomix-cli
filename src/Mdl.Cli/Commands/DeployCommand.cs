@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Deploy;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -110,7 +111,7 @@ internal sealed class DeployCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(format))
                 return 2;
 
-            var reference = ModelSourceResolver.ResolveReference(
+            var reference = new ActiveModelResolver().ResolveReference(
                 GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                 parseResult.GetValue(GlobalOptions.Database));
 

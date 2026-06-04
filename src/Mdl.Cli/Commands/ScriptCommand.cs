@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Script;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -94,7 +95,7 @@ internal sealed class ScriptCommand : ICommandModule
                 ?? CollectModelArgument("script");
             var result = await new ScriptHandler(_providers).HandleAsync(
                 new ScriptRunRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         explicitModel,
                         parseResult.GetValue(GlobalOptions.Database)),
                     scriptFiles,

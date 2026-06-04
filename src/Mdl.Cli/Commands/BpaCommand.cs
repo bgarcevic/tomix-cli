@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Bpa;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Bpa;
 using Mdl.Core.Models;
@@ -149,7 +150,7 @@ internal sealed class BpaCommand : ICommandModule
 
             var result = await new BpaRunHandler(_providers).HandleAsync(
                 new BpaRunRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
                     ruleFiles,

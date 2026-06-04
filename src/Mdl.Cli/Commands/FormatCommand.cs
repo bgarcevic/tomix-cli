@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Format;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -112,7 +113,7 @@ internal sealed class FormatCommand : ICommandModule
             var expression = InputValueResolver.Resolve(parseResult.GetValue(expressionOption));
             var result = await new FormatModelHandler(_providers, _formatter).HandleAsync(
                 new FormatModelRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
                     expression,

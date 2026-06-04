@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Ls;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 
@@ -60,7 +61,7 @@ internal sealed class LsCommand : ICommandModule
             var globalModel = GlobalOptions.ModelValue(parseResult);
 
             var activeReference = string.IsNullOrWhiteSpace(globalModel)
-                ? ModelSourceResolver.ResolveReference(null)
+                ? new ActiveModelResolver().ResolveReference(null)
                 : new ModelReference(globalModel);
             var hasContextModel = !string.IsNullOrWhiteSpace(activeReference.Value);
 

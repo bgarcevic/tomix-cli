@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Find;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -68,7 +69,7 @@ internal sealed class FindCommand : ICommandModule
 
             var result = await new FindModelHandler(_providers).HandleAsync(
                 new FindModelRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
                     pattern,

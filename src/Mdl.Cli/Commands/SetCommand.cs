@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Set;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -102,7 +103,7 @@ internal sealed class SetCommand : ICommandModule
                 : [new ModelPropertyAssignment(query, value ?? "")];
             var result = await new SetModelPropertyHandler(_providers).HandleAsync(
                 new SetModelPropertyRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(pathArgument) ?? "",

@@ -1,5 +1,6 @@
 using System.CommandLine;
 using Mdl.App.Deps;
+using Mdl.App.State;
 using Mdl.Cli.Output;
 using Mdl.Core.Models;
 using Spectre.Console;
@@ -95,7 +96,7 @@ internal sealed class DepsCommand : ICommandModule
 
             var result = await new DepsModelHandler(_providers).HandleAsync(
                 new DepsModelRequest(
-                    ModelSourceResolver.ResolveReference(
+                    new ActiveModelResolver().ResolveReference(
                         GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                         parseResult.GetValue(GlobalOptions.Database)),
                     parseResult.GetValue(pathArgument),

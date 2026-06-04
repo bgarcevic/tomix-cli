@@ -2,19 +2,14 @@ using Mdl.App.Config;
 using Mdl.Auth;
 using Mdl.Core.Configuration;
 
-namespace Mdl.Cli.Commands;
+namespace Mdl.App.Auth;
 
 /// <summary>
-/// Resolves Azure AD client settings and builds the shared <see cref="MsalAuthenticator"/>.
-/// Precedence: explicit override → environment variable → local config → built-in default.
-/// Both the <c>auth</c> command and the remote TOM token provider go through here so they
-/// agree on the client id (silent token refresh requires the same app that signed in).
+/// Resolves Azure AD client settings. Precedence: explicit override → environment variable →
+/// local config → built-in default.
 /// </summary>
-internal static class AuthSettingsFactory
+public static class AuthSettingsFactory
 {
-    public static MsalAuthenticator CreateAuthenticator(string? clientIdOverride = null, string? tenant = null)
-        => new(Resolve(clientIdOverride, tenant), messageWriter: Console.Error.WriteLine);
-
     public static MsalAuthSettings Resolve(string? clientIdOverride = null, string? tenant = null)
     {
         var config = new MdlConfigStore().Load();
