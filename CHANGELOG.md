@@ -31,6 +31,7 @@ and the API surface that major versions protect.
 - `--version` and `doctor` for environment diagnostics.
 - CI release workflow: native binaries for 6 RIDs + .NET tool package.
 - Install scripts (`install/install.sh` for Linux/macOS, `install/install.ps1` for Windows) with checksum verification and no-admin installs.
+- Dev run wrapper (`./mdl`, `.\mdl.ps1`) and `scripts/install-dev.sh` so the short-command and global-tool dev workflows both work on macOS/Linux.
 - CI workflow for pull requests and pushes to main (ubuntu + windows).
 - Release job that publishes GitHub Release with checksums.txt on `v*` tags.
 - `hint` field on `MdlDiagnostic` and `MdlResult.Fail()` for actionable error guidance.

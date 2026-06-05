@@ -62,6 +62,7 @@ Open-source CLI for inspecting, validating, querying, testing, and deploying tab
 
 - Build: `dotnet build`
 - Test: `dotnet test`
-- Run CLI (dev): `dotnet run --project src/Mdl.Cli -- doctor`
-- Run JSON output (dev): `dotnet run --project src/Mdl.Cli -- doctor --format json`
-- Install/update global tool: `./scripts/install-dev.ps1` — packs and installs `mdl` globally so you can run `mdl <command>` directly
+- Run CLI (dev, short + always fresh): `./mdl doctor` (`.\mdl.ps1 doctor` on Windows) — wraps `dotnet run`, no install needed; reflects current source on every call
+- Run CLI (dev, explicit): `dotnet run --project src/Mdl.Cli -- doctor`
+- Run JSON output (dev): `./mdl doctor --output-format json`
+- Install/update global tool: `./scripts/install-dev.ps1` (Windows) or `./scripts/install-dev.sh` (macOS/Linux) — packs and installs `mdl` globally so you can run `mdl <command>` directly (re-run after each change to pick up edits)

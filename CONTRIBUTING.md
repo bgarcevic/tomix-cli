@@ -15,8 +15,11 @@ dotnet test
 dotnet run --project src/Mdl.Cli -- doctor
 ```
 
-If `doctor` is happy, you're ready. To try your build as a globally installed
-tool, `scripts/install-dev.ps1` packs and installs it from source.
+If `doctor` is happy, you're ready. For the inner loop, `./mdl <command>`
+(`.\mdl.ps1` on Windows) is a thin wrapper around `dotnet run` — short to type
+and always reflects your current source. To try your build as a genuinely
+globally installed tool, `scripts/install-dev.ps1` (Windows) or
+`scripts/install-dev.sh` (macOS/Linux) packs and installs it from source.
 
 The sample model at `samples/basic-tmdl` is the standard fixture for manual
 testing: `dotnet run --project src/Mdl.Cli -- connect ./samples/basic-tmdl`.
