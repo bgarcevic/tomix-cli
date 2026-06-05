@@ -8,4 +8,5 @@ namespace Mdl.Core.Models;
 public sealed record ModelSnapshot(
     string Name,
     int CompatibilityLevel,
-    IReadOnlyList<ModelObject> Objects);
+    IReadOnlyList<ModelObject> Objects,
+    IReadOnlyDictionary<string, string>? Properties = null);

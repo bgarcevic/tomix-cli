@@ -1,11 +1,11 @@
-using System.Text.RegularExpressions;
+using Mdl.App.Dax;
 using Mdl.App.ModelObjects;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
 namespace Mdl.App.Deps;
 
-public sealed partial class DepsModelHandler
+public sealed class DepsModelHandler
 {
     private readonly IReadOnlyList<IModelProvider> _providers;
 
@@ -84,18 +84,12 @@ public sealed partial class DepsModelHandler
         var dependencies = new List<DependencyObject>();
         var seen = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        foreach (Match match in TableObjectReference().Matches(obj.Expression))
+        foreach (var reference in DaxReferenceExtractor.Extract(obj.Expression))
         {
-            var path = $"{match.Groups["table"].Value}/{match.Groups["object"].Value}";
+            var path = reference.FullyQualified
+                ? $"{reference.Table}/{reference.Object}"
+                : reference.Object;
             AddIfFound(path, objects, dependencies, seen);
-        }
-
-        foreach (Match match in LoneMeasureReference().Matches(obj.Expression))
-        {
-            if (match.Index > 0 && obj.Expression[match.Index - 1] == ']')
-                continue;
-
-            AddIfFound(match.Groups["object"].Value, objects, dependencies, seen);
         }
 
         return dependencies;
@@ -125,10 +119,4 @@ public sealed partial class DepsModelHandler
 
         return obj.Name;
     }
-
-    [GeneratedRegex("'?(?<table>[^'\\[\\]\\(\\),]+)'?\\[(?<object>[^\\]]+)\\]")]
-    private static partial Regex TableObjectReference();
-
-    [GeneratedRegex("(?<![A-Za-z0-9_'])\\[(?<object>[^\\]]+)\\]")]
-    private static partial Regex LoneMeasureReference();
 }

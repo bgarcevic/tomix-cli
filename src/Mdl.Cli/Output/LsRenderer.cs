@@ -9,6 +9,7 @@ namespace Mdl.Cli.Output;
 internal sealed partial class LsRenderer
 {
     private const int MaxCollapsedDetail = 80;
+    private const int MeasureExpressionPreviewLines = 3;
 
     public static void Render(LsModelResult data, bool pathsOnly, bool noMultiline)
     {
@@ -126,11 +127,16 @@ internal sealed partial class LsRenderer
         foreach (var o in objects)
         {
             var lines = ExpressionLines(o, noMultiline);
+            var hidden = lines.Count - MeasureExpressionPreviewLines;
+            var expression = hidden > 0
+                ? string.Join("\n", lines.Take(MeasureExpressionPreviewLines))
+                  + $"\n... (+{hidden} {(hidden == 1 ? "line" : "lines")})"
+                : string.Join("\n", lines);
             table.AddRow(
                 Styling.MarkupEscape(o.Name),
                 Styling.MarkupEscape(o.Description ?? ""),
                 BoolText(o.Hidden),
-                Styling.MarkupEscape(lines[0]),
+                Styling.MarkupEscape(expression),
                 Styling.MarkupEscape(Property(o, "FormatString", "")));
         }
 

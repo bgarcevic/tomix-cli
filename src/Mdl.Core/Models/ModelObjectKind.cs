@@ -15,5 +15,7 @@ public enum ModelObjectKind
     Role,
     RoleMember,
     Perspective,
-    Culture
+    Culture,
+    CalculationItem,
+    DataSource
 }

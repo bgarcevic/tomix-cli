@@ -114,7 +114,32 @@ internal sealed class BpaCommand : ICommandModule
 
         var noMultilineOption = new Option<bool>("--no-multiline")
         {
-            Description = "Collapse multi-line cell content in the violations table to a single line"
+            Description = "Collapse each rule's guidance to a single line"
+        };
+
+        var detailsOption = new Option<bool>("--details")
+        {
+            Description = "Show full guidance and affected objects per rule (default is a compact list)"
+        };
+
+        var fullOption = new Option<bool>("--full")
+        {
+            Description = "Detail view listing every affected object (implies --details)"
+        };
+
+        var errorsOption = new Option<bool>("--errors")
+        {
+            Description = "Show only error-severity rules (combinable with --warnings/--info)"
+        };
+
+        var warningsOption = new Option<bool>("--warnings")
+        {
+            Description = "Show only warning-severity rules (combinable with --errors/--info)"
+        };
+
+        var infoOption = new Option<bool>("--info")
+        {
+            Description = "Show only info-severity rules (combinable with --errors/--warnings)"
         };
 
         var runCommand = new Command("run", "Run BPA rules against a model (--fix to auto-fix)")
@@ -136,7 +161,12 @@ internal sealed class BpaCommand : ICommandModule
             trxOption,
             allowExternalRulesOption,
             pathOption,
-            noMultilineOption
+            noMultilineOption,
+            detailsOption,
+            fullOption,
+            errorsOption,
+            warningsOption,
+            infoOption
         };
 
         runCommand.SetAction(async (parseResult, cancellationToken) =>
@@ -177,10 +207,20 @@ internal sealed class BpaCommand : ICommandModule
             if (!string.IsNullOrWhiteSpace(ci))
                 return result.ExitCode;
 
+            var full = parseResult.GetValue(fullOption);
+            var ruleScoped = ruleIds is { Length: > 0 };
+            var view = new RunViewOptions(
+                NoMultiline: parseResult.GetValue(noMultilineOption),
+                Full: full,
+                Details: parseResult.GetValue(detailsOption) || full || ruleScoped,
+                Errors: parseResult.GetValue(errorsOption),
+                Warnings: parseResult.GetValue(warningsOption),
+                Info: parseResult.GetValue(infoOption));
+
             return CommandOutput.Render(
                 result,
                 format,
-                data => RenderRun(data, parseResult.GetValue(noMultilineOption)),
+                data => RenderRun(data, view),
                 ProjectRunJson);
         });
 
@@ -445,48 +485,82 @@ internal sealed class BpaCommand : ICommandModule
             json[name] = value;
     }
 
-    private static void RenderRun(BpaRunResult result, bool noMultiline)
+    private sealed record RunViewOptions(
+        bool NoMultiline,
+        bool Full,
+        bool Details,
+        bool Errors,
+        bool Warnings,
+        bool Info);
+
+    private const int DetailTextWidth = 84;
+
+    private static void RenderRun(BpaRunResult result, RunViewOptions view)
     {
-        AnsiConsole.MarkupLine(Styling.Value($"Running BPA analysis on {result.ModelName}..."));
-        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine(Styling.Title($"BPA analysis · {result.ModelName}"));
 
         if (result.Violations.Count == 0)
         {
+            AnsiConsole.WriteLine();
             AnsiConsole.MarkupLine(Styling.Success("No BPA violations found."));
             return;
         }
-
-        var table = Styling.NewTable("Rule", "Severity", "Type", "Object", "Description");
-
-        foreach (var v in result.Violations)
-        {
-            var desc = CollapseDescription(v.Description);
-            table.AddRow(
-                Styling.MarkupEscape(Truncate(v.RuleName, 50)),
-                SeverityMarkup(v.Severity),
-                Styling.MarkupEscape(Truncate(v.ObjectType, 20)),
-                Styling.MarkupEscape(Truncate(v.ObjectName, 40)),
-                Styling.MarkupEscape(Truncate(desc, 60)));
-        }
-
-        AnsiConsole.Write(table);
-        AnsiConsole.WriteLine();
 
         var errorCount = result.Violations.Count(v => v.Severity == BpaSeverity.Error);
         var warningCount = result.Violations.Count(v => v.Severity == BpaSeverity.Warning);
         var infoCount = result.Violations.Count(v => v.Severity == BpaSeverity.Info);
 
-        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Rules evaluated:", result.RulesEvaluated.ToString())}");
-        AnsiConsole.MarkupLine("  {0}  ({1}, {2}, {3} info)",
-            Styling.KeyValue("Violations:", result.Violations.Count.ToString()),
+        var groups = BpaRunView.OrderRuleGroups(result.Violations);
+
+        var summary = string.Join(" · ",
+            $"{result.Violations.Count} findings",
             Styling.Error($"{errorCount} errors"),
             Styling.Warning($"{warningCount} warnings"),
-            infoCount);
+            $"{infoCount} info",
+            $"{groups.Count} rules");
 
-        var byCategory = result.Violations.GroupBy(v => v.Category)
-            .OrderByDescending(g => g.Count());
-        foreach (var group in byCategory)
-            AnsiConsole.MarkupLine("    {0}: {1}", Styling.MarkupEscape(group.Key), group.Count());
+        var filterActive = view.Errors || view.Warnings || view.Info;
+        if (filterActive)
+        {
+            var shown = new List<string>(3);
+            if (view.Errors) shown.Add("errors");
+            if (view.Warnings) shown.Add("warnings");
+            if (view.Info) shown.Add("info");
+            summary += "  " + Styling.Muted($"(showing {string.Join(" + ", shown)})");
+        }
+
+        AnsiConsole.Write(new Rule().RuleStyle(new Style(Palette.Slate)));
+
+        var visible = groups
+            .Where(g => BpaRunView.MatchesFilter(g.Severity, view.Errors, view.Warnings, view.Info))
+            .ToList();
+
+        if (visible.Count == 0)
+        {
+            AnsiConsole.MarkupLine(Styling.Muted("  Nothing to show for the selected severities."));
+        }
+        else if (view.Details)
+        {
+            foreach (var group in visible)
+                RenderRuleGroup(group, view);
+        }
+        else
+        {
+            RenderCompact(visible);
+        }
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.Write(new Rule().RuleStyle(new Style(Palette.Slate)));
+        AnsiConsole.MarkupLine(summary);
+
+        var fixable = result.Violations.Count(v => v.CanFix);
+        if (fixable > 0)
+            AnsiConsole.MarkupLine(
+                $"{Styling.Value($"{fixable} of {result.Violations.Count} can be auto-fixed")} "
+                + Styling.Muted($"{fixable} of {result.Violations.Count} can be auto-fixed using mdl bpa run --fix"));
+
+        AnsiConsole.WriteLine();
+        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Rules evaluated:", result.RulesEvaluated.ToString())}");
 
         if (result.DurationMs > 0)
             AnsiConsole.MarkupLine($"  {Styling.KeyValue("Duration:", $"{result.DurationMs}ms")}");
@@ -511,6 +585,70 @@ internal sealed class BpaCommand : ICommandModule
             foreach (var err in result.FixErrors)
                 AnsiConsole.MarkupLine("    {0}", Styling.MarkupEscape(err));
         }
+
+        if (visible.Count > 0)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine(Styling.Guidance(view.Details
+                ? "Run with --full to list every affected object, or --rule <ID> to focus a single rule."
+                : "Run  bpa run --details  for guidance, or  --rule <ID>  to focus a single rule."));
+        }
+    }
+
+    private static void RenderCompact(IReadOnlyList<BpaRunView.RuleGroup> groups)
+    {
+        var table = new Table().Border(TableBorder.None);
+        table.AddColumn(new TableColumn(Styling.Muted("SEVERITY")));
+        table.AddColumn(new TableColumn(Styling.Muted("CATEGORY")));
+        table.AddColumn(new TableColumn(Styling.Muted("RULE / ID")));
+        table.AddColumn(new TableColumn(Styling.Muted("COUNT")).RightAligned());
+
+        foreach (var group in groups)
+        {
+            var name = BpaRunView.StripCategoryPrefix(group.RuleName, group.Category);
+            // Rule name on line 1, the (copy-able) rule id dimmed on line 2 of the same cell,
+            // so the severity/category/count columns stay aligned regardless of id length.
+            var rule = $"{Styling.Bold(name)}\n{Styling.Muted(group.RuleId)}";
+            table.AddRow(
+                Styling.SeverityHeading(BpaRunView.SeverityWord(group.Severity)),
+                Styling.MarkupEscape(group.Category),
+                rule,
+                Styling.Muted($"×{group.Objects.Count}"));
+        }
+
+        AnsiConsole.Write(table);
+    }
+
+    private static void RenderRuleGroup(BpaRunView.RuleGroup group, RunViewOptions view)
+    {
+        AnsiConsole.WriteLine();
+
+        // Wrap to the effective render width so Spectre never re-wraps (which would
+        // split words). Account for the 2-space indent; cap at DetailTextWidth.
+        var width = Math.Max(24, Math.Min(DetailTextWidth, AnsiConsole.Profile.Width - 2));
+
+        var word = BpaRunView.SeverityWord(group.Severity);
+
+        var header = new Grid().Expand();
+        header.AddColumn();
+        header.AddColumn(new GridColumn().RightAligned());
+        header.AddRow(
+            $"{Styling.SeverityHeading(word)}  {Styling.MarkupEscape(group.Category)}",
+            Styling.Muted($"×{group.Objects.Count}"));
+        AnsiConsole.Write(header);
+
+        var name = BpaRunView.StripCategoryPrefix(group.RuleName, group.Category);
+        AnsiConsole.MarkupLine($"  {Styling.Bold(name)}  {Styling.Muted($"[{group.RuleId}]")}");
+
+        var guidance = BpaRunView.Guidance(group.Description, view.NoMultiline);
+        if (guidance.Length > 0)
+            foreach (var line in BpaRunView.WrapText(guidance, width))
+                AnsiConsole.MarkupLine($"  {Styling.Guidance(line)}");
+
+        var objects = BpaRunView.FormatObjectList(group.Objects, view.Full);
+        if (objects.Length > 0)
+            foreach (var line in BpaRunView.WrapText($"Affects  {objects}", width))
+                AnsiConsole.MarkupLine($"  {Styling.Muted(line)}");
     }
 
     private static string CollapseDescription(string? description)

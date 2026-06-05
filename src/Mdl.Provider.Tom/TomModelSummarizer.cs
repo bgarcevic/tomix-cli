@@ -36,6 +36,15 @@ public static class TomModelSummarizer
     private const string PropLineageTag = "LineageTag";
     private const string PropKpi = "KPI";
     private const string PropObjectType = "ObjectType";
+    private const string PropUsedInHierarchies = "UsedInHierarchies";
+    private const string PropUsedInVariations = "UsedInVariations";
+    private const string PropAlternateOf = "AlternateOf";
+    private const string PropRowLevelSecurity = "RowLevelSecurity";
+    private const string PropPerspectives = "Perspectives";
+    private const string PropTableObjectType = "TableObjectType";
+    private const string PropDataSourceName = "DataSourceName";
+    private const string PropDataSourceType = "DataSourceType";
+    private const string PropDefaultPowerBIDataSourceVersion = "DefaultPowerBIDataSourceVersion";
 
     public static ModelSummary Summarize(Database database, string name)
     {
@@ -56,10 +65,12 @@ public static class TomModelSummarizer
 
         var relIndex = BuildRelationshipIndex(model);
         var rlsIndex = BuildRlsIndex(model);
+        var hierarchyUsage = BuildHierarchyUsageIndex(model);
+        var perspectiveMembership = BuildPerspectiveMembershipIndex(model);
 
         var objects = new List<ModelObject>();
         foreach (var table in model.Tables)
-            objects.Add(BuildTable(table, relIndex, rlsIndex));
+            objects.Add(BuildTable(table, relIndex, rlsIndex, hierarchyUsage, perspectiveMembership));
 
         objects.AddRange(model.Relationships.Select(r => BuildRelationship(r)));
         objects.AddRange(model.Roles.Select(BuildRole));
@@ -68,17 +79,26 @@ public static class TomModelSummarizer
                 description: Desc(p.Description))));
         objects.AddRange(model.Cultures.Select(c =>
             Leaf(c.Name, ModelObjectKind.Culture, $"Cultures/{Segment(c.Name)}", detail: null)));
+        objects.AddRange(model.DataSources.Select(BuildDataSource));
 
-        return new ModelSnapshot(name, database.CompatibilityLevel, objects);
+        var modelProps = new Dictionary<string, string>
+        {
+            [PropDefaultPowerBIDataSourceVersion] = model.DefaultPowerBIDataSourceVersion.ToString()
+        };
+
+        return new ModelSnapshot(name, database.CompatibilityLevel, objects, modelProps);
     }
 
     private static ModelObject BuildTable(
         Table table,
         Dictionary<string, HashSet<RelationshipEntry>> relIndex,
-        Dictionary<string, List<string>> rlsIndex)
+        Dictionary<string, List<string>> rlsIndex,
+        Dictionary<string, List<string>> hierarchyUsage,
+        Dictionary<string, List<string>> perspectiveMembership)
     {
         var path = Segment(table.Name);
         var children = new List<ModelObject>();
+        var isCalcGroup = table.CalculationGroup is not null;
 
         var tableProps = new Dictionary<string, string>
         {
@@ -86,15 +106,22 @@ public static class TomModelSummarizer
             [PropLineageTag] = table.LineageTag ?? "",
             [PropTableHasRls] = rlsIndex.ContainsKey(table.Name).ToString().ToLowerInvariant(),
             [PropTableIsCalc] = (table.Partitions.Any(p => p.SourceType == PartitionSourceType.Calculated)).ToString().ToLowerInvariant(),
+            [PropTableObjectType] = isCalcGroup ? "CalculationGroup" : "Table",
+            [PropRowLevelSecurity] = rlsIndex.TryGetValue(table.Name, out var rls) ? string.Join("\n", rls) : "",
+            [PropPerspectives] = perspectiveMembership.TryGetValue(table.Name, out var persp) ? string.Join("\n", persp) : "",
             [PropObjectType] = "Table"
         };
+        AddAnnotations(tableProps, table.Annotations);
 
         foreach (var column in table.Columns.Where(c => c.Type != ColumnType.RowNumber))
-            children.Add(BuildColumn(column, path, relIndex));
+            children.Add(BuildColumn(column, path, relIndex, hierarchyUsage));
 
         children.AddRange(table.Measures.Select(m => BuildMeasure(m, path)));
 
         children.AddRange(table.Hierarchies.Select(h => BuildHierarchy(h, path)));
+
+        if (isCalcGroup)
+            children.AddRange(table.CalculationGroup!.CalculationItems.Select(ci => BuildCalculationItem(ci, path)));
 
         foreach (var partition in table.Partitions)
             children.Add(BuildPartition(partition, path));
@@ -118,7 +145,8 @@ public static class TomModelSummarizer
 
     private static ModelObject BuildColumn(
         Column column, string tablePath,
-        Dictionary<string, HashSet<RelationshipEntry>> relIndex)
+        Dictionary<string, HashSet<RelationshipEntry>> relIndex,
+        Dictionary<string, List<string>> hierarchyUsage)
     {
         var colPath = $"{tablePath}/{Segment(column.Name)}";
         var tableName = column.Table.Name;
@@ -126,6 +154,7 @@ public static class TomModelSummarizer
 
         relIndex.TryGetValue(fullyQualified, out var rels);
         var usedInRels = rels?.Count > 0;
+        hierarchyUsage.TryGetValue($"{tableName}|{column.Name}", out var hierarchies);
 
         var props = new Dictionary<string, string>
         {
@@ -140,9 +169,13 @@ public static class TomModelSummarizer
             [PropSortByColumn] = column.SortByColumn?.Name ?? "",
             [PropLineageTag] = column.LineageTag ?? "",
             [PropUsedInRelationships] = usedInRels.ToString().ToLowerInvariant(),
+            [PropUsedInHierarchies] = hierarchies is not null ? string.Join("\n", hierarchies) : "",
+            [PropUsedInVariations] = string.Join("\n", column.Variations.Select(v => v.Name)),
+            [PropAlternateOf] = column.AlternateOf is not null ? "set" : "",
             [PropTableDataCategory] = column.Table.DataCategory ?? "",
             [PropObjectType] = column.Type == ColumnType.Calculated ? "CalculatedColumn" : "DataColumn"
         };
+        AddAnnotations(props, column.Annotations);
 
         if (column is CalculatedTableColumn ctc)
         {
@@ -178,6 +211,7 @@ public static class TomModelSummarizer
             [PropLineageTag] = measure.LineageTag ?? "",
             [PropObjectType] = "Measure"
         };
+        AddAnnotations(props, measure.Annotations);
 
         return new ModelObject(
             measure.Name,
@@ -218,12 +252,15 @@ public static class TomModelSummarizer
 
     private static ModelObject BuildPartition(Partition partition, string tablePath)
     {
+        var (dataSourceName, dataSourceType) = PartitionDataSource(partition);
         var props = new Dictionary<string, string>
         {
             [PropPartitionSourceType] = partition.SourceType.ToString(),
             [PropPartitionMode] = partition.Mode.ToString(),
             [PropPartitionDataView] = partition.DataView.ToString(),
             [PropPartitionQueryGroup] = partition.QueryGroup?.Name ?? "",
+            [PropDataSourceName] = dataSourceName,
+            [PropDataSourceType] = dataSourceType,
             [PropObjectType] = "Partition"
         };
 
@@ -312,6 +349,80 @@ public static class TomModelSummarizer
             SourceColumn: null,
             Children: members,
             Properties: props);
+    }
+
+    private static ModelObject BuildCalculationItem(CalculationItem item, string tablePath)
+        => new(
+            item.Name,
+            ModelObjectKind.CalculationItem,
+            $"{tablePath}/{Segment(item.Name)}",
+            Detail: null,
+            Expression: item.Expression,
+            Description: Desc(item.Description),
+            Hidden: false,
+            SourceColumn: null,
+            Children: [],
+            Properties: new Dictionary<string, string> { [PropObjectType] = "CalculationItem" });
+
+    private static ModelObject BuildDataSource(DataSource dataSource)
+        => new(
+            dataSource.Name,
+            ModelObjectKind.DataSource,
+            $"DataSources/{Segment(dataSource.Name)}",
+            Detail: null,
+            Expression: null,
+            Description: Desc(dataSource.Description),
+            Hidden: false,
+            SourceColumn: null,
+            Children: [],
+            Properties: new Dictionary<string, string>
+            {
+                [PropDataSourceType] = dataSource is StructuredDataSource ? "Structured" : "Provider",
+                [PropObjectType] = "DataSource"
+            });
+
+    private static (string Name, string Type) PartitionDataSource(Partition partition)
+        => partition.Source is QueryPartitionSource { DataSource: { } ds }
+            ? (ds.Name, ds is StructuredDataSource ? "Structured" : "Provider")
+            : ("", "");
+
+    private static void AddAnnotations(Dictionary<string, string> props, IEnumerable<Annotation> annotations)
+    {
+        foreach (var annotation in annotations)
+            props[$"Annotation:{annotation.Name}"] = annotation.Value ?? "";
+    }
+
+    private static Dictionary<string, List<string>> BuildHierarchyUsageIndex(Model model)
+    {
+        var index = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var table in model.Tables)
+            foreach (var hierarchy in table.Hierarchies)
+                foreach (var level in hierarchy.Levels)
+                {
+                    if (level.Column is null) continue;
+                    var key = $"{table.Name}|{level.Column.Name}";
+                    if (!index.TryGetValue(key, out var list))
+                        index[key] = list = [];
+                    list.Add(hierarchy.Name);
+                }
+
+        return index;
+    }
+
+    private static Dictionary<string, List<string>> BuildPerspectiveMembershipIndex(Model model)
+    {
+        var index = new Dictionary<string, List<string>>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var perspective in model.Perspectives)
+            foreach (PerspectiveTable perspectiveTable in perspective.PerspectiveTables)
+            {
+                if (!index.TryGetValue(perspectiveTable.Name, out var list))
+                    index[perspectiveTable.Name] = list = [];
+                list.Add(perspective.Name);
+            }
+
+        return index;
     }
 
     private static Dictionary<string, HashSet<RelationshipEntry>> BuildRelationshipIndex(Model model)

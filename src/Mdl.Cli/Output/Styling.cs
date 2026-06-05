@@ -64,4 +64,13 @@ internal static class Styling
         "Info" => $"[{Palette.Sage.ToMarkup()}]Info[/]",
         _ => MarkupEscape(severity)
     };
+
+    /// <summary>A severity-colored "● SEVERITY" heading for grouped report sections.</summary>
+    public static string SeverityHeading(string severity) => severity switch
+    {
+        "Error" => $"[bold {Palette.Rose.ToMarkup()}]● ERROR[/]",
+        "Warning" => $"[bold {Palette.Amber.ToMarkup()}]● WARNING[/]",
+        "Info" => $"[{Palette.Sage.ToMarkup()}]● INFO[/]",
+        _ => MarkupEscape(severity)
+    };
 }
