@@ -100,4 +100,5 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for the rest.
 
 ## License
 
-[MIT](LICENSE)
+[MIT](LICENSE). Third-party components and the provenance of the bundled BPA rules are documented in
+[THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
