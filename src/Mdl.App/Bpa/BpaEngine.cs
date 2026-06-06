@@ -28,8 +28,11 @@ public sealed class BpaEngine
 
         var model = BpaModelBuilder.Build(snapshot);
 
-        // Rules disabled globally via the model-level ignore annotation are not evaluated.
-        var disabledRuleIds = BpaIgnoreStore.ReadRuleIds(model.Source);
+        // Rules disabled globally via the model-level ignore annotation, or by the user (machine-wide
+        // disable), are not evaluated.
+        var disabledRuleIds = new HashSet<string>(BpaIgnoreStore.ReadRuleIds(model.Source), StringComparer.OrdinalIgnoreCase);
+        if (options.DisabledRuleIds is { Count: > 0 })
+            disabledRuleIds.UnionWith(options.DisabledRuleIds);
         var results = new List<BpaResult>();
 
         foreach (var rule in activeRules)
@@ -239,4 +242,5 @@ public sealed class BpaEngine
 public sealed record BpaEngineOptions(
     IReadOnlyList<BpaRule> Rules,
     string? PathFilter = null,
-    IReadOnlyList<string>? RuleIds = null);
+    IReadOnlyList<string>? RuleIds = null,
+    IReadOnlyList<string>? DisabledRuleIds = null);

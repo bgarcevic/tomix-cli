@@ -391,13 +391,48 @@ internal sealed class BpaCommand : ICommandModule
 
     private static Command BuildRulesFlagCommand(string name, string description)
     {
-        var command = new Command(name, description)
+        var ruleIdArgument = new Argument<string>("rule-id") { Description = "Rule ID" };
+        var command = new Command(name, description) { ruleIdArgument };
+        var disable = name.Equals("disable", StringComparison.OrdinalIgnoreCase);
+
+        command.SetAction(parseResult =>
         {
-            new Argument<string>("rule-id") { Description = "Rule ID" }
-        };
-        command.SetAction(_ => UnsupportedRulesAction(name));
+            var format = GlobalOptions.OutputFormatValue(parseResult);
+            if (!CommandOutput.TryValidateFormat(format))
+                return 2;
+
+            var result = new BpaRulesDisableHandler().Handle(
+                new BpaRulesDisableRequest(parseResult.GetValue(ruleIdArgument)!, Disable: disable));
+
+            return CommandOutput.Render(result, format, RenderRulesDisable, ProjectRulesDisableJson);
+        });
+
         return command;
     }
+
+    private static void RenderRulesDisable(BpaRulesDisableResult result)
+    {
+        if (!result.Changed)
+        {
+            AnsiConsole.MarkupLine(Styling.Muted(
+                $"Rule '{Styling.MarkupEscape(result.RuleId)}' was already {(result.Disabled ? "disabled" : "enabled")} — no change."));
+            return;
+        }
+
+        AnsiConsole.MarkupLine(result.Disabled
+            ? $"Rule {Styling.Value(result.RuleId)} disabled for the current user."
+            : $"Rule {Styling.Value(result.RuleId)} re-enabled for the current user.");
+        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Disabled rules:", result.DisabledRuleIds.Count.ToString())}");
+    }
+
+    private static object ProjectRulesDisableJson(BpaRulesDisableResult result)
+        => new
+        {
+            ruleId = result.RuleId,
+            disabled = result.Disabled,
+            changed = result.Changed,
+            disabledRuleIds = result.DisabledRuleIds
+        };
 
     private Command BuildRulesIgnoreCommand(string name, string description, bool ignore)
     {

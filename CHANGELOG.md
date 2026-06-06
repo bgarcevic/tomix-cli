@@ -59,6 +59,9 @@ and the API surface that major versions protect.
 - Annotation write/remove support in the TOM mutator (`Annotation:<name>` on the model and on
   tables/columns/measures/…), and model-level annotations are now read into the snapshot.
 - `Mdl.Provider.Tom.Tests` project covering the annotation read/write round-trip.
+- `bpa rules disable` / `enable` — user-level per-rule toggles persisted at
+  `{config}/bpa-disabled.json` (`~/.mdl` or `$MDL_CONFIG_DIR`). Disabled rules are reported as
+  `DisabledRule` by `bpa run` (alongside model-level ignores) and surfaced by `bpa rules list --disabled`.
 
 ### Changed
 

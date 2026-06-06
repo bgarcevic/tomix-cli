@@ -48,12 +48,15 @@ public sealed class BpaRunHandler
                 exitCode: 2);
         }
 
+        var userDisabled = new BpaUserRuleState().GetDisabled().ToList();
+
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var engine = new BpaEngine();
         var result = engine.Evaluate(snapshot, new BpaEngineOptions(
             rules,
             request.PathFilter,
-            request.RuleIds));
+            request.RuleIds,
+            userDisabled));
         sw.Stop();
 
         var runResult = result with

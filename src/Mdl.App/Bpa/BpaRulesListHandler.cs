@@ -105,16 +105,20 @@ public sealed class BpaRulesListHandler
         ModelReference? model,
         CancellationToken cancellationToken)
     {
+        // User-level disables apply regardless of model; model-level ignores add to them.
+        var disabled = new HashSet<string>(new BpaUserRuleState().GetDisabled(), StringComparer.OrdinalIgnoreCase);
+
         if (model is null)
-            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            return disabled;
 
         var provider = _providers.FirstOrDefault(p => p.CanOpen(model));
         if (provider is null)
-            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            return disabled;
 
         await using var session = await provider.OpenAsync(model, cancellationToken);
         var snapshot = await session.GetSnapshotAsync(cancellationToken);
-        return BpaIgnoreStore.ReadRuleIds(snapshot.Properties);
+        disabled.UnionWith(BpaIgnoreStore.ReadRuleIds(snapshot.Properties));
+        return disabled;
     }
 
     private static async Task<IReadOnlyList<LoadedRule>> LoadRulesAsync(
