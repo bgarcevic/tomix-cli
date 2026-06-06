@@ -675,8 +675,8 @@ internal sealed class BpaCommand : ICommandModule
         var fixable = result.Violations.Count(v => v.CanFix);
         if (fixable > 0)
             AnsiConsole.MarkupLine(
-                $"{Styling.Value($"{fixable} of {result.Violations.Count} can be auto-fixed")} "
-                + Styling.Muted($"{fixable} of {result.Violations.Count} can be auto-fixed using mdl bpa run --fix"));
+                Styling.Value($"{fixable} of {result.Violations.Count} can be auto-fixed")
+                + Styling.Muted(" — run  bpa run --fix"));
 
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine($"  {Styling.KeyValue("Rules evaluated:", result.RulesEvaluated.ToString())}");
