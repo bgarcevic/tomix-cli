@@ -100,6 +100,15 @@ and the API surface that major versions protect.
 
 ### Fixed
 
+- BPA expression evaluator now binds the `current` / `outerit` iterator keywords correctly: it
+  compiles a single parameter named for the keyword so bare members still resolve to the element and
+  stay in scope inside nested `.Any(...)` lambdas. It also normalizes `outerit` → `outerIt` and
+  escapes regex backslashes inside string literals (`\s`, `\(`, …) so pattern rules parse. The adapter
+  now exposes `GetAnnotation` on every object type (incl. relationships/roles), `Expression` on
+  columns, and `DependsOn` on calculated tables, and the TOM summarizer reads model/relationship/role
+  annotations. Together these activate the previously "dark" rules: rule-compile errors on the sample
+  model dropped from **37 to 4** (the remaining 4 are VertiPaq-dependent rules that need a `.vpax`),
+  and the 4 long-failing `BpaRuleCoverageTests` now pass.
 - `bpa run` no longer false-flags nearly every measure under `DAX_MEASURES_UNQUALIFIED`. The
   engine now distinguishes a qualified *measure* reference from a qualified *column* reference
   via the model dependency graph, so only measures that actually reference another measure in

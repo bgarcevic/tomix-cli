@@ -25,6 +25,10 @@ public abstract class BpaObject
     public string Description { get; internal set; } = "";
 
     public bool IsHidden { get; internal set; }
+
+    /// <summary>Reads an annotation value off the originating snapshot object (empty when absent).</summary>
+    public string GetAnnotation(string name)
+        => Source.Property($"Annotation:{name}") ?? "";
 }
 
 public sealed class BpaColumn : BpaObject
@@ -43,6 +47,9 @@ public sealed class BpaColumn : BpaObject
 
     /// <summary>Alias of <see cref="ColumnType"/>; some rules use <c>Type.ToString()</c>.</summary>
     public string Type => ColumnType;
+
+    /// <summary>The DAX expression for a calculated column (empty for data columns).</summary>
+    public string Expression => Source.Expression ?? "";
 
     public BpaTable Table { get; internal set; } = null!;
 
@@ -67,9 +74,6 @@ public sealed class BpaColumn : BpaObject
 
     /// <summary>Non-null when this column is an alternate-of (aggregation) column.</summary>
     public string? AlternateOf { get; internal set; }
-
-    public string GetAnnotation(string name)
-        => Source.Property($"Annotation:{name}") ?? "";
 }
 
 public sealed class BpaMeasure : BpaObject
@@ -86,9 +90,6 @@ public sealed class BpaMeasure : BpaObject
     public IReadOnlyList<BpaDependsOnEntry> DependsOn { get; internal set; } = [];
 
     public BpaReferencedBy ReferencedBy { get; internal set; } = BpaReferencedBy.Empty;
-
-    public string GetAnnotation(string name)
-        => Source.Property($"Annotation:{name}") ?? "";
 }
 
 public sealed class BpaTable : BpaObject
@@ -100,6 +101,9 @@ public sealed class BpaTable : BpaObject
 
     public IReadOnlyList<BpaColumn> Columns { get; internal set; } = [];
     public IReadOnlyList<BpaPartition> Partitions { get; internal set; } = [];
+
+    /// <summary>DAX dependencies of a calculated table (derived from its expression; empty otherwise).</summary>
+    public IReadOnlyList<BpaDependsOnEntry> DependsOn { get; internal set; } = [];
     public IReadOnlyList<BpaRelationship> UsedInRelationships { get; internal set; } = [];
 
     /// <summary>RLS filter expressions defined on this table across roles.</summary>
@@ -117,9 +121,6 @@ public sealed class BpaTable : BpaObject
 
     /// <summary>Source/named-expression text (not captured from a static file; empty).</summary>
     public string SourceExpression { get; internal set; } = "";
-
-    public string GetAnnotation(string name)
-        => Source.Property($"Annotation:{name}") ?? "";
 }
 
 public sealed class BpaRelationship : BpaObject

@@ -136,6 +136,8 @@ public static class BpaModelBuilder
             column.DependsOn = ComputeDependsOn(column.Source.Expression, measureNames, columnNames);
         foreach (var item in calculationItems)
             item.DependsOn = ComputeDependsOn(item.Expression, measureNames, columnNames);
+        foreach (var table in tables)
+            table.DependsOn = ComputeDependsOn(CalculatedTableExpression(table), measureNames, columnNames);
 
         AssignSortByUsage(tables);
         AssignRelationshipParticipation(tables, columns, relationships);
@@ -402,6 +404,12 @@ public static class BpaModelBuilder
             AllMeasures = measuresByRef.GetValueOrDefault(name) ?? [],
             Count = countByRef.GetValueOrDefault(name),
         };
+
+    /// <summary>The DAX of a calculated table (its calculated partition's query), or empty.</summary>
+    private static string CalculatedTableExpression(BpaTable table)
+        => table.Partitions
+            .FirstOrDefault(p => p.SourceType.Equals("Calculated", StringComparison.OrdinalIgnoreCase))?.Query
+            ?? "";
 
     private static string TableObjectTypeName(ModelObject table, List<BpaPartition> partitions)
     {

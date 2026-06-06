@@ -23,13 +23,26 @@ public static class RegEx
 /// </summary>
 internal sealed class BpaTypeProvider : IDynamicLinqCustomTypeProvider
 {
-    private static readonly HashSet<Type> Types =
-    [
-        typeof(RegEx),
-        typeof(Convert),
-        typeof(Math),
-        typeof(string),
-    ];
+    private static readonly HashSet<Type> Types = BuildTypes();
+
+    private static HashSet<Type> BuildTypes()
+    {
+        var types = new HashSet<Type>
+        {
+            typeof(RegEx),
+            typeof(Convert),
+            typeof(Math),
+            typeof(string),
+        };
+
+        // Make instance methods on the adapter object model callable (e.g. GetAnnotation). Property
+        // access on the iterator already works without registration; method calls require it.
+        foreach (var type in typeof(Model.BpaObject).Assembly.GetTypes())
+            if (type is { IsClass: true, Namespace: "Mdl.App.Bpa.Model" })
+                types.Add(type);
+
+        return types;
+    }
 
     public HashSet<Type> GetCustomTypes() => Types;
 

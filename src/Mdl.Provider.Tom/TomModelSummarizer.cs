@@ -301,6 +301,7 @@ public static class TomModelSummarizer
             [PropIsActive] = single.IsActive.ToString().ToLowerInvariant(),
             [PropObjectType] = "Relationship"
         };
+        AddAnnotations(props, single.Annotations);
 
         return new ModelObject(
             name,
@@ -338,6 +339,7 @@ public static class TomModelSummarizer
             [PropRlsExpression] = string.Join("\n", rlsExpressions),
             [PropObjectType] = "ModelRole"
         };
+        AddAnnotations(props, role.Annotations);
 
         return new ModelObject(
             role.Name,
