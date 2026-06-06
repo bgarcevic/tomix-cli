@@ -103,6 +103,13 @@ and the API surface that major versions protect.
 
 ### Fixed
 
+- BPA `ReferencedBy` is now keyed by table-qualified column identity instead of bare name, so a
+  column referenced via `'Table'[Col]` no longer marks same-named columns in *other* tables as
+  referenced. This fixed an under-report vs Tabular Editor in `UNNECESSARY_COLUMNS` (and any
+  `ReferencedBy`-based rule): on a real model `mdl` now reports the same 161 findings TE does (was
+  159 — two hidden, genuinely-unused columns were masked by a same-named referenced column in another
+  table). Unqualified `[Col]` references still count toward every same-named column (conservative, no
+  false positives).
 - BPA expression evaluator now binds the `current` / `outerit` iterator keywords correctly: it
   compiles a single parameter named for the keyword so bare members still resolve to the element and
   stay in scope inside nested `.Any(...)` lambdas. It also normalizes `outerit` → `outerIt` and

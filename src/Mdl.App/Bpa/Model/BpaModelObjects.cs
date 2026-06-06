@@ -226,6 +226,9 @@ public sealed class BpaReference
     public bool FullyQualified { get; internal set; }
     public string ObjectType { get; internal set; } = "";
     public string Name { get; internal set; } = "";
+
+    /// <summary>The table qualifier when the reference was written <c>'Table'[X]</c>, else null.</summary>
+    public string? Table { get; internal set; }
 }
 
 /// <summary>Inverse of <see cref="BpaObject"/> dependencies: who references this object.</summary>

@@ -310,6 +310,7 @@ public static class BpaModelBuilder
                 FullyQualified = reference.FullyQualified,
                 ObjectType = objectType,
                 Name = reference.Object,
+                Table = reference.Table,
             });
         }
 
@@ -364,13 +365,20 @@ public static class BpaModelBuilder
 
         void Record(IEnumerable<BpaDependsOnEntry> dependsOn, BpaMeasure? referencingMeasure)
         {
-            foreach (var name in dependsOn.SelectMany(e => e.Value).Select(v => v.Name).Distinct(StringComparer.OrdinalIgnoreCase))
+            // Key references by qualified identity so columns that share a name across tables don't
+            // collapse: a qualified 'Table'[Col] counts only for that table's column. Dedup per
+            // source object by composite key.
+            var keys = new HashSet<string>(
+                dependsOn.SelectMany(e => e.Value).Select(ReferenceKey),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (var key in keys)
             {
-                countByRef[name] = countByRef.GetValueOrDefault(name) + 1;
+                countByRef[key] = countByRef.GetValueOrDefault(key) + 1;
                 if (referencingMeasure is not null)
                 {
-                    if (!measuresByRef.TryGetValue(name, out var list))
-                        measuresByRef[name] = list = [];
+                    if (!measuresByRef.TryGetValue(key, out var list))
+                        measuresByRef[key] = list = [];
                     list.Add(referencingMeasure);
                 }
             }
@@ -382,10 +390,26 @@ public static class BpaModelBuilder
             Record(column.DependsOn, null);
 
         foreach (var measure in measures)
-            measure.ReferencedBy = MakeReferencedBy(measure.Name, measuresByRef, countByRef);
+            measure.ReferencedBy = MakeReferencedBy([MeasureKey(measure.Name)], measuresByRef, countByRef);
         foreach (var column in columns)
-            column.ReferencedBy = MakeReferencedBy(column.Name, measuresByRef, countByRef);
+            column.ReferencedBy = MakeReferencedBy(
+                // A column is referenced by qualified refs to its exact table[name], plus any
+                // unqualified [name] refs (which DAX resolves by context and we cannot disambiguate).
+                [ColumnKey(column.Table.Name, column.Name), ColumnWildcardKey(column.Name)],
+                measuresByRef,
+                countByRef);
     }
+
+    private static string MeasureKey(string name) => "M " + name;
+    private static string ColumnKey(string table, string name) => "C " + table + " " + name;
+    private static string ColumnWildcardKey(string name) => "C * " + name;
+
+    private static string ReferenceKey(BpaReference reference)
+        => reference.ObjectType.Equals("Measure", StringComparison.OrdinalIgnoreCase)
+            ? MeasureKey(reference.Name)
+            : reference.FullyQualified && !string.IsNullOrEmpty(reference.Table)
+                ? ColumnKey(reference.Table!, reference.Name)
+                : ColumnWildcardKey(reference.Name);
 
     private static void AssignDataSourceUsage(List<BpaDataSource> dataSources, List<BpaPartition> partitions)
     {
@@ -396,14 +420,26 @@ public static class BpaModelBuilder
     }
 
     private static BpaReferencedBy MakeReferencedBy(
-        string name,
+        IReadOnlyList<string> keys,
         Dictionary<string, List<BpaMeasure>> measuresByRef,
         Dictionary<string, int> countByRef)
-        => new()
+    {
+        var count = 0;
+        List<BpaMeasure>? referencingMeasures = null;
+
+        foreach (var key in keys)
         {
-            AllMeasures = measuresByRef.GetValueOrDefault(name) ?? [],
-            Count = countByRef.GetValueOrDefault(name),
+            count += countByRef.GetValueOrDefault(key);
+            if (measuresByRef.TryGetValue(key, out var list))
+                (referencingMeasures ??= []).AddRange(list);
+        }
+
+        return new BpaReferencedBy
+        {
+            AllMeasures = referencingMeasures is null ? [] : referencingMeasures.Distinct().ToList(),
+            Count = count,
         };
+    }
 
     /// <summary>The DAX of a calculated table (its calculated partition's query), or empty.</summary>
     private static string CalculatedTableExpression(BpaTable table)
