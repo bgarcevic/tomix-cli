@@ -16,7 +16,7 @@ public static class BpaModelBuilder
         var model = new BpaModel
         {
             Name = snapshot.Name,
-            Source = SyntheticModelObject(),
+            Source = SyntheticModelObject(snapshot.Properties),
             DefaultPowerBIDataSourceVersion =
                 snapshot.Properties is not null && snapshot.Properties.TryGetValue("DefaultPowerBIDataSourceVersion", out var v) ? v : "",
         };
@@ -429,8 +429,16 @@ public static class BpaModelBuilder
             ? []
             : value.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
-    private static ModelObject SyntheticModelObject()
-        => new(
+    private static ModelObject SyntheticModelObject(IReadOnlyDictionary<string, string>? modelProperties)
+    {
+        // Carry model-level properties (including "Annotation:*" entries, e.g. the BPA ignore list)
+        // onto the synthetic object so model-scoped rules and the ignore store can read them.
+        var properties = new Dictionary<string, string> { ["ObjectType"] = "Model" };
+        if (modelProperties is not null)
+            foreach (var (key, value) in modelProperties)
+                properties[key] = value;
+
+        return new ModelObject(
             "Model",
             ModelObjectKind.Table,
             "Model",
@@ -440,7 +448,8 @@ public static class BpaModelBuilder
             Hidden: false,
             SourceColumn: null,
             Children: [],
-            Properties: new Dictionary<string, string> { ["ObjectType"] = "Model" });
+            Properties: properties);
+    }
 
     private static bool IsTrue(string? value)
         => value is not null && value.Equals("true", StringComparison.OrdinalIgnoreCase);

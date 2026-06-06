@@ -85,6 +85,7 @@ public static class TomModelSummarizer
         {
             [PropDefaultPowerBIDataSourceVersion] = model.DefaultPowerBIDataSourceVersion.ToString()
         };
+        AddAnnotations(modelProps, model.Annotations);
 
         return new ModelSnapshot(name, database.CompatibilityLevel, objects, modelProps);
     }

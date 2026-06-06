@@ -43,6 +43,22 @@ and the API surface that major versions protect.
 - `--quiet` / `-q` global flag to suppress spinners, progress, and hints.
 - `Spinner` wrapper around Spectre.Console `Status` with auto-suppression for JSON/CSV/pipe/--quiet.
 - `DidYouMean` suggestion helper for unknown subcommands using Levenshtein distance.
+- BPA structured result kinds — violations plus `DisabledRule`, `InvalidCompatibilityLevel`,
+  `CompilationError`, and `EvaluationError` sentinels — surfaced as a diagnostics stream. `bpa run`
+  reports real `ruleErrors`/`disabledRules`/`invalidCompatibilityRules`/`ignoredRules` counts (text
+  footer + JSON `diagnostics[]`), instead of silently swallowing rules that fail to compile or run.
+- BPA ignore/disable: `bpa rules ignore` / `unignore` write the model-level
+  `BestPracticeAnalyzer_IgnoreRules` annotation (migrating the historical misspelled key), and the
+  engine honors global rule disables and per-object suppressions (no parent inheritance).
+  `bpa rules list --disabled` and its summary counts reflect a model's ignore set.
+- BPA rule sources & precedence: model-embedded rules (`BestPracticeAnalyzer` annotation) and
+  model-referenced external collections (`BestPracticeAnalyzer_ExternalRuleFiles`), plus
+  machine/user-level rules (`~/.mdl` / `$MDL_CONFIG_DIR`), merged by documented precedence
+  (machine < user < external < model-embedded) with case-insensitive de-duplication and best-effort
+  load diagnostics. New `--no-model-rules` and `--allow-external-rules` flags on `bpa run`.
+- Annotation write/remove support in the TOM mutator (`Annotation:<name>` on the model and on
+  tables/columns/measures/…), and model-level annotations are now read into the snapshot.
+- `Mdl.Provider.Tom.Tests` project covering the annotation read/write round-trip.
 
 ### Changed
 
@@ -76,6 +92,11 @@ and the API surface that major versions protect.
   are unchanged; `rules evaluated` now reports the true count.
 - `bpa run` text output now prints the findings summary at the **bottom** (below the results) and
   adds an auto-fixable line — e.g. `62 of 233 can be auto-fixed — run  bpa run --fix`.
+- BPA `Table` scope now **excludes** calculated tables and calculation-group tables (which have their
+  own `CalculatedTable` / `CalculationGroup` scopes), matching the standard rule semantics.
+- BPA expression evaluator distinguishes compilation from evaluation errors and surfaces them as
+  diagnostics rather than silently skipping, while still preserving clean matches (never a false
+  positive); the engine now enforces each rule's minimum `CompatibilityLevel`.
 
 ### Fixed
 

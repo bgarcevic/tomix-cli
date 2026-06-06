@@ -13,4 +13,6 @@ public sealed record BpaRunRequest(
     string? FailOn = null,
     bool Save = false,
     string? SaveTo = null,
-    string? Serialization = null);
+    string? Serialization = null,
+    bool NoModelRules = false,
+    bool AllowExternalRules = false);

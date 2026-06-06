@@ -172,13 +172,235 @@ public sealed class BpaEngineTests
         Assert.Equal("T/CalcCol", violation.ObjectPath);
     }
 
-    private static ModelSnapshot CreateSnapshotWithColumn(ModelObject column)
+    [Fact]
+    public void Evaluate_TableScope_ExcludesCalculatedAndCalculationGroupTables()
+    {
+        var normal = new ModelObject("Normal", ModelObjectKind.Table, "Normal",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: null,
+            Children: [],
+            Properties: new Dictionary<string, string> { ["ObjectType"] = "Table" });
+        var calc = new ModelObject("Calc", ModelObjectKind.Table, "Calc",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: null,
+            Children: [],
+            Properties: new Dictionary<string, string> { ["ObjectType"] = "Table", ["TableIsCalc"] = "true" });
+        var calcGroup = new ModelObject("CalcGroup", ModelObjectKind.Table, "CalcGroup",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: null,
+            Children: [],
+            Properties: new Dictionary<string, string> { ["ObjectType"] = "Table", ["TableObjectType"] = "CalculationGroup" });
+        var snapshot = new ModelSnapshot("M", 1601, [normal, calc, calcGroup]);
+
+        var rules = new List<BpaRule>
+        {
+            new("TABLE_RULE", "Table rule", "Test", BpaSeverity.Info, ["Table"], Expression: "not IsHidden")
+        };
+
+        var result = new BpaEngine().Evaluate(snapshot, new BpaEngineOptions(rules));
+
+        var violation = Assert.Single(result.Violations);
+        Assert.Equal("Normal", violation.ObjectPath);
+    }
+
+    [Fact]
+    public void Evaluate_CompatibilityLevelTooLow_EmitsSentinelAndSkipsEvaluation()
+    {
+        var snapshot = CreateSnapshotWithColumn(
+            new ModelObject("Col", ModelObjectKind.Column, "T/Col",
+                Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: "Col",
+                Children: [],
+                Properties: new Dictionary<string, string> { ["ObjectType"] = "DataColumn" }),
+            compatibilityLevel: 1500);
+
+        var rules = new List<BpaRule>
+        {
+            // Expression would match every column, but the rule must not run on this old model.
+            new("NEEDS_1600", "Needs 1600", "Test", BpaSeverity.Warning, ["DataColumn"],
+                Expression: "not IsHidden", CompatibilityLevel: 1600)
+        };
+
+        var result = new BpaEngine().Evaluate(snapshot, new BpaEngineOptions(rules));
+
+        Assert.Empty(result.Violations);
+        Assert.Equal(1, result.InvalidCompatibilityRules);
+        var sentinel = Assert.Single(result.Results);
+        Assert.Equal(BpaResultKind.InvalidCompatibilityLevel, sentinel.Kind);
+        Assert.Equal("NEEDS_1600", sentinel.RuleId);
+    }
+
+    [Fact]
+    public void Evaluate_CompilationError_EmitsSentinelWithScope()
+    {
+        var snapshot = CreateSnapshotWithColumn(
+            new ModelObject("Col", ModelObjectKind.Column, "T/Col",
+                Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: "Col",
+                Children: [],
+                Properties: new Dictionary<string, string> { ["ObjectType"] = "DataColumn" }));
+
+        var rules = new List<BpaRule>
+        {
+            new("BAD_EXPR", "Bad expression", "Test", BpaSeverity.Warning, ["DataColumn"],
+                Expression: "ThisMemberDoesNotExist = 1")
+        };
+
+        var result = new BpaEngine().Evaluate(snapshot, new BpaEngineOptions(rules));
+
+        Assert.Empty(result.Violations);
+        Assert.Equal(1, result.RuleErrors);
+        var sentinel = Assert.Single(result.Results);
+        Assert.Equal(BpaResultKind.CompilationError, sentinel.Kind);
+        Assert.Equal("Column", sentinel.ErrorScope);
+    }
+
+    [Fact]
+    public void Evaluate_EvaluationError_PreservesCleanMatchesAndReportsError()
+    {
+        var good = new ModelObject("Good", ModelObjectKind.Column, "T/Good",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: "5",
+            Children: [],
+            Properties: new Dictionary<string, string> { ["ObjectType"] = "DataColumn" });
+        var bad = new ModelObject("Bad", ModelObjectKind.Column, "T/Bad",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: "not-a-number",
+            Children: [],
+            Properties: new Dictionary<string, string> { ["ObjectType"] = "DataColumn" });
+        var table = new ModelObject("T", ModelObjectKind.Table, "T",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: null,
+            Children: [good, bad],
+            Properties: new Dictionary<string, string> { ["ObjectType"] = "Table" });
+        var snapshot = new ModelSnapshot("M", 1601, [table]);
+
+        var rules = new List<BpaRule>
+        {
+            // Compiles fine; throws at runtime only for the non-numeric SourceColumn.
+            new("NUMERIC_SOURCE", "Numeric source", "Test", BpaSeverity.Info, ["DataColumn"],
+                Expression: "Convert.ToInt64(SourceColumn) > 0")
+        };
+
+        var result = new BpaEngine().Evaluate(snapshot, new BpaEngineOptions(rules));
+
+        var violation = Assert.Single(result.Violations);
+        Assert.Equal("T/Good", violation.ObjectPath);
+        Assert.Equal(1, result.RuleErrors);
+        Assert.Contains(result.Results, r => r.Kind == BpaResultKind.EvaluationError && r.ErrorScope == "Column");
+    }
+
+    [Fact]
+    public void Evaluate_GlobalDisable_EmitsDisabledRuleAndSkipsEvaluation()
+    {
+        var snapshot = CreateSnapshotWithColumn(
+            new ModelObject("Col", ModelObjectKind.Column, "T/Col",
+                Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: "Col",
+                Children: [],
+                Properties: new Dictionary<string, string> { ["ObjectType"] = "DataColumn" }),
+            // Mixed-case id in the ignore list must match the rule's id case-insensitively.
+            modelAnnotations: new Dictionary<string, string>
+            {
+                [$"Annotation:{BpaIgnoreStore.Key}"] = "{\"RuleIDs\":[\"rule_a\"]}"
+            });
+
+        var rules = new List<BpaRule>
+        {
+            new("RULE_A", "Rule A", "Test", BpaSeverity.Warning, ["DataColumn"], Expression: "not IsHidden")
+        };
+
+        var result = new BpaEngine().Evaluate(snapshot, new BpaEngineOptions(rules));
+
+        Assert.Empty(result.Violations);
+        Assert.Equal(1, result.DisabledRules);
+        var sentinel = Assert.Single(result.Results);
+        Assert.Equal(BpaResultKind.DisabledRule, sentinel.Kind);
+        Assert.Equal("RULE_A", sentinel.RuleId);
+    }
+
+    [Fact]
+    public void Evaluate_LegacyMisspelledKey_IsHonoredForGlobalDisable()
+    {
+        var snapshot = CreateSnapshotWithColumn(
+            new ModelObject("Col", ModelObjectKind.Column, "T/Col",
+                Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: "Col",
+                Children: [],
+                Properties: new Dictionary<string, string> { ["ObjectType"] = "DataColumn" }),
+            modelAnnotations: new Dictionary<string, string>
+            {
+                [$"Annotation:{BpaIgnoreStore.LegacyKey}"] = "{\"RuleIDs\":[\"RULE_A\"]}"
+            });
+
+        var rules = new List<BpaRule>
+        {
+            new("RULE_A", "Rule A", "Test", BpaSeverity.Warning, ["DataColumn"], Expression: "not IsHidden")
+        };
+
+        var result = new BpaEngine().Evaluate(snapshot, new BpaEngineOptions(rules));
+
+        Assert.Equal(1, result.DisabledRules);
+    }
+
+    [Fact]
+    public void Evaluate_ObjectLevelIgnore_SuppressesVisibleButKeepsRaw()
+    {
+        var col = new ModelObject("Col", ModelObjectKind.Column, "T/Col",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: "Col",
+            Children: [],
+            Properties: new Dictionary<string, string>
+            {
+                ["ObjectType"] = "DataColumn",
+                [$"Annotation:{BpaIgnoreStore.Key}"] = "{\"RuleIDs\":[\"RULE_A\"]}"
+            });
+        var snapshot = CreateSnapshotWithColumn(col);
+
+        var rules = new List<BpaRule>
+        {
+            new("RULE_A", "Rule A", "Test", BpaSeverity.Warning, ["DataColumn"], Expression: "not IsHidden")
+        };
+
+        var result = new BpaEngine().Evaluate(snapshot, new BpaEngineOptions(rules));
+
+        Assert.Empty(result.Violations);              // excluded from the visible stream
+        Assert.Equal(1, result.IgnoredViolations);    // retained in the raw stream as ignored
+        Assert.Equal(0, result.DisabledRules);        // an object-level ignore does not disable the rule
+        var raw = Assert.Single(result.Results);
+        Assert.Equal(BpaResultKind.Violation, raw.Kind);
+        Assert.True(raw.IsIgnored);
+    }
+
+    [Fact]
+    public void Evaluate_IgnoreOnTable_DoesNotSuppressColumnViolation()
+    {
+        // The ignore lives on the table; the rule violates a column. No parent inheritance (spec test E).
+        var col = new ModelObject("Col", ModelObjectKind.Column, "T/Col",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: "Col",
+            Children: [],
+            Properties: new Dictionary<string, string> { ["ObjectType"] = "DataColumn" });
+        var table = new ModelObject("T", ModelObjectKind.Table, "T",
+            Detail: null, Expression: null, Description: null, Hidden: false, SourceColumn: null,
+            Children: [col],
+            Properties: new Dictionary<string, string>
+            {
+                ["ObjectType"] = "Table",
+                [$"Annotation:{BpaIgnoreStore.Key}"] = "{\"RuleIDs\":[\"RULE_A\"]}"
+            });
+        var snapshot = new ModelSnapshot("M", 1601, [table]);
+
+        var rules = new List<BpaRule>
+        {
+            new("RULE_A", "Rule A", "Test", BpaSeverity.Warning, ["DataColumn"], Expression: "not IsHidden")
+        };
+
+        var result = new BpaEngine().Evaluate(snapshot, new BpaEngineOptions(rules));
+
+        var violation = Assert.Single(result.Violations);
+        Assert.Equal("T/Col", violation.ObjectPath);
+        Assert.Equal(0, result.IgnoredViolations);
+    }
+
+    private static ModelSnapshot CreateSnapshotWithColumn(
+        ModelObject column,
+        int compatibilityLevel = 1601,
+        IReadOnlyDictionary<string, string>? modelAnnotations = null)
     {
         var table = new ModelObject("Table", ModelObjectKind.Table, "Table",
             Detail: null, Expression: null, Description: null, Hidden: false,
             SourceColumn: null, Children: [column],
             Properties: new Dictionary<string, string> { ["ObjectType"] = "Table" });
 
-        return new ModelSnapshot("TestModel", 1601, [table]);
+        return new ModelSnapshot("TestModel", compatibilityLevel, [table], modelAnnotations);
     }
 }

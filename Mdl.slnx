@@ -10,5 +10,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/Mdl.App.Tests/Mdl.App.Tests.csproj" />
     <Project Path="tests/Mdl.Cli.Tests/Mdl.Cli.Tests.csproj" />
+    <Project Path="tests/Mdl.Provider.Tom.Tests/Mdl.Provider.Tom.Tests.csproj" />
   </Folder>
 </Solution>

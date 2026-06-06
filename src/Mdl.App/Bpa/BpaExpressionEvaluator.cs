@@ -24,14 +24,16 @@ public sealed partial class BpaExpressionEvaluator
     };
 
     /// <summary>
-    /// Returns the elements of <paramref name="items"/> that violate <paramref name="expression"/>.
-    /// Returns an empty list (never throws) if the expression cannot be parsed.
+    /// Evaluates <paramref name="expression"/> against <paramref name="items"/>, returning the
+    /// matched elements together with a status that distinguishes a clean run from a compilation
+    /// failure (expression cannot be parsed/bound for this element type) or an evaluation failure
+    /// (the predicate threw at runtime for an element). Never throws.
     /// </summary>
-    public IReadOnlyList<T> Evaluate<T>(string expression, IReadOnlyList<T> items)
+    public BpaEvaluation<T> Evaluate<T>(string expression, IReadOnlyList<T> items)
         where T : class
     {
         if (items.Count == 0)
-            return [];
+            return BpaEvaluation<T>.Ok([]);
 
         var normalized = Normalize(expression);
         var usesCurrent = CurrentKeyword().IsMatch(normalized);
@@ -41,13 +43,14 @@ public sealed partial class BpaExpressionEvaluator
         {
             predicate = Compile<T>(normalized, usesCurrent);
         }
-        catch
+        catch (Exception ex)
         {
-            // Unsupported syntax or an unknown member for this scope — skip the rule.
-            return [];
+            // Unsupported syntax or an unknown member for this scope — the rule cannot run here.
+            return BpaEvaluation<T>.Failed(BpaEvaluationStatus.CompilationError, Unwrap(ex));
         }
 
         var violations = new List<T>();
+        string? evalError = null;
         var args = new object[usesCurrent ? 2 : 1];
         foreach (var item in items)
         {
@@ -60,14 +63,23 @@ public sealed partial class BpaExpressionEvaluator
                 if (predicate.DynamicInvoke(args) is true)
                     violations.Add(item);
             }
-            catch
+            catch (Exception ex)
             {
-                // Runtime error for this element (e.g. converting a missing annotation) — not a violation.
+                // Runtime error for this element (e.g. converting a missing annotation): skip the
+                // element so a clean match is never lost, but remember the first error so the caller
+                // can surface it as a diagnostic instead of silently swallowing it.
+                evalError ??= Unwrap(ex);
             }
         }
 
-        return violations;
+        return evalError is null
+            ? BpaEvaluation<T>.Ok(violations)
+            : new BpaEvaluation<T>(BpaEvaluationStatus.EvaluationError, violations, evalError);
     }
+
+    /// <summary>Unwraps the <see cref="System.Reflection.TargetInvocationException"/> from a dynamic invoke.</summary>
+    private static string Unwrap(Exception ex)
+        => (ex.InnerException ?? ex).Message;
 
     private Delegate Compile<T>(string expression, bool usesCurrent)
     {

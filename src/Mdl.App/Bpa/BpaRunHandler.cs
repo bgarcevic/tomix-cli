@@ -1,4 +1,5 @@
 using Mdl.Core.Bpa;
+using Mdl.Core.Configuration;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 using System.Text.Json;
@@ -30,10 +31,14 @@ public sealed class BpaRunHandler
                 failOnError!,
                 exitCode: 2);
 
+        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+        var snapshot = await session.GetSnapshotAsync(cancellationToken);
+
         IReadOnlyList<BpaRule> rules;
+        IReadOnlyList<string> loadDiagnostics;
         try
         {
-            rules = await LoadRulesAsync(request, cancellationToken).ConfigureAwait(false);
+            (rules, loadDiagnostics) = await LoadRulesAsync(request, snapshot, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is ArgumentException or FileNotFoundException or HttpRequestException or JsonException)
         {
@@ -43,9 +48,6 @@ public sealed class BpaRunHandler
                 exitCode: 2);
         }
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
-        var snapshot = await session.GetSnapshotAsync(cancellationToken);
-
         var sw = System.Diagnostics.Stopwatch.StartNew();
         var engine = new BpaEngine();
         var result = engine.Evaluate(snapshot, new BpaEngineOptions(
@@ -54,7 +56,11 @@ public sealed class BpaRunHandler
             request.RuleIds));
         sw.Stop();
 
-        var runResult = result with { DurationMs = sw.ElapsedMilliseconds };
+        var runResult = result with
+        {
+            DurationMs = sw.ElapsedMilliseconds,
+            RuleLoadDiagnostics = loadDiagnostics.Count > 0 ? loadDiagnostics : null
+        };
 
         if (request.Fix && runResult.Violations.Any(v => v.CanFix))
         {
@@ -95,25 +101,81 @@ public sealed class BpaRunHandler
         return MdlResult<BpaRunResult>.Ok(runResult, exitCode: ShouldFail(runResult, failOnSeverity) ? 1 : 0);
     }
 
-    private static async Task<IReadOnlyList<BpaRule>> LoadRulesAsync(
+    /// <summary>
+    /// Assembles the effective rule set from all sources with documented precedence (spec §6):
+    /// machine (bundled/ruleset) &lt; user (--rules + user config dir) &lt; external (model-referenced)
+    /// &lt; model-embedded. Returns the resolved rules plus best-effort load diagnostics.
+    /// </summary>
+    private static async Task<(IReadOnlyList<BpaRule> Rules, IReadOnlyList<string> Diagnostics)> LoadRulesAsync(
         BpaRunRequest request,
+        ModelSnapshot snapshot,
         CancellationToken cancellationToken)
     {
-        var rules = new List<BpaRule>();
+        var collections = new List<BpaRuleCollection>();
+        var diagnostics = new List<string>();
 
+        // Machine: the bundled/standard ruleset (or a named --ruleset).
         if (!request.NoDefaults)
-            rules.AddRange(await BpaRuleLoader.LoadRulesetAsync(request.Ruleset, cancellationToken).ConfigureAwait(false));
+        {
+            var label = string.IsNullOrWhiteSpace(request.Ruleset) ? BpaRuleLoader.StandardRuleset : request.Ruleset;
+            collections.Add(new BpaRuleCollection(
+                BpaRuleSourceKind.Machine, label,
+                await BpaRuleLoader.LoadRulesetAsync(request.Ruleset, cancellationToken).ConfigureAwait(false)));
+        }
 
+        // User: explicit --rules files (a load failure here is fatal, as before).
         if (request.RulesFiles is not null)
         {
             foreach (var file in request.RulesFiles)
             {
                 if (!string.IsNullOrWhiteSpace(file))
-                    rules.AddRange(await BpaRuleLoader.LoadFromSourceAsync(file, cancellationToken).ConfigureAwait(false));
+                    collections.Add(new BpaRuleCollection(
+                        BpaRuleSourceKind.User, file,
+                        await BpaRuleLoader.LoadFromSourceAsync(file, cancellationToken).ConfigureAwait(false)));
             }
         }
 
-        return rules;
+        // User: a rules file in the config directory (~/.mdl or $MDL_CONFIG_DIR), if present.
+        var userRulesPath = Path.Combine(MdlPaths.ConfigDirectory, "bpa-rules.json");
+        if (File.Exists(userRulesPath))
+        {
+            var userRules = BpaRuleLoader.LoadFromFile(userRulesPath);
+            if (userRules.Count > 0)
+                collections.Add(new BpaRuleCollection(BpaRuleSourceKind.User, userRulesPath, userRules));
+        }
+
+        // External + model-embedded: loaded from the model's annotations (best-effort).
+        if (!request.NoModelRules)
+        {
+            var model = await BpaModelRuleLoader.LoadAsync(
+                snapshot.Properties,
+                ModelBaseDirectory(request.Model),
+                request.AllowExternalRules,
+                cancellationToken).ConfigureAwait(false);
+
+            collections.AddRange(model.Collections);
+            diagnostics.AddRange(model.Diagnostics);
+        }
+
+        return (BpaRuleResolver.Resolve(collections), diagnostics);
+    }
+
+    /// <summary>The directory used to resolve relative external-rule-file paths.</summary>
+    private static string? ModelBaseDirectory(ModelReference model)
+    {
+        if (!model.IsLocalPath)
+            return null;
+
+        try
+        {
+            return Directory.Exists(model.Value)
+                ? model.Value
+                : Path.GetDirectoryName(Path.GetFullPath(model.Value));
+        }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            return null;
+        }
     }
 
     private static bool TryParseFailOn(

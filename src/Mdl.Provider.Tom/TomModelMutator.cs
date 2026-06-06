@@ -146,6 +146,11 @@ public sealed partial class TomModelMutator
 
     private void ApplyProperty(object target, ModelPropertyAssignment assignment)
     {
+        // Annotation names are case-sensitive and their values are opaque (often JSON), so handle
+        // them before the property name is normalized/lowercased.
+        if (TryApplyAnnotation(target, assignment))
+            return;
+
         var property = NormalizeProperty(assignment.Property);
         var value = assignment.Value;
 
@@ -173,6 +178,56 @@ public sealed partial class TomModelMutator
                 throw new NotSupportedException($"Setting '{assignment.Property}' is not supported for this object.");
         }
     }
+
+    private const string AnnotationPrefix = "Annotation:";
+
+    /// <summary>
+    /// Handles a <c>Annotation:&lt;Name&gt;</c> assignment by setting/replacing the annotation, or
+    /// removing it when the value is empty. Returns false when the property is not an annotation.
+    /// </summary>
+    private static bool TryApplyAnnotation(object target, ModelPropertyAssignment assignment)
+    {
+        if (!assignment.Property.StartsWith(AnnotationPrefix, StringComparison.OrdinalIgnoreCase))
+            return false;
+
+        var name = assignment.Property[AnnotationPrefix.Length..].Trim();
+        if (string.IsNullOrEmpty(name))
+            throw new ArgumentException("Annotation name is required.", nameof(assignment));
+
+        var annotations = ResolveAnnotations(target);
+        var existing = annotations.FirstOrDefault(a => string.Equals(a.Name, name, StringComparison.Ordinal));
+
+        if (string.IsNullOrEmpty(assignment.Value))
+        {
+            if (existing is not null)
+                annotations.Remove(existing);
+            return true;
+        }
+
+        if (existing is not null)
+            existing.Value = assignment.Value;
+        else
+            annotations.Add(new Annotation { Name = name, Value = assignment.Value });
+
+        return true;
+    }
+
+    /// <summary>
+    /// Returns the annotation collection for a mutation target. Model-level annotations
+    /// ("." path resolves to the <see cref="Database"/>) live on <c>Database.Model</c>.
+    /// </summary>
+    private static ICollection<Annotation> ResolveAnnotations(object target) => target switch
+    {
+        Database database => database.Model.Annotations,
+        Model model => model.Annotations,
+        Table table => table.Annotations,
+        Column column => column.Annotations,
+        Measure measure => measure.Annotations,
+        Partition partition => partition.Annotations,
+        ModelRole role => role.Annotations,
+        Hierarchy hierarchy => hierarchy.Annotations,
+        _ => throw new NotSupportedException($"Setting annotations is not supported for {target.GetType().Name}.")
+    };
 
     private static void ApplyTableProperty(Table table, string property, string value, string displayName)
     {

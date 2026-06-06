@@ -27,54 +27,108 @@ public sealed class BpaEngine
             : options.Rules.Where(r => ruleIds.Contains(r.Id)).ToList();
 
         var model = BpaModelBuilder.Build(snapshot);
-        var violations = new List<BpaViolation>();
+
+        // Rules disabled globally via the model-level ignore annotation are not evaluated.
+        var disabledRuleIds = BpaIgnoreStore.ReadRuleIds(model.Source);
+        var results = new List<BpaResult>();
 
         foreach (var rule in activeRules)
-        {
-            if (string.IsNullOrWhiteSpace(rule.Expression))
-                continue;
+            EvaluateRule(rule, model, snapshot, disabledRuleIds, options.PathFilter, results);
 
-            EvaluateRule(rule, model, options.PathFilter, violations);
-        }
-
-        return new BpaRunResult(violations, snapshot.Name, activeRules.Count);
+        return new BpaRunResult(results, snapshot.Name, activeRules.Count);
     }
 
-    private void EvaluateRule(BpaRule rule, BpaModel model, string? pathFilter, List<BpaViolation> violations)
+    private void EvaluateRule(
+        BpaRule rule,
+        BpaModel model,
+        ModelSnapshot snapshot,
+        IReadOnlySet<string> disabledRuleIds,
+        string? pathFilter,
+        List<BpaResult> results)
     {
+        // A globally disabled rule is recorded as a sentinel and never evaluated.
+        if (disabledRuleIds.Contains(rule.Id))
+        {
+            results.Add(BpaResult.Sentinel(BpaResultKind.DisabledRule, rule));
+            return;
+        }
+
+        // The model must meet the rule's minimum compatibility level, otherwise the rule's
+        // metadata may not even exist on this model — emit a sentinel and do not evaluate.
+        if (rule.CompatibilityLevel > snapshot.CompatibilityLevel)
+        {
+            results.Add(BpaResult.Sentinel(
+                BpaResultKind.InvalidCompatibilityLevel,
+                rule,
+                $"Rule requires compatibility level {rule.CompatibilityLevel}; model is {snapshot.CompatibilityLevel}."));
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(rule.Expression))
+            return;
+
         // Evaluate the rule only over objects whose actual ObjectType is one of the rule's
-        // scope tokens — e.g. a rule scoped to CalculatedColumn must not see DataColumns.
-        void Eval<T>(IEnumerable<T> items) where T : BpaObject
+        // scope tokens — e.g. a rule scoped to CalculatedColumn must not see DataColumns. Clean
+        // matches are always emitted; a compile/eval failure is surfaced as a diagnostic sentinel
+        // alongside them (the rule is not aborted — other scopes still run).
+        void Eval<T>(string scopeLabel, IEnumerable<T> items) where T : BpaObject
         {
             var scoped = items.Where(o => MatchesScope(rule.Scope, o)).ToList();
             if (scoped.Count == 0)
                 return;
 
-            foreach (var hit in _evaluator.Evaluate(rule.Expression!, scoped))
-            {
-                if (pathFilter is not null && !MatchesPathFilter(hit.Source, pathFilter))
-                    continue;
-                violations.Add(ToViolation(rule, hit.Source));
-            }
+            EmitOutcome(rule, scopeLabel, _evaluator.Evaluate(rule.Expression!, scoped), o => o.Source, pathFilter, results);
         }
 
-        Eval(model.AllMeasures);
-        Eval(model.AllColumns);
-        Eval(model.Tables);
-        Eval(model.Relationships);
-        Eval(model.AllPartitions);
-        Eval(model.Roles);
-        Eval(model.AllCalculationItems);
-        Eval(model.DataSources);
-        Eval(model.Perspectives);
-        Eval(model.Hierarchies);
+        Eval("Measure", model.AllMeasures);
+        Eval("Column", model.AllColumns);
+        Eval("Table", model.Tables);
+        Eval("Relationship", model.Relationships);
+        Eval("Partition", model.AllPartitions);
+        Eval("ModelRole", model.Roles);
+        Eval("CalculationItem", model.AllCalculationItems);
+        Eval("DataSource", model.DataSources);
+        Eval("Perspective", model.Perspectives);
+        Eval("Hierarchy", model.Hierarchies);
 
-        if (rule.Scope.Any(s => s.Equals("Model", StringComparison.OrdinalIgnoreCase)))
+        if (rule.Scope.Any(s => Eq(s, "Model")))
+            EmitOutcome(rule, "Model", _evaluator.Evaluate(rule.Expression!, new[] { model }), _ => model.Source, pathFilter, results);
+    }
+
+    /// <summary>
+    /// Records the violations from a scope evaluation (each subject to the path filter) and, when the
+    /// scope could not be fully evaluated, a single compile/eval-error sentinel for the rule.
+    /// </summary>
+    private static void EmitOutcome<T>(
+        BpaRule rule,
+        string scopeLabel,
+        BpaEvaluation<T> outcome,
+        Func<T, ModelObject> source,
+        string? pathFilter,
+        List<BpaResult> results)
+        where T : class
+    {
+        foreach (var hit in outcome.Matches)
         {
-            var hits = _evaluator.Evaluate(rule.Expression!, new[] { model });
-            if (hits.Count > 0)
-                violations.Add(ToViolation(rule, model.Source));
+            var obj = source(hit);
+            if (pathFilter is not null && !MatchesPathFilter(obj, pathFilter))
+                continue;
+
+            // An object-level ignore annotation suppresses this object's violation of this rule
+            // (kept in the raw stream, excluded from the visible violations) without disabling the
+            // rule globally. Ignores are not inherited from parent objects.
+            var ignored = BpaIgnoreStore.IsIgnored(obj, rule.Id);
+            results.Add(BpaResult.ForViolation(rule, ToViolation(rule, obj), ignored));
         }
+
+        if (outcome.Status != BpaEvaluationStatus.Ok)
+            results.Add(BpaResult.Sentinel(
+                outcome.Status == BpaEvaluationStatus.CompilationError
+                    ? BpaResultKind.CompilationError
+                    : BpaResultKind.EvaluationError,
+                rule,
+                outcome.ErrorMessage,
+                scopeLabel));
     }
 
     private static bool MatchesScope(IReadOnlyList<string> scope, BpaObject obj)
@@ -90,9 +144,11 @@ public sealed class BpaEngine
     {
         BpaColumn => Eq(token, "Column") || Eq(token, obj.Source.Property("ObjectType") ?? "DataColumn"),
         BpaMeasure => Eq(token, "Measure") || (Eq(token, "KPI") && obj.Source.Property("KPI") == "Present"),
-        BpaTable => Eq(token, "Table")
-            || (Eq(token, "CalculatedTable") && obj.Source.Property("TableIsCalc") == "true")
-            || (Eq(token, "CalculationGroup") && obj.Source.Property("TableObjectType") == "CalculationGroup"),
+        // "Table" scope excludes calculated tables and calculation-group tables (spec §10):
+        // those have their own dedicated scopes.
+        BpaTable => (Eq(token, "Table") && !IsCalculatedTable(obj) && !IsCalculationGroup(obj))
+            || (Eq(token, "CalculatedTable") && IsCalculatedTable(obj))
+            || (Eq(token, "CalculationGroup") && IsCalculationGroup(obj)),
         BpaCalculationItem => Eq(token, "CalculationItem"),
         BpaDataSource ds => Eq(token, "DataSource")
             || (Eq(token, "StructuredDataSource") && Eq(ds.Type, "Structured"))
@@ -106,6 +162,12 @@ public sealed class BpaEngine
     };
 
     private static bool Eq(string a, string b) => a.Equals(b, StringComparison.OrdinalIgnoreCase);
+
+    private static bool IsCalculatedTable(BpaObject obj)
+        => obj.Source.Property("TableIsCalc") == "true";
+
+    private static bool IsCalculationGroup(BpaObject obj)
+        => obj.Source.Property("TableObjectType") == "CalculationGroup";
 
     private static bool MatchesPathFilter(ModelObject obj, string pathFilter)
     {

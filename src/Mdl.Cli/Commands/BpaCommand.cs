@@ -195,7 +195,9 @@ internal sealed class BpaCommand : ICommandModule
                         parseResult.GetValue(failOnOption),
                         parseResult.GetValue(saveOption),
                         parseResult.GetValue(saveToOption),
-                        parseResult.GetValue(serializationOption)),
+                        parseResult.GetValue(serializationOption),
+                        parseResult.GetValue(noModelRulesOption),
+                        parseResult.GetValue(allowExternalRulesOption)),
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(format) || OutputFormats.IsCsv(format));
 
@@ -298,8 +300,14 @@ internal sealed class BpaCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(format))
                 return 2;
 
-            var result = await new BpaRulesListHandler().HandleAsync(
+            var modelPath = GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument);
+            var model = string.IsNullOrWhiteSpace(modelPath)
+                ? null
+                : new ActiveModelResolver().ResolveReference(modelPath, parseResult.GetValue(GlobalOptions.Database));
+
+            var result = await new BpaRulesListHandler(_providers).HandleAsync(
                 new BpaRulesListRequest(
+                    Model: model,
                     All: parseResult.GetValue(allOption),
                     RulesFile: parseResult.GetValue(rulesFileOption),
                     Ruleset: parseResult.GetValue(rulesetOption),
@@ -318,12 +326,12 @@ internal sealed class BpaCommand : ICommandModule
         rulesCommand.Subcommands.Add(BuildRulesAddCommand());
         rulesCommand.Subcommands.Add(BuildRulesFlagCommand("disable", "Disable a built-in BPA rule for the current user"));
         rulesCommand.Subcommands.Add(BuildRulesFlagCommand("enable", "Re-enable a previously disabled built-in BPA rule"));
-        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("ignore", "Add a rule to the model's ignore list"));
+        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("ignore", "Add a rule to the model's ignore list", ignore: true));
         rulesCommand.Subcommands.Add(BuildRulesInitCommand());
         rulesCommand.Subcommands.Add(listCommand);
         rulesCommand.Subcommands.Add(BuildRulesRemoveCommand());
         rulesCommand.Subcommands.Add(BuildRulesSetCommand());
-        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("unignore", "Remove a rule from the model's ignore list"));
+        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("unignore", "Remove a rule from the model's ignore list", ignore: false));
         return rulesCommand;
     }
 
@@ -391,17 +399,79 @@ internal sealed class BpaCommand : ICommandModule
         return command;
     }
 
-    private static Command BuildRulesIgnoreCommand(string name, string description)
+    private Command BuildRulesIgnoreCommand(string name, string description, bool ignore)
     {
+        var ruleIdArgument = new Argument<string>("rule-id") { Description = "Rule ID" };
+        var modelArgument = OptionalModelArgument();
+        var saveOption = new Option<bool>("--save") { Description = "Save changes to model" };
+        var serializationOption = new Option<string?>("--serialization")
+        {
+            Description = "Model serialization when saving: tmdl, bim, te-folder"
+        };
+
         var command = new Command(name, description)
         {
-            new Argument<string>("rule-id") { Description = "Rule ID" },
-            OptionalModelArgument(),
-            new Option<bool>("--save") { Description = "Save changes to model" }
+            ruleIdArgument,
+            modelArgument,
+            saveOption,
+            serializationOption
         };
-        command.SetAction(_ => UnsupportedRulesAction(name));
+
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var format = GlobalOptions.OutputFormatValue(parseResult);
+            if (!CommandOutput.TryValidateFormat(format))
+                return 2;
+
+            var model = new ActiveModelResolver().ResolveReference(
+                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                parseResult.GetValue(GlobalOptions.Database));
+
+            var result = await new BpaRulesIgnoreHandler(_providers).HandleAsync(
+                new BpaRulesIgnoreRequest(
+                    model,
+                    parseResult.GetValue(ruleIdArgument)!,
+                    Ignore: ignore,
+                    Save: parseResult.GetValue(saveOption),
+                    SaveTo: null,
+                    Serialization: parseResult.GetValue(serializationOption)),
+                cancellationToken);
+
+            return CommandOutput.Render(result, format, RenderRulesIgnore, ProjectRulesIgnoreJson);
+        });
+
         return command;
     }
+
+    private static void RenderRulesIgnore(BpaRulesIgnoreResult result)
+    {
+        var verb = result.Ignored ? "ignored" : "no longer ignored";
+
+        if (!result.Changed)
+        {
+            AnsiConsole.MarkupLine(Styling.Muted(
+                $"Rule '{Styling.MarkupEscape(result.RuleId)}' was already {(result.Ignored ? "ignored" : "not ignored")} — no change."));
+            return;
+        }
+
+        AnsiConsole.MarkupLine($"Rule {Styling.Value(result.RuleId)} is now {verb} for {Styling.Value(result.ModelName)}.");
+        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Ignored rules:", result.RuleIds.Count.ToString())}");
+
+        AnsiConsole.MarkupLine(result.Saved
+            ? $"  {Styling.Success("Model saved.")}"
+            : $"  {Styling.Muted("Not saved — re-run with --save to persist.")}");
+    }
+
+    private static object ProjectRulesIgnoreJson(BpaRulesIgnoreResult result)
+        => new
+        {
+            ruleId = result.RuleId,
+            ignored = result.Ignored,
+            changed = result.Changed,
+            ruleIds = result.RuleIds,
+            saved = result.Saved,
+            model = result.ModelName
+        };
 
     private static Command BuildRulesInitCommand()
     {
@@ -431,11 +501,14 @@ internal sealed class BpaCommand : ICommandModule
         {
             rulesEvaluated = result.RulesEvaluated,
             violations = result.Violations.Count,
-            ruleErrors = 0,
-            ignoredRules = 0,
+            ruleErrors = result.RuleErrors,
+            ignoredRules = result.IgnoredViolations,
+            disabledRules = result.DisabledRules,
+            invalidCompatibilityRules = result.InvalidCompatibilityRules,
             fixesApplied = result.FixesApplied,
             fixesSkipped = result.FixesSkipped,
             fixErrors = result.FixErrors ?? Array.Empty<string>(),
+            ruleLoadDiagnostics = result.RuleLoadDiagnostics ?? Array.Empty<string>(),
             saved = result.Saved,
             results = result.Violations.Select(v => new
             {
@@ -448,6 +521,16 @@ internal sealed class BpaCommand : ICommandModule
                 objectType = v.ObjectType,
                 canFix = v.CanFix
             }),
+            diagnostics = result.Results
+                .Where(r => r.Kind != BpaResultKind.Violation)
+                .Select(r => new
+                {
+                    kind = r.Kind.ToString(),
+                    ruleId = r.RuleId,
+                    ruleName = r.RuleName,
+                    scope = r.ErrorScope,
+                    message = r.ErrorMessage
+                }),
             errors = Array.Empty<string>()
         };
 
@@ -503,6 +586,7 @@ internal sealed class BpaCommand : ICommandModule
         {
             AnsiConsole.WriteLine();
             AnsiConsole.MarkupLine(Styling.Success("No BPA violations found."));
+            RenderDiagnostics(result, view);
             return;
         }
 
@@ -565,6 +649,8 @@ internal sealed class BpaCommand : ICommandModule
         if (result.DurationMs > 0)
             AnsiConsole.MarkupLine($"  {Styling.KeyValue("Duration:", $"{result.DurationMs}ms")}");
 
+        RenderDiagnostics(result, view);
+
         if (result.FixesApplied > 0)
         {
             AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes applied:", result.FixesApplied.ToString())}");
@@ -592,6 +678,68 @@ internal sealed class BpaCommand : ICommandModule
             AnsiConsole.MarkupLine(Styling.Guidance(view.Details
                 ? "Run with --full to list every affected object, or --rule <ID> to focus a single rule."
                 : "Run  bpa run --details  for guidance, or  --rule <ID>  to focus a single rule."));
+        }
+    }
+
+    /// <summary>
+    /// Footer for the non-violation result kinds. Always shows a one-line count summary when any
+    /// are present; lists the individual diagnostics only under --details so default output stays
+    /// violation-focused.
+    /// </summary>
+    private static void RenderDiagnostics(BpaRunResult result, RunViewOptions view)
+    {
+        if (result.RuleLoadDiagnostics is { Count: > 0 } loadDiagnostics)
+        {
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine($"  {Styling.Warning("Rule loading:")}");
+            foreach (var diag in loadDiagnostics)
+                AnsiConsole.MarkupLine("    {0}", Styling.MarkupEscape(diag));
+        }
+
+        var parts = new List<string>(4);
+        if (result.RuleErrors > 0) parts.Add($"{result.RuleErrors} rule errors");
+        if (result.DisabledRules > 0) parts.Add($"{result.DisabledRules} disabled");
+        if (result.InvalidCompatibilityRules > 0) parts.Add($"{result.InvalidCompatibilityRules} skipped (compat level)");
+        if (result.IgnoredViolations > 0) parts.Add($"{result.IgnoredViolations} ignored");
+
+        if (parts.Count == 0)
+            return;
+
+        AnsiConsole.MarkupLine($"  {Styling.KeyValue("Diagnostics:", string.Join(" · ", parts))}");
+
+        if (!view.Details)
+        {
+            AnsiConsole.MarkupLine(Styling.Muted("  Run  bpa run --details  to list diagnostics."));
+            return;
+        }
+
+        var diagnostics = result.Results
+            .Where(r => r.Kind != BpaResultKind.Violation)
+            .ToList();
+
+        if (diagnostics.Count == 0)
+            return;
+
+        AnsiConsole.WriteLine();
+        foreach (var diag in diagnostics)
+        {
+            var label = diag.Kind switch
+            {
+                BpaResultKind.CompilationError => "compile",
+                BpaResultKind.EvaluationError => "evaluate",
+                BpaResultKind.InvalidCompatibilityLevel => "compat",
+                BpaResultKind.DisabledRule => "disabled",
+                _ => diag.Kind.ToString()
+            };
+
+            var scope = string.IsNullOrWhiteSpace(diag.ErrorScope) ? "" : $" ({diag.ErrorScope})";
+            var detail = string.IsNullOrWhiteSpace(diag.ErrorMessage) ? "" : $" — {diag.ErrorMessage}";
+            AnsiConsole.MarkupLine(
+                "    {0} {1}{2}{3}",
+                Styling.Muted($"[{label}]"),
+                Styling.MarkupEscape(diag.RuleId),
+                Styling.MarkupEscape(scope),
+                Styling.Muted(Styling.MarkupEscape(detail)));
         }
     }
 
