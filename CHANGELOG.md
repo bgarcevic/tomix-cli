@@ -65,6 +65,10 @@ and the API surface that major versions protect.
 
 ### Changed
 
+- `deps` now supports recursive dependency trees (`--deep`, honoring `--max-depth`) rendered as a
+  Spectre tree, implements `--unused` (unreferenced measures/columns, with `--hidden`), and analyzes
+  all DAX-bearing properties (detail-rows, format-string, KPI target/status/trend, calculated
+  tables, RLS filters) plus relationship edges — closer to Tabular Editor's dependency list.
 - Migrate remaining `Console.Error.WriteLine` calls to Spectre.Console styled output.
 - Enhance JSON error output to include `code`, `severity`, and `hint` fields.
 - Improve empty result messaging for `ls` and `find` with guidance hints.

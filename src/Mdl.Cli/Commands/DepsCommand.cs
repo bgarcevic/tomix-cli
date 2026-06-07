@@ -78,6 +78,7 @@ internal sealed class DepsCommand : ICommandModule
             var downstreamRequested = parseResult.GetValue(downstreamOption);
             var upstreamOnly = upstreamRequested && !downstreamRequested;
             var downstreamOnly = downstreamRequested && !upstreamRequested;
+            var deep = parseResult.GetValue(deepOption);
 
             if (!CommandOutput.TryValidateFormat(formatValue))
                 return 2;
@@ -120,7 +121,7 @@ internal sealed class DepsCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 formatValue,
-                data => Render(data, showUpstream: !downstreamOnly, showDownstream: !upstreamOnly),
+                data => Render(data, showUpstream: !downstreamOnly, showDownstream: !upstreamOnly, deep: deep),
                 data => ToReferenceJson(data, includeUpstream: !downstreamOnly, includeDownstream: !upstreamOnly),
                 errorFormat: errorFormat);
         });
@@ -128,33 +129,49 @@ internal sealed class DepsCommand : ICommandModule
         return command;
     }
 
-    private static void Render(DepsModelResult result, bool showUpstream, bool showDownstream)
+    private static void Render(DepsModelResult result, bool showUpstream, bool showDownstream, bool deep)
     {
+        if (result.Unused is not null)
+        {
+            RenderUnused(result.Unused);
+            return;
+        }
+
         AnsiConsole.MarkupLine(Styling.Value("Running semantic analysis..."));
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(Styling.Title($"Dependencies for {result.Path} ({result.Type})"));
         if (showUpstream)
         {
             AnsiConsole.WriteLine();
-            RenderSection("Upstream (depends on)", result.Upstream);
+            RenderSection("Upstream (depends on)", result.Upstream, deep);
         }
 
         if (showDownstream)
         {
             AnsiConsole.WriteLine();
-            RenderSection("Downstream (referenced by)", result.Downstream);
+            RenderSection("Downstream (referenced by)", result.Downstream, deep);
         }
     }
 
-    private static void RenderSection(string title, IReadOnlyList<DependencyObject> dependencies)
+    private static void RenderSection(string title, IReadOnlyList<DependencyObject> dependencies, bool deep)
     {
-        AnsiConsole.MarkupLine(Styling.Bold($"  {title}: {dependencies.Count}"));
+        var header = $"{title}: {dependencies.Count}";
         if (dependencies.Count == 0)
         {
+            AnsiConsole.MarkupLine(Styling.Bold($"  {header}"));
             AnsiConsole.MarkupLine($"    {Styling.Muted("None")}");
             return;
         }
 
+        if (deep)
+        {
+            var tree = new Tree(Styling.Bold(header));
+            AddTreeNodes(tree, dependencies);
+            AnsiConsole.Write(tree);
+            return;
+        }
+
+        AnsiConsole.MarkupLine(Styling.Bold($"  {header}"));
         var table = Styling.NewTable("Type", "Reference", "Path");
         foreach (var dependency in dependencies)
             table.AddRow(
@@ -164,11 +181,45 @@ internal sealed class DepsCommand : ICommandModule
         AnsiConsole.Write(table);
     }
 
+    private static void AddTreeNodes(IHasTreeNodes parent, IReadOnlyList<DependencyObject> dependencies)
+    {
+        foreach (var dependency in dependencies)
+        {
+            var node = parent.AddNode(
+                $"{Styling.Value(dependency.Reference)} {Styling.Muted($"({dependency.Type})")}");
+            AddTreeNodes(node, dependency.Children);
+        }
+    }
+
+    private static void RenderUnused(IReadOnlyList<DependencyObject> unused)
+    {
+        AnsiConsole.MarkupLine(Styling.Title($"Unused objects: {unused.Count}"));
+        AnsiConsole.WriteLine();
+        if (unused.Count == 0)
+        {
+            AnsiConsole.MarkupLine($"  {Styling.Muted("None")}");
+            return;
+        }
+
+        var table = Styling.NewTable("Type", "Path");
+        foreach (var dependency in unused)
+            table.AddRow(
+                Styling.MarkupEscape(dependency.Type),
+                Styling.MarkupEscape(dependency.Path));
+        AnsiConsole.Write(table);
+    }
+
     private static object ToReferenceJson(
         DepsModelResult result,
         bool includeUpstream,
         bool includeDownstream)
     {
+        if (result.Unused is not null)
+            return new Dictionary<string, object?>
+            {
+                ["unused"] = result.Unused.Select(ToReferenceJson).ToList()
+            };
+
         var json = new Dictionary<string, object?>
         {
             ["path"] = result.Path,
@@ -184,10 +235,17 @@ internal sealed class DepsCommand : ICommandModule
     }
 
     private static object ToReferenceJson(DependencyObject dependency)
-        => new
+    {
+        var json = new Dictionary<string, object?>
         {
-            objectName = dependency.Reference,
-            objectType = dependency.Type,
-            path = dependency.Path
+            ["objectName"] = dependency.Reference,
+            ["objectType"] = dependency.Type,
+            ["path"] = dependency.Path
         };
+
+        if (dependency.Children.Count > 0)
+            json["children"] = dependency.Children.Select(ToReferenceJson).ToList();
+
+        return json;
+    }
 }

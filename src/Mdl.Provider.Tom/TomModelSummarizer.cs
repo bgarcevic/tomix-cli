@@ -35,6 +35,9 @@ public static class TomModelSummarizer
     private const string PropFormatStringExpression = "FormatStringExpression";
     private const string PropLineageTag = "LineageTag";
     private const string PropKpi = "KPI";
+    private const string PropKpiTargetExpression = "KpiTargetExpression";
+    private const string PropKpiStatusExpression = "KpiStatusExpression";
+    private const string PropKpiTrendExpression = "KpiTrendExpression";
     private const string PropObjectType = "ObjectType";
     private const string PropUsedInHierarchies = "UsedInHierarchies";
     private const string PropUsedInVariations = "UsedInVariations";
@@ -209,6 +212,9 @@ public static class TomModelSummarizer
             [PropDetailRowsExpression] = measure.DetailRowsDefinition?.Expression ?? "",
             [PropFormatStringExpression] = measure.FormatStringDefinition?.Expression ?? "",
             [PropKpi] = measure.KPI is null ? "" : "Present",
+            [PropKpiTargetExpression] = measure.KPI?.TargetExpression ?? "",
+            [PropKpiStatusExpression] = measure.KPI?.StatusExpression ?? "",
+            [PropKpiTrendExpression] = measure.KPI?.TrendExpression ?? "",
             [PropLineageTag] = measure.LineageTag ?? "",
             [PropObjectType] = "Measure"
         };
