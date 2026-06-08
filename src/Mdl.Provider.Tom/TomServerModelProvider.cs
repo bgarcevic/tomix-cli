@@ -10,7 +10,8 @@ namespace Mdl.Provider.Tom;
 /// Opens a live model over XMLA (<c>powerbi://</c>, <c>asazure://</c>, or a local
 /// <c>localhost:&lt;port&gt;</c> Power BI Desktop instance). Remote endpoints acquire a token
 /// from the injected <see cref="IAccessTokenProvider"/>; local instances connect without one.
-/// Read-only: summary and snapshot only.
+/// Supports read operations (summary, snapshot), mutation (add/set/rm/replace), deploy, and export.
+/// Mutations are persisted to the server via <c>Database.Update()</c> on save.
 /// </summary>
 public sealed class TomServerModelProvider : IModelProvider
 {
@@ -66,7 +67,7 @@ public sealed class TomServerModelProvider : IModelProvider
     }
 }
 
-internal sealed class TomServerModelSession : IModelSession, IModelDeploySession, IModelExportSession
+internal sealed class TomServerModelSession : IModelSession, IModelExportSession, IModelMutationSession, IModelDeploySession
 {
     private readonly TabularServer _server;
     private readonly TabularDatabase _database;
@@ -102,6 +103,41 @@ internal sealed class TomServerModelSession : IModelSession, IModelDeploySession
         return ValueTask.CompletedTask;
     }
 
+    public Task<ModelExportResult> ExportAsync(
+        ModelExportRequest request,
+        CancellationToken cancellationToken)
+        => TomModelExporter.ExportAsync(_database, request, cancellationToken);
+
+    public ModelObjectMutationResult AddObject(ModelObjectAddRequest request)
+        => new TomModelMutator(_database).AddObject(request);
+
+    public ModelObjectMutationResult SetProperty(ModelObjectSetRequest request)
+        => new TomModelMutator(_database).SetProperty(request);
+
+    public ModelObjectMutationResult RemoveObject(ModelObjectRemoveRequest request)
+        => new TomModelMutator(_database).RemoveObject(request);
+
+    public ModelReplaceResult ReplaceText(ModelReplaceRequest request)
+        => new TomModelMutator(_database).ReplaceText(request);
+
+    public Task<ModelExportResult> SaveAsync(
+        string? outputPath,
+        string serialization,
+        bool force,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        _database.Update();
+
+        if (string.IsNullOrWhiteSpace(outputPath))
+            return Task.FromResult(new ModelExportResult(ModelName(), "remote"));
+
+        return TomModelExporter.ExportAsync(
+            _database,
+            new ModelExportRequest(outputPath, string.IsNullOrWhiteSpace(serialization) ? "tmdl" : serialization, force, SupportingFiles: false),
+            cancellationToken);
+    }
+
     public Task<ModelDeployResult> DeployAsync(
         ModelDeployRequest request,
         CancellationToken cancellationToken)
@@ -109,13 +145,6 @@ internal sealed class TomServerModelSession : IModelSession, IModelDeploySession
 
     public string GenerateScript(ModelDeployRequest request)
         => TomModelDeployer.GenerateScript(_database, request);
-
-    // Serializes the live remote model to a local tmdl/bim target — the "remote -> local" half of
-    // workspace mirroring. Reuses the same exporter the file sessions use.
-    public Task<ModelExportResult> ExportAsync(
-        ModelExportRequest request,
-        CancellationToken cancellationToken)
-        => TomModelExporter.ExportAsync(_database, request, cancellationToken);
 
     private string ModelName()
         => string.IsNullOrWhiteSpace(_database.Name) ? _database.ID : _database.Name;

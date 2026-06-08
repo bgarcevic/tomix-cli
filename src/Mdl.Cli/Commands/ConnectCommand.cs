@@ -227,6 +227,40 @@ internal sealed class ConnectCommand : ICommandModule
                     }
                 }
 
+                if (model is null &&
+                    !string.IsNullOrWhiteSpace(workspace) &&
+                    !ModelReference.IsRemoteEndpoint(workspace) &&
+                    (force || !Directory.Exists(workspace) && !File.Exists(workspace)))
+                {
+                    var serialization = string.IsNullOrWhiteSpace(workspaceFormat) ? "tmdl" : workspaceFormat.Trim();
+                    var wsTarget = serialization.Equals("bim", StringComparison.OrdinalIgnoreCase)
+                        ? Path.Combine(workspace, "model.bim")
+                        : workspace;
+
+                    var wsProvider = _providers.FirstOrDefault(p => p.CanOpen(validation));
+                    if (wsProvider is not null)
+                    {
+                        await using var wsSession = await wsProvider.OpenAsync(validation, cancellationToken);
+                        if (wsSession is IModelExportSession wsExporter)
+                        {
+                            if (force && (Directory.Exists(workspace) || File.Exists(workspace)))
+                            {
+                                if (Directory.Exists(workspace))
+                                    Directory.Delete(workspace, true);
+                                else
+                                    File.Delete(workspace);
+                            }
+
+                            await wsExporter.ExportAsync(
+                                new ModelExportRequest(wsTarget, serialization, Force: true, SupportingFiles: false),
+                                cancellationToken);
+
+                            if (format == OutputFormats.Text)
+                                AnsiConsole.MarkupLine(Styling.Success($"Workspace initialized at {Styling.MarkupEscape(workspace)} ({serialization})"));
+                        }
+                    }
+                }
+
                 handler.Set(new ConnectSetRequest(
                     remoteServer,
                     database,

@@ -14,4 +14,13 @@ public sealed record AddModelObjectRequest(
     string Serialization,
     bool Force,
     bool Stage = false,
-    bool Revert = false);
+    bool Revert = false,
+    string? Columns = null,
+    string? Mode = null,
+    string? Source = null,
+    string? Endpoint = null,
+    string? ConnectionString = null,
+    string? SourceTable = null,
+    string? SourceDatabase = null,
+    string? PartitionExpression = null,
+    string? SourceType = null);

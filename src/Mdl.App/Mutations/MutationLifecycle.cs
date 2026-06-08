@@ -87,12 +87,6 @@ public static class MutationLifecycle
                 null);
 
         // Stage: redirect to a local working copy.
-        if (source.IsRemote)
-            return new MutationBegin(null, new MutationError(
-                "MDL_STAGE_UNSUPPORTED_SOURCE",
-                "Staging is not supported for remote (read-only) sources. Use a local model or a workspace connection.",
-                1));
-
         StagingHandle handle;
         try
         {

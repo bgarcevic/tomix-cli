@@ -22,7 +22,16 @@ public sealed record ModelObjectAddRequest(
     string? Type,
     string? Value,
     IReadOnlyList<ModelPropertyAssignment> Properties,
-    bool IfNotExists);
+    bool IfNotExists,
+    string? Columns = null,
+    string? Mode = null,
+    string? Source = null,
+    string? Endpoint = null,
+    string? ConnectionString = null,
+    string? SourceTable = null,
+    string? SourceDatabase = null,
+    string? PartitionExpression = null,
+    string? SourceType = null);
 
 public sealed record ModelObjectSetRequest(
     string Path,

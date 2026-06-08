@@ -14,4 +14,8 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="Mdl.Provider.Tom.Tests" />
+  </ItemGroup>
+
 </Project>

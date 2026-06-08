@@ -12,6 +12,28 @@ and the API surface that major versions protect.
 
 ### Added
 
+- Remote workspace support: `connect <endpoint> <database> --workspace <local-path>`
+  materializes a local mirror, `ActiveModelResolver` uses it as the active model,
+  `stage commit` deploys back to the remote, and staging no longer rejects remote sources.
+- Staging now supports remote sources: `--stage` on any model, even remote XMLA endpoints.
+  `stage commit` deploys the working copy back to the remote when the staged source is remote.
+- `StagingManifest` now records `SourceEndpoint`/`SourceDatabase` for remote sources,
+  enabling `stage commit` to target the original remote endpoint.
+- `ActiveModelResolver` returns the local workspace path when `connect` was used with
+  a local `--workspace`, so mutation commands automatically target the workspace mirror.
+
+- Mutation commands (`add`, `set`, `rm`, `mv`, `replace`) now work against remote
+  models over XMLA (`powerbi://`, `asazure://`, `localhost:`). Changes are persisted
+  to the server via `--save`; `--save-to` additionally exports a local copy.
+- `mdl add` now creates every advertised `--type` (CalcTable, CalcGroup, CalcColumn,
+  DataColumn, Hierarchy, Level, Calendar, CalcItem, KPI, Partition, MPartition,
+  EntityPartition, PolicyRangePartition, Expression, Function, Perspective, Culture,
+  ProviderDataSource, StructuredDataSource, Role, TablePermission, Member), each
+  round-tripping through both TMDL and `.bim` serializations.
+- `mdl add` options `--columns`, `--mode`, `--source`, `--endpoint`,
+  `--connection-string`, `--source-table`, `--source-database`,
+  `--partition-expression`, and `--source-type` are now wired through to object
+  creation (previously accepted but ignored).
 - MinVer-based versioning from git tags (replaces hardcoded `0.1.0-dev`).
 - `CHANGELOG.md` with Keep a Changelog format.
 - `Directory.Build.props` with MinVer configuration.

@@ -21,6 +21,8 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Mdl.App\Mdl.App.csproj" />
     <ProjectReference Include="..\..\src\Mdl.Core\Mdl.Core.csproj" />
+    <ProjectReference Include="..\..\src\Mdl.Provider.Tom\Mdl.Provider.Tom.csproj" />
+    <ProjectReference Include="..\..\src\Mdl.Provider.Tmdl\Mdl.Provider.Tmdl.csproj" />
   </ItemGroup>
 
 </Project>

@@ -158,8 +158,8 @@ internal sealed class DepsCommand : ICommandModule
         var header = $"{title}: {dependencies.Count}";
         if (dependencies.Count == 0)
         {
-            AnsiConsole.MarkupLine(Styling.Bold($"  {header}"));
-            AnsiConsole.MarkupLine($"    {Styling.Muted("None")}");
+            AnsiConsole.MarkupLine(Styling.Bold($"{header}"));
+            AnsiConsole.MarkupLine($"{Styling.Muted("None")}");
             return;
         }
 
@@ -171,7 +171,7 @@ internal sealed class DepsCommand : ICommandModule
             return;
         }
 
-        AnsiConsole.MarkupLine(Styling.Bold($"  {header}"));
+        AnsiConsole.MarkupLine(Styling.Bold($"{header}"));
         var table = Styling.NewTable("Type", "Reference", "Path");
         foreach (var dependency in dependencies)
             table.AddRow(
@@ -197,7 +197,7 @@ internal sealed class DepsCommand : ICommandModule
         AnsiConsole.WriteLine();
         if (unused.Count == 0)
         {
-            AnsiConsole.MarkupLine($"  {Styling.Muted("None")}");
+            AnsiConsole.MarkupLine($"{Styling.Muted("None")}");
             return;
         }
 

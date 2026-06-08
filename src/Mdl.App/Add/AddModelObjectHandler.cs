@@ -54,7 +54,16 @@ public sealed class AddModelObjectHandler
                 request.Type,
                 request.Value,
                 request.Properties,
-                request.IfNotExists));
+                request.IfNotExists,
+                request.Columns,
+                request.Mode,
+                request.Source,
+                request.Endpoint,
+                request.ConnectionString,
+                request.SourceTable,
+                request.SourceDatabase,
+                request.PartitionExpression,
+                request.SourceType));
 
             var added = mutation.Changed ? mutation.Path : (object)false;
             var outcome = await MutationLifecycle.CompleteAsync(

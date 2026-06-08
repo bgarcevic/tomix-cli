@@ -39,6 +39,10 @@ public sealed class ActiveModelResolver
         if (session is null)
             return new ModelReference("");
 
+        if (!string.IsNullOrWhiteSpace(session.Workspace)
+            && !ModelReference.IsRemoteEndpoint(session.Workspace))
+            return new ModelReference(session.Workspace);
+
         if (!string.IsNullOrWhiteSpace(session.Model))
             return new ModelReference(session.Model);
 

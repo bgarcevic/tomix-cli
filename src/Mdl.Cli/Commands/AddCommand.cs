@@ -72,17 +72,54 @@ internal sealed class AddCommand : ICommandModule
             Description = "Revert a staged mutation"
         };
 
-        var ignoredOptions = new Option[]
+        var modeOption = new Option<string?>("--mode")
         {
-            new Option<string?>("--mode"),
-            new Option<string?>("--source"),
-            new Option<string?>("--endpoint"),
-            new Option<string?>("--connection-string"),
-            new Option<string?>("--source-table"),
-            new Option<string?>("--source-database"),
-            new Option<string?>("--partition-expression"),
-            new Option<string?>("--columns"),
-            new Option<string?>("--source-type")
+            Description = "Partition storage mode: Import, DirectQuery, Dual, DirectLake, Push."
+        };
+        var sourceOption = new Option<string?>("--source")
+        {
+            Description = "Provider name for a ProviderDataSource (e.g. System.Data.SqlClient)."
+        };
+        var endpointOption = new Option<string?>("--endpoint")
+        {
+            Description = "Server/endpoint address for a data source connection."
+        };
+        var connectionStringOption = new Option<string?>("--connection-string")
+        {
+            Description = "Full connection string for a ProviderDataSource."
+        };
+        var sourceTableOption = new Option<string?>("--source-table")
+        {
+            Description = "Source entity/table name for an EntityPartition."
+        };
+        var sourceDatabaseOption = new Option<string?>("--source-database")
+        {
+            Description = "Source database name for a data source or entity partition schema."
+        };
+        var partitionExpressionOption = new Option<string?>("--partition-expression")
+        {
+            Description = "M/DAX expression for a partition source."
+        };
+        var columnsOption = new Option<string?>("--columns")
+        {
+            Description = "Comma-separated column names to create on a new table."
+        };
+        var sourceTypeOption = new Option<string?>("--source-type")
+        {
+            Description = "Connection protocol for a StructuredDataSource (e.g. tds)."
+        };
+
+        var extraOptions = new Option[]
+        {
+            modeOption,
+            sourceOption,
+            endpointOption,
+            connectionStringOption,
+            sourceTableOption,
+            sourceDatabaseOption,
+            partitionExpressionOption,
+            columnsOption,
+            sourceTypeOption
         };
 
         var command = new Command("add", "Add an object to the model")
@@ -102,7 +139,7 @@ internal sealed class AddCommand : ICommandModule
             revertOption
         };
 
-        foreach (var option in ignoredOptions)
+        foreach (var option in extraOptions)
             command.Options.Add(option);
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -136,7 +173,16 @@ internal sealed class AddCommand : ICommandModule
                         parseResult.GetValue(serializationOption) ?? "",
                         parseResult.GetValue(forceOption),
                         parseResult.GetValue(stageOption),
-                        parseResult.GetValue(revertOption)),
+                        parseResult.GetValue(revertOption),
+                        parseResult.GetValue(columnsOption),
+                        parseResult.GetValue(modeOption),
+                        parseResult.GetValue(sourceOption),
+                        parseResult.GetValue(endpointOption),
+                        parseResult.GetValue(connectionStringOption),
+                        parseResult.GetValue(sourceTableOption),
+                        parseResult.GetValue(sourceDatabaseOption),
+                        parseResult.GetValue(partitionExpressionOption),
+                        parseResult.GetValue(sourceTypeOption)),
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(formatValue));
 

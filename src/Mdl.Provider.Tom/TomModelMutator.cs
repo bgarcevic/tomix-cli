@@ -15,13 +15,34 @@ public sealed partial class TomModelMutator
         var type = NormalizeType(request.Type);
         var path = NormalizePath(request.Path);
 
-        if (string.Equals(type, "table", StringComparison.OrdinalIgnoreCase))
-            return AddTable(path, request);
-
-        if (string.Equals(type, "measure", StringComparison.OrdinalIgnoreCase))
-            return AddMeasure(path, request);
-
-        throw new NotSupportedException($"Adding object type '{request.Type}' is not supported yet.");
+        return type switch
+        {
+            "table" => AddTable(path, request),
+            "calctable" => AddCalcTable(path, request),
+            "calcgroup" => AddCalcGroup(path, request),
+            "measure" => AddMeasure(path, request),
+            "calccolumn" => AddCalcColumn(path, request),
+            "datacolumn" => AddDataColumn(path, request),
+            "hierarchy" => AddHierarchy(path, request),
+            "level" => AddLevel(path, request),
+            "calendar" => AddCalendar(path, request),
+            "calcitem" => AddCalcItem(path, request),
+            "kpi" => AddKpi(path, request),
+            "partition" => AddPartition(path, request, PartitionKind.M),
+            "mpartition" => AddPartition(path, request, PartitionKind.M),
+            "entitypartition" => AddPartition(path, request, PartitionKind.Entity),
+            "policyrangepartition" => AddPartition(path, request, PartitionKind.PolicyRange),
+            "expression" => AddExpression(path, request),
+            "function" => AddFunction(path, request),
+            "perspective" => AddPerspective(path, request),
+            "culture" => AddCulture(path, request),
+            "providerdatasource" => AddProviderDataSource(path, request),
+            "structureddatasource" => AddStructuredDataSource(path, request),
+            "role" => AddRole(path, request),
+            "tablepermission" => AddTablePermission(path, request),
+            "member" => AddMember(path, request),
+            _ => throw new NotSupportedException($"Adding object type '{request.Type}' is not supported yet.")
+        };
     }
 
     public ModelObjectMutationResult SetProperty(ModelObjectSetRequest request)
@@ -97,12 +118,13 @@ public sealed partial class TomModelMutator
         table.Partitions.Add(new Partition
         {
             Name = path,
-            Mode = ModeType.Import,
+            Mode = ParseMode(request.Mode),
             Source = new MPartitionSource
             {
-                Expression = "let Source = #table({}, {}) in Source"
+                Expression = request.PartitionExpression ?? "let Source = #table({}, {}) in Source"
             }
         });
+        AddColumns(table, request.Columns);
         _database.Model.Tables.Add(table);
 
         ApplyProperties(table, request.Properties);
@@ -173,6 +195,44 @@ public sealed partial class TomModelMutator
                 return;
             case ModelRole role:
                 ApplyRoleProperty(role, property, value, assignment.Property);
+                return;
+            case Hierarchy hierarchy:
+                ApplyHierarchyProperty(hierarchy, property, value, assignment.Property);
+                return;
+            case Level level:
+                ApplyLevelProperty(level, property, value, assignment.Property);
+                return;
+            case Calendar calendar:
+                ApplyNameDescription(property, value, assignment.Property,
+                    n => calendar.Name = n, d => calendar.Description = d);
+                return;
+            case NamedExpression expression:
+                ApplyNamedExpressionProperty(expression, property, value, assignment.Property);
+                return;
+            case Function function:
+                ApplyFunctionProperty(function, property, value, assignment.Property);
+                return;
+            case CalculationItem item:
+                ApplyCalculationItemProperty(item, property, value, assignment.Property);
+                return;
+            case Perspective perspective:
+                ApplyNameDescription(property, value, assignment.Property,
+                    n => perspective.Name = n, d => perspective.Description = d);
+                return;
+            case Culture culture when property is "name":
+                culture.Name = value;
+                return;
+            case DataSource dataSource:
+                ApplyDataSourceProperty(dataSource, property, value, assignment.Property);
+                return;
+            case KPI kpi:
+                ApplyKpiProperty(kpi, property, value, assignment.Property);
+                return;
+            case TablePermission permission:
+                ApplyTablePermissionProperty(permission, property, value, assignment.Property);
+                return;
+            case ModelRoleMember member:
+                ApplyMemberProperty(member, property, value, assignment.Property);
                 return;
             default:
                 throw new NotSupportedException($"Setting '{assignment.Property}' is not supported for this object.");
@@ -671,10 +731,8 @@ public sealed partial class TomModelMutator
 
         return type.Trim().ToLowerInvariant() switch
         {
-            "table" => "table",
-            "measure" => "measure",
             "calcmeasure" => "measure",
-            _ => type.Trim()
+            var normalized => normalized
         };
     }
 
