@@ -142,6 +142,8 @@ public sealed class StageHandlerTests
 
     private sealed class StubDeploySession : IModelSession, IModelDeploySession
     {
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
             => Task.FromResult(new ModelSummary("stub", 1601, 1, 0, 0, 0, 0));
 
@@ -178,6 +180,8 @@ public sealed class StageHandlerTests
         private readonly string _exportTarget;
 
         public StubExportSession(string exportTarget) => _exportTarget = exportTarget;
+
+        public string SourcePath => "";
 
         public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
             => Task.FromResult(new ModelSummary("stub", 1601, 1, 0, 0, 0, 0));

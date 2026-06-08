@@ -2,4 +2,7 @@ namespace Mdl.App.Save;
 
 public sealed record SaveModelResult(
     string Saved,
-    string Format);
+    string Format,
+    bool Synced = false,
+    string? SyncTarget = null,
+    string? SyncWarning = null);

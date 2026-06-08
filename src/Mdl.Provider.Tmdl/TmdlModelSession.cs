@@ -17,6 +17,8 @@ public sealed class TmdlModelSession : IModelSession, IModelExportSession, IMode
         _tokenProvider = tokenProvider;
     }
 
+    public string SourcePath => _path;
+
     public Task<ModelSummary> GetSummaryAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

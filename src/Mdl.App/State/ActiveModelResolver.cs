@@ -52,6 +52,21 @@ public sealed class ActiveModelResolver
         return new ModelReference("");
     }
 
+    public ModelReference? ResolveSyncTarget()
+    {
+        var session = _store.LoadCurrentSession();
+        if (session is null || string.IsNullOrWhiteSpace(session.Workspace))
+            return null;
+
+        if (ModelReference.IsRemoteEndpoint(session.Workspace))
+            return new ModelReference(session.Workspace, NullIfBlank(session.Database));
+
+        if (!string.IsNullOrWhiteSpace(session.Server))
+            return new ModelReference(session.Server, NullIfBlank(session.Database));
+
+        return null;
+    }
+
     private static string? NullIfBlank(string? value)
         => string.IsNullOrWhiteSpace(value) ? null : value;
 }

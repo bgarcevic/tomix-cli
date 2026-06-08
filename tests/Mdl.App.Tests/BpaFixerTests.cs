@@ -223,6 +223,8 @@ public sealed class BpaFixerTests
 
     private sealed class StubMutationSession : IModelMutationSession, IModelSession
     {
+        public string SourcePath => "";
+
         public string? LastSetPath { get; private set; }
         public IReadOnlyList<ModelPropertyAssignment>? LastSetAssignments { get; private set; }
         public string? LastRemovedPath { get; private set; }

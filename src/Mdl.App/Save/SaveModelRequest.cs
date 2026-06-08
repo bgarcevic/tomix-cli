@@ -9,4 +9,5 @@ public sealed record SaveModelRequest(
     bool Force,
     bool SupportingFiles,
     bool FixBpa = false,
-    string[]? BpaRules = null);
+    string[]? BpaRules = null,
+    ModelReference? SyncTarget = null);

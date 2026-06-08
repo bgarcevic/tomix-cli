@@ -80,6 +80,8 @@ internal sealed class TomServerModelSession : IModelSession, IModelExportSession
         _tokenProvider = tokenProvider;
     }
 
+    public string SourcePath => "";
+
     public Task<ModelSummary> GetSummaryAsync(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();

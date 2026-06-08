@@ -77,6 +77,8 @@ public sealed class ReadOnlyCommandHandlerTests
 
     private sealed class StubSession : IModelSession
     {
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
             => Task.FromResult(new ModelSummary("(unnamed)", 1601, 1, 1, 2, 1, 0));
 

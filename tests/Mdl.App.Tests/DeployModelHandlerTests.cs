@@ -152,6 +152,8 @@ public sealed class DeployModelHandlerTests
 
     private sealed class StubDeploySession : IModelSession, IModelDeploySession
     {
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
             => Task.FromResult(new ModelSummary("stub", 1601, 3, 12, 4, 2, 0));
 

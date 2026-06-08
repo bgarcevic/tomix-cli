@@ -189,6 +189,8 @@ public sealed class FormatModelHandlerTests
 
         public StubSession(ModelSnapshot snapshot) => _snapshot = snapshot;
 
+        public string SourcePath => "";
+
         public List<ModelObjectSetRequest> SetRequests { get; } = [];
 
         public string? SaveOutputPath { get; private set; }

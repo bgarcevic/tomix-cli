@@ -157,6 +157,8 @@ public sealed class DepsModelHandlerTests
 
     private sealed class StubSession : IModelSession
     {
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
             => Task.FromResult(new ModelSummary("stub", 1601, 2, 6, 8, 1, 0));
 

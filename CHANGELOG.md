@@ -12,6 +12,13 @@ and the API surface that major versions protect.
 
 ### Added
 
+- `save` now syncs exported model back to workspace remote after saving (`--no-sync` to skip).
+  `ResolveSyncTarget()` on `ActiveModelResolver` returns the remote endpoint from the
+  current session's `Server`/`Database` or `Workspace` remote. Sync results
+  (synced target or warning) are reported in output and result data.
+- `IModelSession.SourcePath` property exposed so `save` defaults output path to the
+  session's source path rather than the raw model reference argument.
+
 - Remote workspace support: `connect <endpoint> <database> --workspace <local-path>`
   materializes a local mirror, `ActiveModelResolver` uses it as the active model,
   `stage commit` deploys back to the remote, and staging no longer rejects remote sources.

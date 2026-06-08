@@ -91,6 +91,8 @@ public sealed class BpaRulesIgnoreHandlerTests
     private sealed class CapturingSession(IReadOnlyDictionary<string, string>? modelAnnotations)
         : IModelSession, IModelMutationSession
     {
+        public string SourcePath => "";
+
         public List<ModelObjectSetRequest> SetRequests { get; } = [];
         public bool Saved { get; private set; }
 
@@ -117,6 +119,8 @@ public sealed class BpaRulesIgnoreHandlerTests
 
     private sealed class ReadOnlySession : IModelSession
     {
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken ct)
             => Task.FromResult(new ModelSummary("M", 1601, 0, 0, 0, 0, 0));
         public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken ct)

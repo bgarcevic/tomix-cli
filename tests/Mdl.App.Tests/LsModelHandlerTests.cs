@@ -70,6 +70,8 @@ public sealed class LsModelHandlerTests
 
     private sealed class StubSession : IModelSession
     {
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
             => Task.FromResult(new ModelSummary("stub", 1601, 3, 12, 4, 2, 0));
 

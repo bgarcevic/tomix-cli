@@ -24,21 +24,21 @@ public sealed class SaveModelHandler
                 exitCode: 2,
                 hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
+        var serialization = string.IsNullOrWhiteSpace(request.Serialization)
+            ? InferSerialization(request.Model.Value)
+            : request.Serialization;
+
+        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+
         var outputPath = request.OutputPath;
         if (string.IsNullOrWhiteSpace(outputPath))
-            outputPath = request.Model.Value;
+            outputPath = session.SourcePath;
 
         if (string.IsNullOrWhiteSpace(outputPath))
             return MdlResult<SaveModelResult>.Fail(
                 code: "MDL_SAVE_OUTPUT_REQUIRED",
                 message: "An output path is required when no model source is active.",
                 exitCode: 2);
-
-        var serialization = string.IsNullOrWhiteSpace(request.Serialization)
-            ? InferSerialization(request.Model.Value)
-            : request.Serialization;
-
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
 
         if (request.FixBpa)
         {
@@ -65,7 +65,11 @@ public sealed class SaveModelHandler
                 new ModelExportRequest(outputPath, serialization, request.Force, request.SupportingFiles),
                 cancellationToken);
 
-            return MdlResult<SaveModelResult>.Ok(new SaveModelResult(export.SavedPath, export.Format));
+            var (synced, syncTarget, syncWarning) = await SyncToWorkspaceAsync(
+                session, request.SyncTarget, request.Force, cancellationToken);
+
+            return MdlResult<SaveModelResult>.Ok(new SaveModelResult(
+                export.SavedPath, export.Format, synced, syncTarget, syncWarning));
         }
         catch (NotSupportedException ex)
         {
@@ -74,6 +78,36 @@ public sealed class SaveModelHandler
         catch (IOException ex)
         {
             return MdlResult<SaveModelResult>.Fail("MDL_SAVE_OUTPUT_EXISTS", ex.Message, exitCode: 2);
+        }
+    }
+
+    private static async Task<(bool Synced, string? Target, string? Warning)> SyncToWorkspaceAsync(
+        IModelSession session,
+        ModelReference? syncTarget,
+        bool force,
+        CancellationToken cancellationToken)
+    {
+        if (syncTarget is null)
+            return (false, null, null);
+
+        if (session is not IModelDeploySession deployer)
+            return (false, null, $"Workspace sync skipped: provider does not support deploy.");
+
+        var targetLabel = syncTarget.Database is not null
+            ? $"{syncTarget.Value} / {syncTarget.Database}"
+            : syncTarget.Value;
+
+        try
+        {
+            await deployer.DeployAsync(
+                new ModelDeployRequest(syncTarget.Value, syncTarget.Database, DeployFull: false, CreateOnly: false, Force: force),
+                cancellationToken);
+
+            return (true, targetLabel, null);
+        }
+        catch (Exception ex)
+        {
+            return (false, targetLabel, $"Workspace sync failed: {ex.Message}");
         }
     }
 

@@ -55,6 +55,10 @@ internal sealed class SaveCommand : ICommandModule
         {
             Description = "Wrap output in a {modelName}.SemanticModel/ folder with .platform and definition.pbism. Only for tmdl/bim on bare targets."
         };
+        var noSyncOption = new Option<bool>("--no-sync")
+        {
+            Description = "Skip workspace sync when workspace mode is active."
+        };
 
         var command = new Command("save", "Save a model to disk in a specified format (like fab export)")
         {
@@ -66,7 +70,8 @@ internal sealed class SaveCommand : ICommandModule
             fixBpaOption,
             bpaRulesOption,
             skipValidationOption,
-            supportingFilesOption
+            supportingFilesOption,
+            noSyncOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -82,10 +87,14 @@ internal sealed class SaveCommand : ICommandModule
             var supportingFiles = parseResult.GetValue(supportingFilesOption);
             var fixBpa = parseResult.GetValue(fixBpaOption);
             var bpaRules = parseResult.GetValue(bpaRulesOption);
+            var noSync = parseResult.GetValue(noSyncOption);
 
-            var reference = new ActiveModelResolver().ResolveReference(
+            var resolver = new ActiveModelResolver();
+            var reference = resolver.ResolveReference(
                 GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                 parseResult.GetValue(GlobalOptions.Database));
+
+            var syncTarget = noSync ? null : resolver.ResolveSyncTarget();
 
             var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             var result = await CliSpinner.RunAsync(
@@ -98,7 +107,8 @@ internal sealed class SaveCommand : ICommandModule
                         force,
                         supportingFiles,
                         fixBpa,
-                        bpaRules),
+                        bpaRules,
+                        syncTarget),
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
@@ -118,8 +128,18 @@ internal sealed class SaveCommand : ICommandModule
         AnsiConsole.MarkupLine(Styling.KeyValue("Source:", source));
         AnsiConsole.MarkupLine(Styling.Value($"Saving ({result.Format})..."));
         AnsiConsole.MarkupLine(Styling.Success($"Saved: {result.Saved} ({result.Format})"));
+
+        if (result.Synced)
+            AnsiConsole.MarkupLine(Styling.Success($"Synced: {Styling.MarkupEscape(result.SyncTarget!)}"));
+        else if (result.SyncWarning is not null)
+            AnsiConsole.MarkupLine(Styling.Warning(Styling.MarkupEscape(result.SyncWarning)));
     }
 
     private static void RenderCsv(SaveModelResult result)
-        => Console.WriteLine($"Saved: {result.Saved} ({result.Format})");
+    {
+        var line = $"Saved: {result.Saved} ({result.Format})";
+        if (result.Synced)
+            line += $", Synced: {result.SyncTarget}";
+        Console.WriteLine(line);
+    }
 }

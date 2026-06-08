@@ -166,6 +166,8 @@ public sealed class ValidateModelHandlerTests
 
         public StubSession(ModelSnapshot snapshot) => _snapshot = snapshot;
 
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
             => Task.FromResult(new ModelSummary("stub", 1601, 1, 1, 1, 0, 0));
 

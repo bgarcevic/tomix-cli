@@ -374,6 +374,8 @@ public sealed class AddModelObjectHandlerTests
 
     private sealed class ReadOnlySession : IModelSession
     {
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken ct)
             => Task.FromResult(new ModelSummary("ro", 1601, 0, 0, 0, 0, 0));
         public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken ct)
@@ -395,6 +397,8 @@ public sealed class AddModelObjectHandlerTests
 
     private sealed class StubMutationSession : IModelSession, IModelMutationSession
     {
+        public string SourcePath => "";
+
         public List<ModelObjectAddRequest> AddRequests { get; } = [];
         public string? SaveOutputPath { get; private set; }
         public string SaveSerializationValue { get; private set; } = "";
@@ -435,6 +439,8 @@ public sealed class AddModelObjectHandlerTests
 
         public ThrowingMutationSession(Exception exception) => _exception = exception;
 
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken ct)
             => Task.FromResult(new ModelSummary("throw", 1601, 0, 0, 0, 0, 0));
         public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken ct)
@@ -451,6 +457,8 @@ public sealed class AddModelObjectHandlerTests
 
     private sealed class SaveThrowingMutationSession : IModelSession, IModelMutationSession
     {
+        public string SourcePath => "";
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken ct)
             => Task.FromResult(new ModelSummary("savethrow", 1601, 0, 0, 0, 0, 0));
         public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken ct)
