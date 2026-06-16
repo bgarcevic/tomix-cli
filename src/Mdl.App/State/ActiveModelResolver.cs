@@ -18,7 +18,14 @@ public sealed class ActiveModelResolver
         if (!string.IsNullOrWhiteSpace(explicitModel))
             return explicitModel;
 
-        return _store.LoadCurrentSession()?.Model ?? "";
+        var sessionModel = _store.LoadCurrentSession()?.Model;
+        if (string.IsNullOrWhiteSpace(sessionModel))
+            return "";
+
+        if (!ModelReference.IsRemoteEndpoint(sessionModel) && !Path.IsPathRooted(sessionModel))
+            return Path.GetFullPath(sessionModel);
+
+        return sessionModel;
     }
 
     /// <summary>
@@ -44,7 +51,12 @@ public sealed class ActiveModelResolver
             return new ModelReference(session.Workspace);
 
         if (!string.IsNullOrWhiteSpace(session.Model))
-            return new ModelReference(session.Model);
+        {
+            var modelPath = session.Model;
+            if (!ModelReference.IsRemoteEndpoint(modelPath) && !Path.IsPathRooted(modelPath))
+                modelPath = Path.GetFullPath(modelPath);
+            return new ModelReference(modelPath);
+        }
 
         if (!string.IsNullOrWhiteSpace(session.Server))
             return new ModelReference(session.Server, NullIfBlank(database) ?? session.Database);

@@ -12,6 +12,45 @@ and the API surface that major versions protect.
 
 ### Added
 
+- `--stage`, `--revert`, and `--save-to` options added to `bpa rules ignore/unignore`
+  and `bpa run --fix` commands, completing the mutation lifecycle parity across all
+  working mutation commands (`add`, `rm`, `set`, `mv`, `replace`, `format`, `script`,
+  `bpa run`, `bpa rules ignore/unignore`).
+- `script` command now supports `--stage` and `--revert` options.
+
+### Changed
+
+- `format` command: `--stage` and `--revert` options are no longer silently ignored.
+  They now participate in the full mutation lifecycle (working copy staging, revert,
+  and persistence).
+- `MutationRunner` extracted as a shared base for mutation handlers, eliminating
+  copy-paste boilerplate across `add`, `rm`, `set`, `mv`, and `replace` handlers.
+- `script` handler no longer falls back to `IModelExportSession` — mutation-capable
+  providers (`IModelMutationSession`) are required for save/stage.
+- Error codes for `replace` and `bpa run --fix` unified to `MDL_MUTATION_*` pattern,
+  consistent with other mutation commands. See [Error Codes Reference](docs/error-codes.md)
+  for the full catalog and migration table.
+- `format` command: `--force` option added (save even if validation errors are present).
+  Previously formatting always force-saved; the new default is non-force.
+- `format -p <path>` error codes restored: `MDL_OBJECT_NOT_FOUND` and `MDL_OBJECT_AMBIGUOUS`
+  are now emitted for lookup failures instead of the generic `MDL_MUTATION_FAILED`.
+
+### Removed (Error Code Migration)
+
+The following error codes have been replaced by unified `MDL_MUTATION_*` codes.
+See [docs/error-codes.md](docs/error-codes.md) for the full reference.
+
+| Old code | New code |
+|----------|----------|
+| `MDL_REPLACE_INVALID_ARGUMENT` | `MDL_MUTATION_INVALID_VALUE` |
+| `MDL_REPLACE_UNSUPPORTED` | `MDL_MUTATION_UNSUPPORTED` |
+| `MDL_REPLACE_FAILED` | `MDL_MUTATION_FAILED` |
+| `MDL_REPLACE_SAVE_FAILED` | `MDL_MUTATION_SAVE_FAILED` |
+| `MDL_SCRIPT_SAVE_UNSUPPORTED` | `MDL_MUTATION_UNSUPPORTED` |
+| `MDL_SCRIPT_SAVE_FAILED` | `MDL_MUTATION_SAVE_FAILED` |
+| `MDL_BPA_FIX_UNSUPPORTED` | `MDL_MUTATION_UNSUPPORTED_PROVIDER` |
+| `MDL_BPA_IGNORE_UNSUPPORTED` | `MDL_MUTATION_UNSUPPORTED_PROVIDER` |
+
 - `save` now syncs exported model back to workspace remote after saving (`--no-sync` to skip).
   `ResolveSyncTarget()` on `ActiveModelResolver` returns the remote endpoint from the
   current session's `Server`/`Database` or `Workspace` remote. Sync results

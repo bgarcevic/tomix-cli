@@ -66,6 +66,10 @@ internal sealed class FormatCommand : ICommandModule
         {
             Description = "Persist formatted expressions to the source model"
         };
+        var forceOption = new Option<bool>("--force")
+        {
+            Description = "Save even if this mutation introduces validation errors"
+        };
         var stageOption = new Option<bool>("--stage")
         {
             Description = "Stage this command's mutation"
@@ -87,6 +91,7 @@ internal sealed class FormatCommand : ICommandModule
             langOption,
             typeOption,
             saveOption,
+            forceOption,
             stageOption,
             revertOption
         };
@@ -126,7 +131,11 @@ internal sealed class FormatCommand : ICommandModule
                         parseResult.GetValue(semicolonsOption),
                         parseResult.GetValue(noSpaceAfterFunctionOption),
                         parseResult.GetValue(saveOption),
-                        parseResult.GetValue(saveToOption)),
+                        parseResult.GetValue(saveToOption),
+                        "",
+                        parseResult.GetValue(forceOption),
+                        parseResult.GetValue(stageOption),
+                        parseResult.GetValue(revertOption)),
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
@@ -158,6 +167,13 @@ internal sealed class FormatCommand : ICommandModule
                 AnsiConsole.MarkupLine(Styling.Success($"Formatted: {model.Formatted}"));
                 AnsiConsole.MarkupLine(Styling.Warning($"Unchanged: {model.Unchanged}"));
                 AnsiConsole.MarkupLine(Styling.Error($"Failed: {model.Failed}"));
+
+                if (model.Saved is true or string)
+                    AnsiConsole.MarkupLine(Styling.Success("Model saved."));
+                else if (model.Staged == true)
+                    AnsiConsole.MarkupLine(Styling.Success("Mutation staged."));
+                else if (model.Formatted > 0)
+                    AnsiConsole.MarkupLine(Styling.Muted("Not saved — re-run with --save to persist or --stage to stage."));
                 break;
         }
     }

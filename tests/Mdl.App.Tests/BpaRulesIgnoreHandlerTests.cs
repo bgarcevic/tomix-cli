@@ -18,7 +18,7 @@ public sealed class BpaRulesIgnoreHandlerTests
 
         Assert.True(result.Success);
         Assert.True(result.Data!.Changed);
-        Assert.True(result.Data.Saved);
+        Assert.True(result.Data!.Saved is string or true);
         Assert.Contains("RULE_A", result.Data.RuleIds);
 
         var write = Assert.Single(session.SetRequests);
@@ -65,7 +65,7 @@ public sealed class BpaRulesIgnoreHandlerTests
             CancellationToken.None);
 
         Assert.False(result.Data!.Changed);
-        Assert.False(result.Data.Saved);
+        Assert.True(result.Data.Saved is bool b && !b);
         Assert.Empty(session.SetRequests);
     }
 
@@ -79,7 +79,7 @@ public sealed class BpaRulesIgnoreHandlerTests
             CancellationToken.None);
 
         Assert.False(result.Success);
-        Assert.Equal("MDL_BPA_IGNORE_UNSUPPORTED", result.Diagnostics[0].Code);
+        Assert.Equal("MDL_MUTATION_UNSUPPORTED_PROVIDER", result.Diagnostics[0].Code);
     }
 
     private sealed class Provider(IModelSession session) : IModelProvider

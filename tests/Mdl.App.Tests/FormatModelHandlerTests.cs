@@ -126,6 +126,98 @@ public sealed class FormatModelHandlerTests
         Assert.Equal("powerquery", Assert.Single(formatter.Requests).Language);
     }
 
+    [Fact]
+    public async Task HandleAsync_ObjectPathNotFound_ReturnsObjectNotFoundCode()
+    {
+        var handler = new FormatModelHandler(
+            [new StubProvider(new StubSession(Snapshot()))], new RecordingFormatter());
+
+        var result = await handler.HandleAsync(
+            new FormatModelRequest(
+                new ModelReference("any"),
+                Expression: null,
+                Path: "Sales/NonExistent",
+                Language: "",
+                Type: null,
+                Long: false,
+                Semicolons: false,
+                NoSpaceAfterFunction: false,
+                Save: false,
+                SaveTo: null),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("MDL_OBJECT_NOT_FOUND", result.Diagnostics.First().Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ObjectPathAmbiguous_ReturnsAmbiguousCode()
+    {
+        var handler = new FormatModelHandler(
+            [new StubProvider(new StubSession(AmbiguousSnapshot()))], new RecordingFormatter());
+
+        var result = await handler.HandleAsync(
+            new FormatModelRequest(
+                new ModelReference("any"),
+                Expression: null,
+                Path: "Sales/Sales",
+                Language: "dax",
+                Type: null,
+                Long: false,
+                Semicolons: false,
+                NoSpaceAfterFunction: false,
+                Save: false,
+                SaveTo: null),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("MDL_OBJECT_AMBIGUOUS", result.Diagnostics.First().Code);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ForceFlag_PassesForceToSave()
+    {
+        var session = new StubSession(Snapshot());
+        var handler = new FormatModelHandler([new StubProvider(session)], new RecordingFormatter());
+
+        var result = await handler.HandleAsync(
+            new FormatModelRequest(
+                new ModelReference("any"),
+                Expression: null,
+                Path: "Sales/Total Sales",
+                Language: "",
+                Type: ModelObjectKind.Measure,
+                Long: false,
+                Semicolons: false,
+                NoSpaceAfterFunction: false,
+                Save: true,
+                SaveTo: "out",
+                Serialization: "",
+                Force: true),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.True(session.SaveForceValue);
+    }
+
+    private static ModelSnapshot AmbiguousSnapshot()
+    {
+        var totalSales = new ModelObject(
+            "Sales", ModelObjectKind.Measure, "Sales/Sales",
+            Detail: null, Expression: "1", Description: null, Hidden: false,
+            SourceColumn: null, Children: []);
+        var partition = new ModelObject(
+            "Sales", ModelObjectKind.Partition, "Sales/Sales",
+            Detail: "import", Expression: "let Source = 1 in Source", Description: null, Hidden: false,
+            SourceColumn: null, Children: []);
+        var sales = new ModelObject(
+            "Sales", ModelObjectKind.Table, "Sales",
+            Detail: "regular", Expression: null, Description: null, Hidden: false,
+            SourceColumn: null, Children: [totalSales, partition]);
+
+        return new ModelSnapshot("stub", 1601, [sales]);
+    }
+
     private static ModelSnapshot Snapshot()
     {
         var totalSales = new ModelObject(
@@ -195,6 +287,8 @@ public sealed class FormatModelHandlerTests
 
         public string? SaveOutputPath { get; private set; }
 
+        public bool SaveForceValue { get; private set; }
+
         public Task<ModelSummary> GetSummaryAsync(CancellationToken cancellationToken)
             => Task.FromResult(new ModelSummary("stub", 1601, 1, 1, 2, 0, 0));
 
@@ -229,6 +323,7 @@ public sealed class FormatModelHandlerTests
             CancellationToken cancellationToken)
         {
             SaveOutputPath = outputPath;
+            SaveForceValue = force;
             return Task.FromResult(new ModelExportResult(outputPath ?? "source", "tmdl"));
         }
     }

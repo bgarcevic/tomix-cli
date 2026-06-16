@@ -12,4 +12,8 @@ public sealed record FormatModelRequest(
     bool Semicolons,
     bool NoSpaceAfterFunction,
     bool Save,
-    string? SaveTo);
+    string? SaveTo,
+    string Serialization = "",
+    bool Force = false,
+    bool Stage = false,
+    bool Revert = false);

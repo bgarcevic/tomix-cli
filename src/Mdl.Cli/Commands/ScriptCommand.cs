@@ -62,6 +62,16 @@ internal sealed class ScriptCommand : ICommandModule
             Description = "Persist this command's mutation to the source location. Mutually exclusive with --revert and --stage."
         };
 
+        var stageOption = new Option<bool>("--stage")
+        {
+            Description = "Stage this command's mutation"
+        };
+
+        var revertOption = new Option<bool>("--revert")
+        {
+            Description = "Revert a staged mutation"
+        };
+
         var command = new Command("script", "Execute C# script(s) against a semantic model")
         {
             modelArgument,
@@ -71,7 +81,9 @@ internal sealed class ScriptCommand : ICommandModule
             serializationOption,
             dryRunOption,
             forceOption,
-            saveOption
+            saveOption,
+            stageOption,
+            revertOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -107,7 +119,9 @@ internal sealed class ScriptCommand : ICommandModule
                         parseResult.GetValue(forceOption),
                         parseResult.GetValue(saveOption),
                         parseResult.GetValue(saveToOption),
-                        parseResult.GetValue(serializationOption)),
+                        parseResult.GetValue(serializationOption),
+                        parseResult.GetValue(stageOption),
+                        parseResult.GetValue(revertOption)),
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(formatValue) || OutputFormats.IsCsv(formatValue));
 
@@ -188,6 +202,8 @@ internal sealed class ScriptCommand : ICommandModule
         "--dry-run",
         "--force",
         "--save",
+        "--stage",
+        "--revert",
         "--local",
         "--debug",
         "--non-interactive"
@@ -244,7 +260,9 @@ internal sealed class ScriptCommand : ICommandModule
 
         AnsiConsole.MarkupLine(Styling.Success($"Done: {result.ScriptsExecuted} script(s) executed."));
         if (result.Saved is bool saved && saved == false)
-            AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist."));
+            AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist or --stage to stage."));
+        else if (result.Staged == true)
+            AnsiConsole.MarkupLine(Styling.Success("Mutation staged."));
     }
 
     private static object ToReferenceJson(ScriptRunResult result)

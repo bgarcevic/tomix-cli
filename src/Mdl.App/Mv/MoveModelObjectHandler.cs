@@ -1,5 +1,4 @@
 using Mdl.App.Mutations;
-using Mdl.App.State;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -21,65 +20,23 @@ public sealed class MoveModelObjectHandler
 
         var options = new MutationOptions(
             request.Save, request.SaveTo, request.Stage, request.Revert, request.Serialization, request.Force);
-        var stagingStore = new StagingStore();
-        var connection = new CliStateStore().LoadCurrentSession();
 
-        var begin = await MutationLifecycle.BeginAsync(
-            _providers, request.Model, options, stagingStore, connection, cancellationToken);
-        if (begin.Error is { } beginError)
-            return MdlResult<MoveModelObjectResult>.Fail(beginError.Code, beginError.Message, beginError.ExitCode);
+        return await MutationRunner.RunAsync(
+            _providers, request.Model, options, "mv",
+            async (mutator, _, _) =>
+            {
+                mutator.SetProperty(new ModelObjectSetRequest(
+                    request.Source,
+                    [new ModelPropertyAssignment("name", newName)],
+                    request.Type));
 
-        if (begin.Mode == MutationMode.Revert)
-        {
-            stagingStore.Discard(request.Model);
-            return MdlResult<MoveModelObjectResult>.Ok(new MoveModelObjectResult(
-                NormalizePath(request.Source), NormalizePath(request.Destination), false, null));
-        }
-
-        var context = begin.Context!;
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
-        if (provider is null)
-            return MdlResult<MoveModelObjectResult>.Fail(
-                "MDL_NO_PROVIDER",
-                $"No provider can open model: {context.EffectiveModel.Value}",
-                exitCode: 2,
-                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
-
-        await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
-        if (session is not IModelMutationSession mutator)
-            return MdlResult<MoveModelObjectResult>.Fail(
-                "MDL_MUTATION_UNSUPPORTED_PROVIDER",
-                $"Provider cannot mutate model: {context.EffectiveModel.Value}");
-
-        try
-        {
-            mutator.SetProperty(new ModelObjectSetRequest(
-                request.Source,
-                [new ModelPropertyAssignment("name", newName)],
-                request.Type));
-
-            var outcome = await MutationLifecycle.CompleteAsync(
-                mutator, context, "mv", $"mv {request.Source} -> {request.Destination}", cancellationToken);
-
-            return MdlResult<MoveModelObjectResult>.Ok(new MoveModelObjectResult(
-                NormalizePath(request.Source), NormalizePath(request.Destination), outcome.Saved, outcome.Staged));
-        }
-        catch (NotSupportedException ex)
-        {
-            return MdlResult<MoveModelObjectResult>.Fail("MDL_MUTATION_UNSUPPORTED", ex.Message);
-        }
-        catch (ArgumentException ex)
-        {
-            return MdlResult<MoveModelObjectResult>.Fail("MDL_MUTATION_INVALID_VALUE", ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return MdlResult<MoveModelObjectResult>.Fail("MDL_MUTATION_FAILED", ex.Message);
-        }
-        catch (IOException ex)
-        {
-            return MdlResult<MoveModelObjectResult>.Fail("MDL_MUTATION_SAVE_FAILED", ex.Message, exitCode: 2);
-        }
+                return (true, $"mv {request.Source} -> {request.Destination}",
+                    outcome => new MoveModelObjectResult(
+                        NormalizePath(request.Source), NormalizePath(request.Destination),
+                        outcome.Saved, outcome.Staged));
+            },
+            new MoveModelObjectResult(NormalizePath(request.Source), NormalizePath(request.Destination), false, null),
+            cancellationToken);
     }
 
     private static bool TryGetRename(

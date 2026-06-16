@@ -6,7 +6,7 @@ internal static class Palette
 {
     public static readonly Color Sage   = new(0x3E, 0x92, 0x87);
     public static readonly Color Lav    = new(0x8E, 0x7B, 0xB8);
-    public static readonly Color Sand   = new(0xB0, 0x84, 0x40);
+    public static readonly Color Terra = new(0xB5, 0x80, 0x5C);
     public static readonly Color Harbor = new(0x4E, 0x8A, 0xB5);
     public static readonly Color Moss   = new(0x5C, 0x9D, 0x52);
     public static readonly Color Amber  = new(0xB5, 0x83, 0x2F);
@@ -30,7 +30,7 @@ internal static class Styling
 
     public static string Path(string text) => $"[{Palette.Harbor.ToMarkup()}]{MarkupEscape(text)}[/]";
 
-    public static string Value(string text) => $"[{Palette.Sand.ToMarkup()}]{MarkupEscape(text)}[/]";
+    public static string Value(string text) => $"[{Palette.Terra.ToMarkup()}]{MarkupEscape(text)}[/]";
 
     public static string Option(string text) => $"[{Palette.Lav.ToMarkup()}]{MarkupEscape(text)}[/]";
 

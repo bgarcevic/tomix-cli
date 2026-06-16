@@ -137,7 +137,7 @@ internal sealed class ConnectCommand : ICommandModule
             }
 
             var isRemoteEndpoint = ModelReference.IsRemoteEndpoint(server);
-            var model = (!isRemoteEndpoint && LooksLikeLocalModelPath(server)) ? server : null;
+            var model = (!isRemoteEndpoint && LooksLikeLocalModelPath(server)) ? Path.GetFullPath(server!) : null;
             var remoteServer = model is null ? server : null;
 
             if (local && model is null && !ModelReference.IsLocalInstanceEndpoint(remoteServer))

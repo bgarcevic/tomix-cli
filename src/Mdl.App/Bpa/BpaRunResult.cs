@@ -15,7 +15,8 @@ public sealed record BpaRunResult(
     int FixesApplied = 0,
     int FixesSkipped = 0,
     IReadOnlyList<string>? FixErrors = null,
-    bool Saved = false,
+    object? Saved = null,
+    bool? Staged = null,
     IReadOnlyList<string>? RuleLoadDiagnostics = null)
 {
     /// <summary>Visible violations: matched objects that are not suppressed by an object-level ignore.</summary>

@@ -1,9 +1,9 @@
 using Mdl.App.ModelObjects;
+using Mdl.App.Mutations;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
 namespace Mdl.App.Format;
-
 public sealed class FormatModelHandler
 {
     private readonly IReadOnlyList<IModelProvider> _providers;
@@ -24,30 +24,108 @@ public sealed class FormatModelHandler
         if (!string.IsNullOrWhiteSpace(request.Expression))
             return await FormatInlineAsync(request, cancellationToken);
 
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
-        if (provider is null)
-            return MdlResult<FormatModelResult>.Fail(
-                "MDL_NO_PROVIDER",
-                $"No provider can open model: {request.Model.Value}",
-                exitCode: 2,
-                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
+        var options = new MutationOptions(
+            request.Save, request.SaveTo, request.Stage, request.Revert,
+            request.Serialization, request.Force);
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
-        var snapshot = await session.GetSnapshotAsync(cancellationToken);
-
-        if (request.Save || !string.IsNullOrWhiteSpace(request.SaveTo))
+        if (!string.IsNullOrWhiteSpace(request.Path))
         {
-            if (session is not IModelMutationSession)
-            {
-                return MdlResult<FormatModelResult>.Fail(
-                    "MDL_MUTATION_UNSUPPORTED_PROVIDER",
-                    $"Provider cannot save formatted expressions: {request.Model.Value}");
-            }
+            return await MutationRunner.RunAsync(
+                _providers, request.Model, options, "format",
+                async (mutator, session, _) =>
+                {
+                    var snapshot = await session.GetSnapshotAsync(cancellationToken);
+                    var matches = ModelObjectLookup.Find(snapshot, request.Path!, request.Type).ToList();
+
+                    if (matches.Count == 0)
+                        throw new ObjectNotFoundException(
+                            ModelObjectLookup.NotFoundMessage(request.Path!),
+                            hint: "Run 'mdl ls' to list available objects, or 'mdl ls Sa*' to filter.");
+                    if (matches.Count > 1)
+                        throw new AmbiguousObjectException($"Object path matched more than one object: {request.Path}");
+
+                    var obj = matches[0];
+                    if (string.IsNullOrWhiteSpace(obj.Expression))
+                        throw new InvalidOperationException($"Object has no expression to format: {obj.Path}");
+
+                    if (!TryResolveLanguage(request.Language, obj.Kind, out var language, out var error))
+                        throw new InvalidOperationException(error);
+
+                    var formatted = await FormatExpressionAsync(request, obj.Expression!, language, cancellationToken);
+                    if (!formatted.Success)
+                        throw new InvalidOperationException($"Formatting failed for: {obj.Path}");
+
+                    mutator.SetProperty(new ModelObjectSetRequest(
+                        obj.Path,
+                        [new ModelPropertyAssignment("expression", formatted.Formatted)],
+                        obj.Kind));
+
+                    var status = Status(obj.Expression!, formatted.Formatted);
+                    return (status == "formatted", $"format {obj.Path}",
+                        outcome => (FormatModelResult)new ObjectFormatResult(
+                            formatted.Success, obj.Path, FormatterLanguages.DisplayName(language),
+                            status, formatted.Formatted, outcome.Saved, outcome.Staged));
+                },
+                (FormatModelResult)new ObjectFormatResult(false, "", "", "", "", null),
+                cancellationToken);
         }
 
-        return !string.IsNullOrWhiteSpace(request.Path)
-            ? await FormatObjectAsync(request, snapshot, session, cancellationToken)
-            : await FormatModelAsync(request, snapshot, session, cancellationToken);
+        return await MutationRunner.RunAsync(
+            _providers, request.Model, options, "format",
+            async (mutator, session, _) =>
+            {
+                var snapshot = await session.GetSnapshotAsync(cancellationToken);
+
+                if (!TryResolveLanguage(request.Language, request.Type, out var language, out var error))
+                    throw new InvalidOperationException(error);
+
+                var objects = FormatTargets(snapshot, language, request.Type).ToList();
+                var results = new List<ModelFormatObjectResult>();
+                var successful = new List<(ModelObject Object, string Formatted)>();
+                var formattedCount = 0;
+                var unchangedCount = 0;
+                var failedCount = 0;
+
+                foreach (var obj in objects)
+                {
+                    var response = await FormatExpressionAsync(request, obj.Expression!, language, cancellationToken);
+                    if (!response.Success)
+                    {
+                        failedCount++;
+                        results.Add(ToModelResult(obj, "failed"));
+                        continue;
+                    }
+
+                    var status = Status(obj.Expression!, response.Formatted);
+                    if (status == "formatted")
+                        formattedCount++;
+                    else
+                        unchangedCount++;
+
+                    successful.Add((obj, response.Formatted));
+                    results.Add(ToModelResult(obj, status));
+                }
+
+                if (failedCount > 0)
+                    return (false, "",
+                        _ => (FormatModelResult)new ModelFormatResult(
+                            objects.Count, formattedCount, unchangedCount, failedCount, results, null, null));
+
+                foreach (var (obj, value) in successful)
+                {
+                    mutator.SetProperty(new ModelObjectSetRequest(
+                        obj.Path,
+                        [new ModelPropertyAssignment("expression", value)],
+                        obj.Kind));
+                }
+
+                return (formattedCount > 0, $"format {formattedCount} expressions",
+                    outcome => (FormatModelResult)new ModelFormatResult(
+                        objects.Count, formattedCount, unchangedCount, failedCount,
+                        results, outcome.Saved, outcome.Staged));
+            },
+            (FormatModelResult)new ModelFormatResult(0, 0, 0, 0, [], null),
+            cancellationToken);
     }
 
     private async Task<MdlResult<FormatModelResult>> FormatInlineAsync(
@@ -71,97 +149,6 @@ public sealed class FormatModelHandler
             exitCode: 0);
     }
 
-    private async Task<MdlResult<FormatModelResult>> FormatObjectAsync(
-        FormatModelRequest request,
-        ModelSnapshot snapshot,
-        IModelSession session,
-        CancellationToken cancellationToken)
-    {
-        var matches = ModelObjectLookup.Find(snapshot, request.Path!, request.Type).ToList();
-        if (matches.Count == 0)
-            return MdlResult<FormatModelResult>.Fail(
-                "MDL_OBJECT_NOT_FOUND",
-                $"Object not found: {request.Path}",
-                exitCode: 1,
-                hint: "Run 'mdl ls' to list available objects, or 'mdl ls Sa*' to filter.");
-
-        if (matches.Count > 1)
-            return MdlResult<FormatModelResult>.Fail(
-                "MDL_OBJECT_AMBIGUOUS",
-                $"Object path matched more than one object: {request.Path}",
-                exitCode: 1);
-
-        var obj = matches[0];
-        if (string.IsNullOrWhiteSpace(obj.Expression))
-            return MdlResult<FormatModelResult>.Fail(
-                "MDL_FORMAT_NO_EXPRESSION",
-                $"Object has no expression to format: {obj.Path}",
-                exitCode: 1);
-
-        if (!TryResolveLanguage(request.Language, obj.Kind, out var language, out var error))
-            return MdlResult<FormatModelResult>.Fail("MDL_FORMAT_UNSUPPORTED_LANGUAGE", error, exitCode: 2);
-
-        var formatted = await FormatExpressionAsync(request, obj.Expression!, language, cancellationToken);
-        if (formatted.Success)
-            await ApplySaveAsync(request, session, [(obj, formatted.Formatted)], cancellationToken);
-
-        return MdlResult<FormatModelResult>.Ok(new ObjectFormatResult(
-            formatted.Success,
-            obj.Path,
-            FormatterLanguages.DisplayName(language),
-            formatted.Success ? Status(obj.Expression!, formatted.Formatted) : "failed",
-            formatted.Formatted,
-            Saved: null));
-    }
-
-    private async Task<MdlResult<FormatModelResult>> FormatModelAsync(
-        FormatModelRequest request,
-        ModelSnapshot snapshot,
-        IModelSession session,
-        CancellationToken cancellationToken)
-    {
-        if (!TryResolveLanguage(request.Language, request.Type, out var language, out var error))
-            return MdlResult<FormatModelResult>.Fail("MDL_FORMAT_UNSUPPORTED_LANGUAGE", error, exitCode: 2);
-
-        var objects = FormatTargets(snapshot, language, request.Type).ToList();
-        var results = new List<ModelFormatObjectResult>();
-        var successful = new List<(ModelObject Object, string Formatted)>();
-        var formattedCount = 0;
-        var unchangedCount = 0;
-        var failedCount = 0;
-
-        foreach (var obj in objects)
-        {
-            var response = await FormatExpressionAsync(request, obj.Expression!, language, cancellationToken);
-            if (!response.Success)
-            {
-                failedCount++;
-                results.Add(ToModelResult(obj, "failed"));
-                continue;
-            }
-
-            var status = Status(obj.Expression!, response.Formatted);
-            if (status == "formatted")
-                formattedCount++;
-            else
-                unchangedCount++;
-
-            successful.Add((obj, response.Formatted));
-            results.Add(ToModelResult(obj, status));
-        }
-
-        if (failedCount == 0)
-            await ApplySaveAsync(request, session, successful, cancellationToken);
-
-        return MdlResult<FormatModelResult>.Ok(new ModelFormatResult(
-            objects.Count,
-            formattedCount,
-            unchangedCount,
-            failedCount,
-            results,
-            Saved: null));
-    }
-
     private Task<ExpressionFormatResponse> FormatExpressionAsync(
         FormatModelRequest request,
         string expression,
@@ -175,27 +162,6 @@ public sealed class FormatModelHandler
                 request.Semicolons,
                 request.NoSpaceAfterFunction),
             cancellationToken);
-
-    private static async Task ApplySaveAsync(
-        FormatModelRequest request,
-        IModelSession session,
-        IReadOnlyList<(ModelObject Object, string Formatted)> formatted,
-        CancellationToken cancellationToken)
-    {
-        if (!request.Save && string.IsNullOrWhiteSpace(request.SaveTo))
-            return;
-
-        var mutator = (IModelMutationSession)session;
-        foreach (var (obj, value) in formatted)
-        {
-            mutator.SetProperty(new ModelObjectSetRequest(
-                obj.Path,
-                [new ModelPropertyAssignment("expression", value)],
-                obj.Kind));
-        }
-
-        await mutator.SaveAsync(request.SaveTo, "", force: true, cancellationToken);
-    }
 
     private static IEnumerable<ModelObject> FormatTargets(
         ModelSnapshot snapshot,

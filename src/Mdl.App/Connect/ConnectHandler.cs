@@ -1,4 +1,5 @@
 using Mdl.App.State;
+using Mdl.Core.Models;
 using Mdl.Core.Results;
 
 namespace Mdl.App.Connect;
@@ -42,7 +43,7 @@ public sealed class ConnectHandler
             state = new CliConnectionState(
                 profile.Server,
                 profile.Database,
-                profile.Model,
+                NormalizeLocalPath(profile.Model),
                 profile.Auth,
                 Local: !string.IsNullOrWhiteSpace(profile.Model),
                 Profile: profile.Name);
@@ -52,7 +53,7 @@ public sealed class ConnectHandler
             state = new CliConnectionState(
                 null,
                 request.Database,
-                request.Model,
+                NormalizeLocalPath(request.Model),
                 request.Auth,
                 Local: true,
                 Profile: null,
@@ -89,6 +90,14 @@ public sealed class ConnectHandler
 
         _store.SaveCurrentSession(state);
         return MdlResult<ConnectSetResult>.Ok(new ConnectSetResult(Active: true, state));
+    }
+
+    private static string? NormalizeLocalPath(string? path)
+    {
+        if (string.IsNullOrWhiteSpace(path) || ModelReference.IsRemoteEndpoint(path) || Path.IsPathRooted(path))
+            return path;
+
+        return Path.GetFullPath(path);
     }
 }
 

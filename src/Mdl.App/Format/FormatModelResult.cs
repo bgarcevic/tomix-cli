@@ -16,7 +16,9 @@ public sealed record ObjectFormatResult(
     string Status,
     string Formatted,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    object? Saved) : FormatModelResult;
+    object? Saved,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? Staged = null) : FormatModelResult;
 
 public sealed record ModelFormatResult(
     int Total,
@@ -25,7 +27,9 @@ public sealed record ModelFormatResult(
     int Failed,
     IReadOnlyList<ModelFormatObjectResult> Results,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    object? Saved) : FormatModelResult;
+    object? Saved,
+    [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    bool? Staged = null) : FormatModelResult;
 
 public sealed record ModelFormatObjectResult(
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]

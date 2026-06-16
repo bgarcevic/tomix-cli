@@ -1,3 +1,5 @@
+using Mdl.App.Mutations;
+using Mdl.App.State;
 using Mdl.Core.Bpa;
 using Mdl.Core.Configuration;
 using Mdl.Core.Models;
@@ -17,21 +19,43 @@ public sealed class BpaRunHandler
         BpaRunRequest request,
         CancellationToken cancellationToken)
     {
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
-        if (provider is null)
-            return MdlResult<BpaRunResult>.Fail(
-                "MDL_NO_PROVIDER",
-                $"No provider can open model: {request.Model.Value}",
-                exitCode: 2,
-                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
-
         if (!TryParseFailOn(request.FailOn, out var failOnSeverity, out var failOnError))
             return MdlResult<BpaRunResult>.Fail(
                 "MDL_BPA_INVALID_FAIL_ON",
                 failOnError!,
                 exitCode: 2);
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+        var options = new MutationOptions(
+            request.Save && request.Fix,
+            request.SaveTo,
+            request.Stage && request.Fix,
+            request.Revert,
+            request.Serialization,
+            request.Force);
+        var stagingStore = new StagingStore();
+        var connection = new CliStateStore().LoadCurrentSession();
+
+        var begin = await MutationLifecycle.BeginAsync(
+            _providers, request.Model, options, stagingStore, connection, cancellationToken);
+        if (begin.Error is { } error)
+            return MdlResult<BpaRunResult>.Fail(error.Code, error.Message, error.ExitCode);
+
+        if (begin.Mode == MutationMode.Revert)
+        {
+            stagingStore.Discard(request.Model);
+            return MdlResult<BpaRunResult>.Ok(new BpaRunResult([], "", 0));
+        }
+
+        var context = begin.Context!;
+        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
+        if (provider is null)
+            return MdlResult<BpaRunResult>.Fail(
+                "MDL_NO_PROVIDER",
+                $"No provider can open model: {context.EffectiveModel.Value}",
+                exitCode: 2,
+                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
+
+        await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
         var snapshot = await session.GetSnapshotAsync(cancellationToken);
 
         IReadOnlyList<BpaRule> rules;
@@ -69,9 +93,8 @@ public sealed class BpaRunHandler
         {
             if (session is not IModelMutationSession mutationSession)
                 return MdlResult<BpaRunResult>.Fail(
-                    "MDL_BPA_FIX_UNSUPPORTED",
-                    "The model provider does not support applying fixes.",
-                    exitCode: 2);
+                    "MDL_MUTATION_UNSUPPORTED_PROVIDER",
+                    $"Provider cannot mutate model: {context.EffectiveModel.Value}");
 
             var fixer = new BpaFixer();
             var fixResult = fixer.ApplyFixes(mutationSession, runResult.Violations, rules);
@@ -85,30 +108,19 @@ public sealed class BpaRunHandler
                     : null
             };
 
-            if (request.Save && fixResult.FixesApplied > 0)
+            if (fixResult.FixesApplied > 0 && context.Mode is MutationMode.Save or MutationMode.Stage)
             {
-                var serialization = string.IsNullOrWhiteSpace(request.Serialization)
-                    ? "tmdl"
-                    : request.Serialization;
+                var outcome = await MutationLifecycle.CompleteAsync(
+                    mutationSession, context, "bpa-fix",
+                    $"bpa-fix {fixResult.FixesApplied} violations", cancellationToken);
 
-                await mutationSession.SaveAsync(
-                    request.SaveTo,
-                    serialization,
-                    force: false,
-                    cancellationToken);
-
-                runResult = runResult with { Saved = true };
+                runResult = runResult with { Saved = outcome.Saved, Staged = outcome.Staged };
             }
         }
 
         return MdlResult<BpaRunResult>.Ok(runResult, exitCode: ShouldFail(runResult, failOnSeverity) ? 1 : 0);
     }
 
-    /// <summary>
-    /// Assembles the effective rule set from all sources with documented precedence (spec §6):
-    /// machine (bundled/ruleset) &lt; user (--rules + user config dir) &lt; external (model-referenced)
-    /// &lt; model-embedded. Returns the resolved rules plus best-effort load diagnostics.
-    /// </summary>
     private static async Task<(IReadOnlyList<BpaRule> Rules, IReadOnlyList<string> Diagnostics)> LoadRulesAsync(
         BpaRunRequest request,
         ModelSnapshot snapshot,
@@ -117,7 +129,6 @@ public sealed class BpaRunHandler
         var collections = new List<BpaRuleCollection>();
         var diagnostics = new List<string>();
 
-        // Machine: the bundled/standard ruleset (or a named --ruleset).
         if (!request.NoDefaults)
         {
             var label = string.IsNullOrWhiteSpace(request.Ruleset) ? BpaRuleLoader.StandardRuleset : request.Ruleset;
@@ -126,7 +137,6 @@ public sealed class BpaRunHandler
                 await BpaRuleLoader.LoadRulesetAsync(request.Ruleset, cancellationToken).ConfigureAwait(false)));
         }
 
-        // User: explicit --rules files (a load failure here is fatal, as before).
         if (request.RulesFiles is not null)
         {
             foreach (var file in request.RulesFiles)
@@ -138,7 +148,6 @@ public sealed class BpaRunHandler
             }
         }
 
-        // User: a rules file in the config directory (~/.mdl or $MDL_CONFIG_DIR), if present.
         var userRulesPath = Path.Combine(MdlPaths.ConfigDirectory, "bpa-rules.json");
         if (File.Exists(userRulesPath))
         {
@@ -147,7 +156,6 @@ public sealed class BpaRunHandler
                 collections.Add(new BpaRuleCollection(BpaRuleSourceKind.User, userRulesPath, userRules));
         }
 
-        // External + model-embedded: loaded from the model's annotations (best-effort).
         if (!request.NoModelRules)
         {
             var model = await BpaModelRuleLoader.LoadAsync(
@@ -163,7 +171,6 @@ public sealed class BpaRunHandler
         return (BpaRuleResolver.Resolve(collections), diagnostics);
     }
 
-    /// <summary>The directory used to resolve relative external-rule-file paths.</summary>
     private static string? ModelBaseDirectory(ModelReference model)
     {
         if (!model.IsLocalPath)

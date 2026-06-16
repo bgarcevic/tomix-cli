@@ -1,5 +1,4 @@
 using Mdl.App.Mutations;
-using Mdl.App.State;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
 
@@ -18,75 +17,32 @@ public sealed class AddModelObjectHandler
     {
         var options = new MutationOptions(
             request.Save, request.SaveTo, request.Stage, request.Revert, request.Serialization, request.Force);
-        var stagingStore = new StagingStore();
-        var connection = new CliStateStore().LoadCurrentSession();
 
-        var begin = await MutationLifecycle.BeginAsync(
-            _providers, request.Model, options, stagingStore, connection, cancellationToken);
-        if (begin.Error is { } error)
-            return MdlResult<AddModelObjectResult>.Fail(error.Code, error.Message, error.ExitCode);
+        return await MutationRunner.RunAsync(
+            _providers, request.Model, options, "add",
+            async (mutator, _, _) =>
+            {
+                var mutation = mutator.AddObject(new ModelObjectAddRequest(
+                    request.Path,
+                    request.Type,
+                    request.Value,
+                    request.Properties,
+                    request.IfNotExists,
+                    request.Columns,
+                    request.Mode,
+                    request.Source,
+                    request.Endpoint,
+                    request.ConnectionString,
+                    request.SourceTable,
+                    request.SourceDatabase,
+                    request.PartitionExpression,
+                    request.SourceType));
 
-        if (begin.Mode == MutationMode.Revert)
-        {
-            stagingStore.Discard(request.Model);
-            return MdlResult<AddModelObjectResult>.Ok(new AddModelObjectResult(false, false, null));
-        }
-
-        var context = begin.Context!;
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
-        if (provider is null)
-            return MdlResult<AddModelObjectResult>.Fail(
-                "MDL_NO_PROVIDER",
-                $"No provider can open model: {context.EffectiveModel.Value}",
-                exitCode: 2,
-                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
-
-        await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
-        if (session is not IModelMutationSession mutator)
-            return MdlResult<AddModelObjectResult>.Fail(
-                "MDL_MUTATION_UNSUPPORTED_PROVIDER",
-                $"Provider cannot mutate model: {context.EffectiveModel.Value}");
-
-        try
-        {
-            var mutation = mutator.AddObject(new ModelObjectAddRequest(
-                request.Path,
-                request.Type,
-                request.Value,
-                request.Properties,
-                request.IfNotExists,
-                request.Columns,
-                request.Mode,
-                request.Source,
-                request.Endpoint,
-                request.ConnectionString,
-                request.SourceTable,
-                request.SourceDatabase,
-                request.PartitionExpression,
-                request.SourceType));
-
-            var added = mutation.Changed ? mutation.Path : (object)false;
-            var outcome = await MutationLifecycle.CompleteAsync(
-                mutator, context, "add", $"add {mutation.Path}", cancellationToken);
-
-            return MdlResult<AddModelObjectResult>.Ok(
-                new AddModelObjectResult(added, outcome.Saved, outcome.Staged));
-        }
-        catch (NotSupportedException ex)
-        {
-            return MdlResult<AddModelObjectResult>.Fail("MDL_MUTATION_UNSUPPORTED", ex.Message);
-        }
-        catch (ArgumentException ex)
-        {
-            return MdlResult<AddModelObjectResult>.Fail("MDL_MUTATION_INVALID_VALUE", ex.Message);
-        }
-        catch (InvalidOperationException ex)
-        {
-            return MdlResult<AddModelObjectResult>.Fail("MDL_MUTATION_FAILED", ex.Message);
-        }
-        catch (IOException ex)
-        {
-            return MdlResult<AddModelObjectResult>.Fail("MDL_MUTATION_SAVE_FAILED", ex.Message, exitCode: 2);
-        }
+                var added = mutation.Changed ? mutation.Path : (object)false;
+                return (mutation.Changed, $"add {mutation.Path}",
+                    outcome => new AddModelObjectResult(added, outcome.Saved, outcome.Staged));
+            },
+            new AddModelObjectResult(false, false, null),
+            cancellationToken);
     }
 }

@@ -2,6 +2,8 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Text.RegularExpressions;
 using Mdl.App.Diagnostics;
+using Mdl.App.Mutations;
+using Mdl.App.State;
 using Mdl.Core.Authentication;
 using Mdl.Core.Models;
 using Mdl.Core.Results;
@@ -35,23 +37,54 @@ public sealed class ScriptHandler
                 "No scripts specified.\nHint: Pass --script <file>, -e <inline-expression>, or pipe code with -e -. Run 'mdl script --help' for examples.",
                 exitCode: 1);
 
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
+        var options = new MutationOptions(
+            request.Save && !request.DryRun,
+            request.DryRun ? null : request.SaveTo,
+            request.Stage && !request.DryRun,
+            request.Revert,
+            request.Serialization ?? "",
+            request.Force);
+        var stagingStore = new StagingStore();
+        var connection = new CliStateStore().LoadCurrentSession();
+
+        var begin = await MutationLifecycle.BeginAsync(
+            _providers, request.Model, options, stagingStore, connection, cancellationToken);
+        if (begin.Error is { } error)
+            return MdlResult<ScriptRunResult>.Fail(error.Code, error.Message, error.ExitCode);
+
+        if (begin.Mode == MutationMode.Revert)
+        {
+            stagingStore.Discard(request.Model);
+            return MdlResult<ScriptRunResult>.Ok(
+                ScriptRunResult.Executed("", 0, [], [], false, null));
+        }
+
+        var context = begin.Context!;
+        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
         if (provider is null)
             return MdlResult<ScriptRunResult>.Fail(
                 "MDL_NO_PROVIDER",
-                $"No provider can open model: {request.Model.Value}",
+                $"No provider can open model: {context.EffectiveModel.Value}",
                 exitCode: 1,
                 hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
         var stopwatch = Stopwatch.StartNew();
         try
         {
-            await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+            await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
             var summary = await session.GetSummaryAsync(cancellationToken);
             var snapshot = await session.GetSnapshotAsync(cancellationToken);
 
             if (request.DryRun)
+            {
+                stopwatch.Stop();
                 return MdlResult<ScriptRunResult>.Ok(DryRun(summary.Name, inputs));
+            }
+
+            if (session is not IModelMutationSession mutator)
+                return MdlResult<ScriptRunResult>.Fail(
+                    "MDL_MUTATION_UNSUPPORTED_PROVIDER",
+                    $"Provider cannot mutate model: {context.EffectiveModel.Value}");
 
             var messages = new List<ScriptMessage>();
             for (var i = 0; i < inputs.Count; i++)
@@ -76,7 +109,8 @@ public sealed class ScriptHandler
                     messages.Add(result);
             }
 
-            var saved = await SaveIfRequestedAsync(request, session, cancellationToken);
+            var outcome = await MutationLifecycle.CompleteAsync(
+                mutator, context, "script", $"script ({inputs.Count} inputs)", cancellationToken);
             stopwatch.Stop();
 
             return MdlResult<ScriptRunResult>.Ok(
@@ -85,7 +119,8 @@ public sealed class ScriptHandler
                     (int)stopwatch.ElapsedMilliseconds,
                     inputs,
                     messages,
-                    saved));
+                    outcome.Saved,
+                    outcome.Staged));
         }
         catch (AuthenticationRequiredException ex)
         {
@@ -102,11 +137,11 @@ public sealed class ScriptHandler
         }
         catch (NotSupportedException ex)
         {
-            return MdlResult<ScriptRunResult>.Fail("MDL_SCRIPT_SAVE_UNSUPPORTED", ex.Message, exitCode: 1);
+            return MdlResult<ScriptRunResult>.Fail("MDL_MUTATION_UNSUPPORTED", ex.Message);
         }
         catch (IOException ex)
         {
-            return MdlResult<ScriptRunResult>.Fail("MDL_SCRIPT_SAVE_FAILED", ex.Message, exitCode: 2);
+            return MdlResult<ScriptRunResult>.Fail("MDL_MUTATION_SAVE_FAILED", ex.Message, exitCode: 2);
         }
     }
 
@@ -139,51 +174,6 @@ public sealed class ScriptHandler
 
         return inputs;
     }
-
-    private static async Task<object> SaveIfRequestedAsync(
-        ScriptRunRequest request,
-        IModelSession session,
-        CancellationToken cancellationToken)
-    {
-        if (!request.Save && string.IsNullOrWhiteSpace(request.SaveTo))
-            return false;
-
-        var serialization = string.IsNullOrWhiteSpace(request.Serialization)
-            ? InferSerialization(request.Model.Value)
-            : request.Serialization;
-
-        if (session is IModelMutationSession mutator)
-        {
-            var export = await mutator.SaveAsync(
-                request.SaveTo,
-                serialization,
-                request.Force,
-                cancellationToken);
-            return export.SavedPath;
-        }
-
-        if (session is IModelExportSession exporter)
-        {
-            var outputPath = string.IsNullOrWhiteSpace(request.SaveTo)
-                ? request.Model.Value
-                : request.SaveTo;
-            var export = await exporter.ExportAsync(
-                new ModelExportRequest(outputPath, serialization, request.Force, SupportingFiles: false),
-                cancellationToken);
-            return export.SavedPath;
-        }
-
-        throw new NotSupportedException($"Provider cannot save model: {request.Model.Value}");
-    }
-
-    private static string InferSerialization(string modelPath)
-    {
-        var extension = Path.GetExtension(modelPath);
-        return extension.Equals(".bim", StringComparison.OrdinalIgnoreCase) ||
-               extension.Equals(".tmsl", StringComparison.OrdinalIgnoreCase)
-            ? "bim"
-            : "tmdl";
-    }
 }
 
 public sealed record ScriptRunRequest(
@@ -194,7 +184,9 @@ public sealed record ScriptRunRequest(
     bool Force,
     bool Save,
     string? SaveTo,
-    string? Serialization);
+    string? Serialization,
+    bool Stage = false,
+    bool Revert = false);
 
 public sealed record ScriptRunResult(
     string ModelName,
@@ -236,7 +228,8 @@ public sealed record ScriptRunResult(
         int durationMs,
         IReadOnlyList<ScriptInput> inputs,
         IReadOnlyList<ScriptMessage> messages,
-        object saved)
+        object saved,
+        bool? staged = null)
         => new(
             modelName,
             DryRun: false,
@@ -246,7 +239,7 @@ public sealed record ScriptRunResult(
             Inputs: inputs,
             Messages: messages,
             Saved: saved,
-            Staged: saved is bool b && b == false ? false : null,
+            Staged: staged,
             Scripts: [],
             FailedScript: null,
             ScriptIndex: null,

@@ -97,7 +97,7 @@ public sealed class ActiveModelResolverTests
             var resolver = new ActiveModelResolver(store);
             var result = resolver.ResolveReference(null);
 
-            Assert.Equal("./my-model.tmdl", result.Value);
+            Assert.Equal(Path.GetFullPath("./my-model.tmdl"), result.Value);
         }
         finally
         {

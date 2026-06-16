@@ -86,6 +86,16 @@ internal sealed class BpaCommand : ICommandModule
             Description = "Model serialization: tmdl, bim, te-folder"
         };
 
+        var stageOption = new Option<bool>("--stage")
+        {
+            Description = "Stage this command's mutation"
+        };
+
+        var revertOption = new Option<bool>("--revert")
+        {
+            Description = "Revert a staged mutation"
+        };
+
         var ruleOption = new Option<string[]>("--rule")
         {
             Description = "Run only specific rule(s) by ID",
@@ -166,7 +176,9 @@ internal sealed class BpaCommand : ICommandModule
             fullOption,
             errorsOption,
             warningsOption,
-            infoOption
+            infoOption,
+            stageOption,
+            revertOption
         };
 
         runCommand.SetAction(async (parseResult, cancellationToken) =>
@@ -195,9 +207,12 @@ internal sealed class BpaCommand : ICommandModule
                         parseResult.GetValue(failOnOption),
                         parseResult.GetValue(saveOption),
                         parseResult.GetValue(saveToOption),
-                        parseResult.GetValue(serializationOption),
+                        parseResult.GetValue(serializationOption) ?? "",
+                        Force: false,
                         parseResult.GetValue(noModelRulesOption),
-                        parseResult.GetValue(allowExternalRulesOption)),
+                        parseResult.GetValue(allowExternalRulesOption),
+                        parseResult.GetValue(stageOption),
+                        parseResult.GetValue(revertOption)),
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(format) || OutputFormats.IsCsv(format));
 
@@ -438,10 +453,25 @@ internal sealed class BpaCommand : ICommandModule
     {
         var ruleIdArgument = new Argument<string>("rule-id") { Description = "Rule ID" };
         var modelArgument = OptionalModelArgument();
-        var saveOption = new Option<bool>("--save") { Description = "Save changes to model" };
+        var saveOption = new Option<bool>("--save")
+        {
+            Description = "Persist this command's mutation to the source location. Mutually exclusive with --revert and --stage."
+        };
+        var saveToOption = new Option<string?>("--save-to")
+        {
+            Description = "Save model to a different path"
+        };
         var serializationOption = new Option<string?>("--serialization")
         {
             Description = "Model serialization when saving: tmdl, bim, te-folder"
+        };
+        var stageOption = new Option<bool>("--stage")
+        {
+            Description = "Stage this command's mutation"
+        };
+        var revertOption = new Option<bool>("--revert")
+        {
+            Description = "Revert a staged mutation"
         };
 
         var command = new Command(name, description)
@@ -449,7 +479,10 @@ internal sealed class BpaCommand : ICommandModule
             ruleIdArgument,
             modelArgument,
             saveOption,
-            serializationOption
+            saveToOption,
+            serializationOption,
+            stageOption,
+            revertOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -468,8 +501,10 @@ internal sealed class BpaCommand : ICommandModule
                     parseResult.GetValue(ruleIdArgument)!,
                     Ignore: ignore,
                     Save: parseResult.GetValue(saveOption),
-                    SaveTo: null,
-                    Serialization: parseResult.GetValue(serializationOption)),
+                    SaveTo: parseResult.GetValue(saveToOption),
+                    Serialization: parseResult.GetValue(serializationOption) ?? "",
+                    Stage: parseResult.GetValue(stageOption),
+                    Revert: parseResult.GetValue(revertOption)),
                 cancellationToken);
 
             return CommandOutput.Render(result, format, RenderRulesIgnore, ProjectRulesIgnoreJson);
@@ -492,9 +527,12 @@ internal sealed class BpaCommand : ICommandModule
         AnsiConsole.MarkupLine($"Rule {Styling.Value(result.RuleId)} is now {verb} for {Styling.Value(result.ModelName)}.");
         AnsiConsole.MarkupLine($"  {Styling.KeyValue("Ignored rules:", result.RuleIds.Count.ToString())}");
 
-        AnsiConsole.MarkupLine(result.Saved
-            ? $"  {Styling.Success("Model saved.")}"
-            : $"  {Styling.Muted("Not saved — re-run with --save to persist.")}");
+        if (result.Saved is true or string)
+            AnsiConsole.MarkupLine($"  {Styling.Success("Model saved.")}");
+        else if (result.Staged == true)
+            AnsiConsole.MarkupLine($"  {Styling.Success("Mutation staged.")}");
+        else
+            AnsiConsole.MarkupLine($"  {Styling.Muted("Not saved — re-run with --save to persist or --stage to stage.")}");
     }
 
     private static object ProjectRulesIgnoreJson(BpaRulesIgnoreResult result)
@@ -505,6 +543,7 @@ internal sealed class BpaCommand : ICommandModule
             changed = result.Changed,
             ruleIds = result.RuleIds,
             saved = result.Saved,
+            staged = result.Staged,
             model = result.ModelName
         };
 
@@ -545,6 +584,7 @@ internal sealed class BpaCommand : ICommandModule
             fixErrors = result.FixErrors ?? Array.Empty<string>(),
             ruleLoadDiagnostics = result.RuleLoadDiagnostics ?? Array.Empty<string>(),
             saved = result.Saved,
+            staged = result.Staged,
             results = result.Violations.Select(v => new
             {
                 ruleId = v.RuleId,
@@ -686,14 +726,16 @@ internal sealed class BpaCommand : ICommandModule
 
         RenderDiagnostics(result, view);
 
-        if (result.FixesApplied > 0)
-        {
-            AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes applied:", result.FixesApplied.ToString())}");
-            if (result.FixesSkipped > 0)
-                AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes skipped:", result.FixesSkipped.ToString())}");
-            if (result.Saved)
-                AnsiConsole.MarkupLine($"  {Styling.Success("Model saved.")}");
-        }
+            if (result.FixesApplied > 0)
+            {
+                AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes applied:", result.FixesApplied.ToString())}");
+                if (result.FixesSkipped > 0)
+                    AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes skipped:", result.FixesSkipped.ToString())}");
+                if (result.Saved is true or string)
+                    AnsiConsole.MarkupLine($"  {Styling.Success("Model saved.")}");
+                else if (result.Staged == true)
+                    AnsiConsole.MarkupLine($"  {Styling.Success("Mutation staged.")}");
+            }
         else if (result.FixesSkipped > 0)
         {
             AnsiConsole.MarkupLine($"  {Styling.KeyValue("Fixes skipped:", result.FixesSkipped.ToString())}");
