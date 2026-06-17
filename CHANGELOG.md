@@ -20,6 +20,18 @@ and the API surface that major versions protect.
 
 ### Changed
 
+- **Project renamed from `mdl-cli` to `tomix-cli`.** This is a breaking, repo-wide rename.
+  - CLI binary and command name: `mdl` → `tomix` (so `mdl doctor` → `tomix doctor`).
+  - C# namespaces and project names: `Mdl.*` → `Tomix.*` (e.g. `Mdl.Cli` → `Tomix.Cli`,
+    `Mdl.Provider.Tmdl` → `Tomix.Provider.Tmdl`). The Microsoft `TMDL` format name is unchanged.
+  - Public types renamed: `MdlResult` → `TomixResult`, `MdlDiagnostic` → `TomixDiagnostic`,
+    `MdlPaths` → `TomixPaths`, `MdlConfigStore` → `TomixConfigStore`.
+  - Diagnostic/error codes: the `MDL_*` prefix → `TOMIX_*` (e.g. `MDL_OBJECT_NOT_FOUND` →
+    `TOMIX_OBJECT_NOT_FOUND`).
+  - Environment variables: the `MDL_*` prefix → `TOMIX_*` (e.g. `MDL_CONFIG_DIR` → `TOMIX_CONFIG_DIR`,
+    `MDL_AUTH_*` → `TOMIX_AUTH_*`).
+  - Local config directory: `~/.mdl` → `~/.tomix`.
+  - Solution file: `Mdl.slnx` → `Tomix.slnx`; dev wrappers `mdl`/`mdl.ps1` → `tomix`/`tomix.ps1`.
 - `format` command: `--stage` and `--revert` options are no longer silently ignored.
   They now participate in the full mutation lifecycle (working copy staging, revert,
   and persistence).
@@ -27,29 +39,29 @@ and the API surface that major versions protect.
   copy-paste boilerplate across `add`, `rm`, `set`, `mv`, and `replace` handlers.
 - `script` handler no longer falls back to `IModelExportSession` — mutation-capable
   providers (`IModelMutationSession`) are required for save/stage.
-- Error codes for `replace` and `bpa run --fix` unified to `MDL_MUTATION_*` pattern,
+- Error codes for `replace` and `bpa run --fix` unified to `TOMIX_MUTATION_*` pattern,
   consistent with other mutation commands. See [Error Codes Reference](docs/error-codes.md)
   for the full catalog and migration table.
 - `format` command: `--force` option added (save even if validation errors are present).
   Previously formatting always force-saved; the new default is non-force.
-- `format -p <path>` error codes restored: `MDL_OBJECT_NOT_FOUND` and `MDL_OBJECT_AMBIGUOUS`
-  are now emitted for lookup failures instead of the generic `MDL_MUTATION_FAILED`.
+- `format -p <path>` error codes restored: `TOMIX_OBJECT_NOT_FOUND` and `TOMIX_OBJECT_AMBIGUOUS`
+  are now emitted for lookup failures instead of the generic `TOMIX_MUTATION_FAILED`.
 
 ### Removed (Error Code Migration)
 
-The following error codes have been replaced by unified `MDL_MUTATION_*` codes.
+The following error codes have been replaced by unified `TOMIX_MUTATION_*` codes.
 See [docs/error-codes.md](docs/error-codes.md) for the full reference.
 
 | Old code | New code |
 |----------|----------|
-| `MDL_REPLACE_INVALID_ARGUMENT` | `MDL_MUTATION_INVALID_VALUE` |
-| `MDL_REPLACE_UNSUPPORTED` | `MDL_MUTATION_UNSUPPORTED` |
-| `MDL_REPLACE_FAILED` | `MDL_MUTATION_FAILED` |
-| `MDL_REPLACE_SAVE_FAILED` | `MDL_MUTATION_SAVE_FAILED` |
-| `MDL_SCRIPT_SAVE_UNSUPPORTED` | `MDL_MUTATION_UNSUPPORTED` |
-| `MDL_SCRIPT_SAVE_FAILED` | `MDL_MUTATION_SAVE_FAILED` |
-| `MDL_BPA_FIX_UNSUPPORTED` | `MDL_MUTATION_UNSUPPORTED_PROVIDER` |
-| `MDL_BPA_IGNORE_UNSUPPORTED` | `MDL_MUTATION_UNSUPPORTED_PROVIDER` |
+| `TOMIX_REPLACE_INVALID_ARGUMENT` | `TOMIX_MUTATION_INVALID_VALUE` |
+| `TOMIX_REPLACE_UNSUPPORTED` | `TOMIX_MUTATION_UNSUPPORTED` |
+| `TOMIX_REPLACE_FAILED` | `TOMIX_MUTATION_FAILED` |
+| `TOMIX_REPLACE_SAVE_FAILED` | `TOMIX_MUTATION_SAVE_FAILED` |
+| `TOMIX_SCRIPT_SAVE_UNSUPPORTED` | `TOMIX_MUTATION_UNSUPPORTED` |
+| `TOMIX_SCRIPT_SAVE_FAILED` | `TOMIX_MUTATION_SAVE_FAILED` |
+| `TOMIX_BPA_FIX_UNSUPPORTED` | `TOMIX_MUTATION_UNSUPPORTED_PROVIDER` |
+| `TOMIX_BPA_IGNORE_UNSUPPORTED` | `TOMIX_MUTATION_UNSUPPORTED_PROVIDER` |
 
 - `save` now syncs exported model back to workspace remote after saving (`--no-sync` to skip).
   `ResolveSyncTarget()` on `ActiveModelResolver` returns the remote endpoint from the
@@ -71,12 +83,12 @@ See [docs/error-codes.md](docs/error-codes.md) for the full reference.
 - Mutation commands (`add`, `set`, `rm`, `mv`, `replace`) now work against remote
   models over XMLA (`powerbi://`, `asazure://`, `localhost:`). Changes are persisted
   to the server via `--save`; `--save-to` additionally exports a local copy.
-- `mdl add` now creates every advertised `--type` (CalcTable, CalcGroup, CalcColumn,
+- `tomix add` now creates every advertised `--type` (CalcTable, CalcGroup, CalcColumn,
   DataColumn, Hierarchy, Level, Calendar, CalcItem, KPI, Partition, MPartition,
   EntityPartition, PolicyRangePartition, Expression, Function, Perspective, Culture,
   ProviderDataSource, StructuredDataSource, Role, TablePermission, Member), each
   round-tripping through both TMDL and `.bim` serializations.
-- `mdl add` options `--columns`, `--mode`, `--source`, `--endpoint`,
+- `tomix add` options `--columns`, `--mode`, `--source`, `--endpoint`,
   `--connection-string`, `--source-table`, `--source-database`,
   `--partition-expression`, and `--source-type` are now wired through to object
   creation (previously accepted but ignored).
@@ -99,10 +111,10 @@ See [docs/error-codes.md](docs/error-codes.md) for the full reference.
 - `--version` and `doctor` for environment diagnostics.
 - CI release workflow: native binaries for 6 RIDs + .NET tool package.
 - Install scripts (`install/install.sh` for Linux/macOS, `install/install.ps1` for Windows) with checksum verification and no-admin installs.
-- Dev run wrapper (`./mdl`, `.\mdl.ps1`) and `scripts/install-dev.sh` so the short-command and global-tool dev workflows both work on macOS/Linux.
+- Dev run wrapper (`./tomix`, `.\Tomix.ps1`) and `scripts/install-dev.sh` so the short-command and global-tool dev workflows both work on macOS/Linux.
 - CI workflow for pull requests and pushes to main (ubuntu + windows).
 - Release job that publishes GitHub Release with checksums.txt on `v*` tags.
-- `hint` field on `MdlDiagnostic` and `MdlResult.Fail()` for actionable error guidance.
+- `hint` field on `TomixDiagnostic` and `TomixResult.Fail()` for actionable error guidance.
 - `--dry-run` option on `deploy` to preview changes without deploying.
 - `--yes` / `-y` global option to skip confirmation prompts.
 - `ConfirmationHelper` for interactive confirmation on destructive operations (deploy, replace, rm, connect).
@@ -121,14 +133,14 @@ See [docs/error-codes.md](docs/error-codes.md) for the full reference.
   `bpa rules list --disabled` and its summary counts reflect a model's ignore set.
 - BPA rule sources & precedence: model-embedded rules (`BestPracticeAnalyzer` annotation) and
   model-referenced external collections (`BestPracticeAnalyzer_ExternalRuleFiles`), plus
-  machine/user-level rules (`~/.mdl` / `$MDL_CONFIG_DIR`), merged by documented precedence
+  machine/user-level rules (`~/.tomix` / `$TOMIX_CONFIG_DIR`), merged by documented precedence
   (machine < user < external < model-embedded) with case-insensitive de-duplication and best-effort
   load diagnostics. New `--no-model-rules` and `--allow-external-rules` flags on `bpa run`.
 - Annotation write/remove support in the TOM mutator (`Annotation:<name>` on the model and on
   tables/columns/measures/…), and model-level annotations are now read into the snapshot.
-- `Mdl.Provider.Tom.Tests` project covering the annotation read/write round-trip.
+- `Tomix.Provider.Tom.Tests` project covering the annotation read/write round-trip.
 - `bpa rules disable` / `enable` — user-level per-rule toggles persisted at
-  `{config}/bpa-disabled.json` (`~/.mdl` or `$MDL_CONFIG_DIR`). Disabled rules are reported as
+  `{config}/bpa-disabled.json` (`~/.tomix` or `$TOMIX_CONFIG_DIR`). Disabled rules are reported as
   `DisabledRule` by `bpa run` (alongside model-level ignores) and surfaced by `bpa rules list --disabled`.
 
 ### Changed
@@ -140,8 +152,8 @@ See [docs/error-codes.md](docs/error-codes.md) for the full reference.
 - Migrate remaining `Console.Error.WriteLine` calls to Spectre.Console styled output.
 - Enhance JSON error output to include `code`, `severity`, and `hint` fields.
 - Improve empty result messaging for `ls` and `find` with guidance hints.
-- Refactor auth: `AuthSettingsFactory` moved from CLI to `Mdl.App.Auth`.
-- Refactor `ModelObjectKindParser` moved from CLI to `Mdl.Core.Models`.
+- Refactor auth: `AuthSettingsFactory` moved from CLI to `Tomix.App.Auth`.
+- Refactor `ModelObjectKindParser` moved from CLI to `Tomix.Core.Models`.
 - Replace `ModelSourceResolver` static calls with `ActiveModelResolver` instance in all commands.
 - `DoctorHandlerTests` parameterized for multiple version strings.
 - CI release workflow: add `fetch-depth: 0` for MinVer tag resolution.
@@ -178,7 +190,7 @@ See [docs/error-codes.md](docs/error-codes.md) for the full reference.
 - BPA `ReferencedBy` is now keyed by table-qualified column identity instead of bare name, so a
   column referenced via `'Table'[Col]` no longer marks same-named columns in *other* tables as
   referenced. This fixed an under-report vs Tabular Editor in `UNNECESSARY_COLUMNS` (and any
-  `ReferencedBy`-based rule): on a real model `mdl` now reports the same 161 findings TE does (was
+  `ReferencedBy`-based rule): on a real model `tomix` now reports the same 161 findings TE does (was
   159 — two hidden, genuinely-unused columns were masked by a same-named referenced column in another
   table). Unqualified `[Col]` references still count toward every same-named column (conservative, no
   false positives).
@@ -210,4 +222,4 @@ See [docs/error-codes.md](docs/error-codes.md) for the full reference.
 ### Removed
 
 - Standalone `InfoCommand.cs` (consolidated into connect flow).
-- Hardcoded `<Version>` and `<IncludeSourceRevisionInInformationalVersion>` from `Mdl.Cli.csproj`.
+- Hardcoded `<Version>` and `<IncludeSourceRevisionInInformationalVersion>` from `Tomix.Cli.csproj`.

@@ -1,6 +1,6 @@
 # CLI Color Strategy
 
-Reference for all ANSI color usage in `mdl`. Read this before adding or changing colored output.
+Reference for all ANSI color usage in `tomix`. Read this before adding or changing colored output.
 
 ## Palette
 
@@ -20,12 +20,12 @@ All colors are chosen for readability on both dark and light terminal background
 
 ## Palette Implementation
 
-Defined in `src/Mdl.Cli/Output/Styling.cs`:
+Defined in `src/Tomix.Cli/Output/Styling.cs`:
 
 ```csharp
 using Spectre.Console;
 
-namespace Mdl.Cli.Output;
+namespace Tomix.Cli.Output;
 
 internal static class Palette
 {
@@ -46,14 +46,14 @@ Use `Palette.Sage` for Spectre widget styling (table borders, panel borders). Us
 
 | Category           | Style                                         | Example                                          |
 |--------------------|-----------------------------------------------|--------------------------------------------------|
-| Banner             | `[bold]` on title                             | `[bold]MDL doctor[/]`                            |
+| Banner             | `[bold]` on title                             | `[bold]tomix doctor[/]`                            |
 | Section header     | `[bold]` label                                | `[bold]Tables[/] (4)`                            |
 | Status progress    | Sage                                          | `Validating...` in Sage                          |
 | Success            | Moss                                          | `Saved: model.tmdl` in Moss                      |
 | Warning            | Amber                                         | `Changes not saved.` in Amber                    |
 | Error              | Rose + bold                                   | `Build failed` in Rose bold                      |
 | Key-value label    | `[bold]` label, plain value                   | `[bold]Version:[/] 1.0.0`                        |
-| Guidance hint      | Slate                                         | `Run 'mdl stage commit' to promote.` in Slate    |
+| Guidance hint      | Slate                                         | `Run 'tomix stage commit' to promote.` in Slate    |
 | Diff added         | Moss prefix `+`                               | `+ table Sales`                                  |
 | Diff removed       | Rose prefix `-`                               | `- table Sales`                                  |
 | Diff modified      | Amber prefix `~`                              | `~ table Sales`                                  |
@@ -62,10 +62,10 @@ Use `Palette.Sage` for Spectre widget styling (table borders, panel borders). Us
 
 ## NO_COLOR Compliance
 
-`mdl` follows the [NO_COLOR](https://no-color.org/) convention:
+`tomix` follows the [NO_COLOR](https://no-color.org/) convention:
 
-1. **Environment variable.** When `NO_COLOR` is set (any non-empty value), `mdl` suppresses all ANSI color codes.
-2. **Config override.** `noColor: true` in `~/.mdl/config.json` also disables color.
+1. **Environment variable.** When `NO_COLOR` is set (any non-empty value), `tomix` suppresses all ANSI color codes.
+2. **Config override.** `noColor: true` in `~/.tomix/config.json` also disables color.
 3. **Implementation.** Both mechanisms set `AnsiConsole.Profile.Capabilities.ColorSystem = ColorSystem.NoColors` at startup (see `Program.cs`). Spectre.Console automatically strips all markup and color from output when this is set.
 4. **Piped output.** Spectre.Console also detects `Console.IsOutputRedirected` and degrades gracefully.
 
@@ -73,7 +73,7 @@ Do not bypass this by writing raw ANSI escape codes. Always use Spectre.Console 
 
 ## Styling Helpers
 
-All output helpers live in `src/Mdl.Cli/Output/Styling.cs`. Use these instead of raw markup strings.
+All output helpers live in `src/Tomix.Cli/Output/Styling.cs`. Use these instead of raw markup strings.
 
 | Helper                                  | Output                                   |
 |-----------------------------------------|------------------------------------------|

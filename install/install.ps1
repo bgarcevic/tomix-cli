@@ -1,18 +1,18 @@
-# mdl installer — usage:
-#   powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/bgarcevic/mdl-cli/main/install/install.ps1 | iex"
-# Pin a version:    $env:MDL_VERSION = '0.2.0'; irm ... | iex
-# Custom location:  $env:MDL_INSTALL = 'D:\tools\mdl'; irm ... | iex
+# tomix installer — usage:
+#   powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/bgarcevic/tomix-cli/main/install/install.ps1 | iex"
+# Pin a version:    $env:TOMIX_VERSION = '0.2.0'; irm ... | iex
+# Custom location:  $env:TOMIX_INSTALL = 'D:\tools\tomix'; irm ... | iex
 
 $ErrorActionPreference = 'Stop'
 
-$Repo = 'bgarcevic/mdl-cli'
-$Version = if ($env:MDL_VERSION) { $env:MDL_VERSION } else { 'latest' }
-$InstallDir = if ($env:MDL_INSTALL) { $env:MDL_INSTALL } else { Join-Path $env:LOCALAPPDATA 'Programs\mdl' }
+$Repo = 'bgarcevic/tomix-cli'
+$Version = if ($env:TOMIX_VERSION) { $env:TOMIX_VERSION } else { 'latest' }
+$InstallDir = if ($env:TOMIX_INSTALL) { $env:TOMIX_INSTALL } else { Join-Path $env:LOCALAPPDATA 'Programs\tomix' }
 
 # --- detect platform --------------------------------------------------------
 $arch = if ([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -eq 'Arm64') { 'arm64' } else { 'x64' }
 $rid = "win-$arch"
-$asset = "mdl-$rid.zip"
+$asset = "tomix-$rid.zip"
 
 # --- resolve URLs -----------------------------------------------------------
 $base = if ($Version -eq 'latest') {
@@ -21,7 +21,7 @@ $base = if ($Version -eq 'latest') {
     "https://github.com/$Repo/releases/download/v$($Version.TrimStart('v'))"
 }
 
-$tmp = Join-Path ([System.IO.Path]::GetTempPath()) "mdl-install-$([System.Guid]::NewGuid().ToString('N'))"
+$tmp = Join-Path ([System.IO.Path]::GetTempPath()) "tomix-install-$([System.Guid]::NewGuid().ToString('N'))"
 New-Item -ItemType Directory -Path $tmp | Out-Null
 
 try {
@@ -42,9 +42,9 @@ try {
     # --- install -------------------------------------------------------------
     Expand-Archive -Path (Join-Path $tmp $asset) -DestinationPath $tmp -Force
     New-Item -ItemType Directory -Path $InstallDir -Force | Out-Null
-    Copy-Item -Path (Join-Path $tmp "mdl-$rid\*") -Destination $InstallDir -Recurse -Force
+    Copy-Item -Path (Join-Path $tmp "tomix-$rid\*") -Destination $InstallDir -Recurse -Force
     Write-Host "installed " -ForegroundColor Cyan -NoNewline
-    Write-Host (Join-Path $InstallDir 'mdl.exe')
+    Write-Host (Join-Path $InstallDir 'tomix.exe')
 
     # --- PATH (user scope) ---------------------------------------------------
     $userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
@@ -55,8 +55,8 @@ try {
         Write-Host "(restart other terminals to pick it up)"
     }
 
-    & (Join-Path $InstallDir 'mdl.exe') --version
-    Write-Host "`nRun ``mdl doctor`` to verify your setup."
+    & (Join-Path $InstallDir 'tomix.exe') --version
+    Write-Host "`nRun ``tomix doctor`` to verify your setup."
 }
 finally {
     Remove-Item -Path $tmp -Recurse -Force -ErrorAction SilentlyContinue

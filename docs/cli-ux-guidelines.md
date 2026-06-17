@@ -1,14 +1,14 @@
 ---
 name: cli-ux-guidelines
 description: >
-  CLI UX rules for mdl, condensed from clig.dev. Consult this whenever adding or
+  CLI UX rules for tomix, condensed from clig.dev. Consult this whenever adding or
   changing a command, option, argument, help text, output rendering, error message,
-  prompt, exit code, or config/env handling in src/Mdl.Cli — even for small changes
+  prompt, exit code, or config/env handling in src/Tomix.Cli — even for small changes
   like rewording an error or adding a flag. Also use when reviewing PRs that touch
   Commands/ or Output/.
 ---
 
-# CLI UX Guidelines (mdl)
+# CLI UX Guidelines (tomix)
 
 Condensed from [Command Line Interface Guidelines](https://clig.dev) (CC BY-SA 4.0),
 adapted to this repo. Where a rule is already enforced by shared infrastructure,
@@ -18,7 +18,7 @@ the bottom for where each concern lives.
 ## Philosophy
 
 - Human-first by default; machine-readable on request. A TTY means a human is reading.
-- Simple parts that compose: output of `mdl` should be usable as input to other tools.
+- Simple parts that compose: output of `tomix` should be usable as input to other tools.
 - Be consistent with existing conventions (ours: the filesystem metaphor — `ls`, `get`,
   `rm`, `mv`, `find`) so users can guess commands they have never seen.
 - A CLI is a conversation: confirm state changes, suggest the next command, make
@@ -30,19 +30,19 @@ the bottom for where each concern lives.
 - Exit 0 on success, non-zero on failure. Use the documented exit codes via
   `CommandOutput`; never invent ad-hoc codes in a command.
 - Data goes to stdout. Messages — progress, warnings, errors, hints — go to stderr
-  (`ErrorOutput` / the stderr `AnsiConsole`). A user piping `mdl ls` to a file must
+  (`ErrorOutput` / the stderr `AnsiConsole`). A user piping `tomix ls` to a file must
   get only the listing.
 
 ## Help
 
-- `-h` / `--help` shows full help; running a parent command bare (e.g. `mdl`) shows
+- `-h` / `--help` shows full help; running a parent command bare (e.g. `tomix`) shows
   concise help. Never make bare invocation an error.
 - Lead with examples. Every command's help gets an `Examples:` block showing the
   2–3 most common invocations; complex syntax (e.g. `ls` path filters) is taught
   by example, not by grammar.
 - Order help by frequency of use: most common commands and flags first.
 - Group subcommands into sections in root help (Explore / Edit / Remote / Quality /
-  Workspace). A flat list of 30+ commands is unusable. [mdl: gap — implement in
+  Workspace). A flat list of 30+ commands is unusable. [tomix: gap — implement in
   `SpectreHelpAction` / `HelpRenderer`.]
 - On typo or invalid subcommand, suggest the closest match ("Did you mean `ls`?").
 - Format help with the `Styling` role palette (see `docs/cli-color-strategy.md`);
@@ -56,7 +56,7 @@ the bottom for where each concern lives.
   command through `JsonOutput`/`CsvOutput`; `--paths-only`-style flags where a
   plain one-record-per-line form aids piping (clig's `--plain`).
 - On success, print something brief — silence reads as a hang — but err toward
-  less. Support `-q`/`--quiet` to suppress non-essential output. [mdl: gap.]
+  less. Support `-q`/`--quiet` to suppress non-essential output. [tomix: gap.]
 - If you change state, say exactly what changed and what the new state is
   (model object counts, target workspace, file written). Make current state easy
   to inspect (`session`, `stage`, `doctor` are our `git status` equivalents).
@@ -68,7 +68,7 @@ the bottom for where each concern lives.
   semantic roles only. Never hard-code ANSI or markup in commands.
 - Disable color when: stdout/stderr is not a TTY (check each stream separately),
   `NO_COLOR` is set and non-empty, `TERM=dumb`, `--no-color`/config says so.
-  [mdl: config handled in Program.cs; NO_COLOR + TERM are gaps — verify what
+  [tomix: config handled in Program.cs; NO_COLOR + TERM are gaps — verify what
   Spectre detects natively before adding checks.]
 - No spinners or animations when not a TTY (CI logs fill with frames otherwise).
 - Don't print internals only the authors understand; debug detail belongs behind
@@ -105,11 +105,11 @@ the bottom for where each concern lives.
 - Prompt only when stdin is a TTY. When it is not, never block on a prompt — fail
   fast with the flag that would have answered it ("pass --yes to confirm").
 - Never *require* interactivity; every prompt has a flag equivalent. Honor
-  `--no-input` to forbid all prompting. [mdl: gap — add to `GlobalOptions`.]
+  `--no-input` to forbid all prompting. [tomix: gap — add to `GlobalOptions`.]
 - Confirm before anything destructive or remote-mutating (`rm`, `replace`,
   `deploy`): mild = y/n, severe = type the object/workspace name, catastrophic =
   require an explicit flag. Give `deploy` a `--dry-run` that prints the diff it
-  would push. [mdl: gap.]
+  would push. [tomix: gap.]
 - Mask password input; let the user escape (Ctrl-C must always work in prompts).
 
 ## Subcommands
@@ -118,7 +118,7 @@ the bottom for where each concern lives.
   (`--model`, `--server`, `--output-format` are recursive globals — keep it that way).
 - Keep one shape (`noun verb` like `bpa rules list`); no ambiguous near-duplicate
   names; no catch-all subcommand that guesses intent; no arbitrary prefix
-  abbreviations (`mdl dep` must not silently mean `deploy`).
+  abbreviations (`tomix dep` must not silently mean `deploy`).
 
 ## Robustness and responsiveness
 
@@ -167,7 +167,7 @@ the bottom for where each concern lives.
   tool's config without explicit consent.
 - Env vars are for context that varies per environment/session, not for secrets
   and not as the primary config store. Respect general-purpose ones: `NO_COLOR`,
-  `TERM`, `EDITOR`, proxy vars, `MDL_*` for app-specific overrides.
+  `TERM`, `EDITOR`, proxy vars, `TOMIX_*` for app-specific overrides.
 
 ## Wiring map (where rules live in this repo)
 

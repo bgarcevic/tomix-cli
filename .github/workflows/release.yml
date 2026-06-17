@@ -19,22 +19,22 @@ jobs:
         include:
           - rid: win-x64
             archive: zip
-            exe: mdl.exe
+            exe: tomix.exe
           - rid: win-arm64
             archive: zip
-            exe: mdl.exe
+            exe: tomix.exe
           - rid: osx-x64
             archive: tar.gz
-            exe: mdl
+            exe: tomix
           - rid: osx-arm64
             archive: tar.gz
-            exe: mdl
+            exe: tomix
           - rid: linux-x64
             archive: tar.gz
-            exe: mdl
+            exe: tomix
           - rid: linux-arm64
             archive: tar.gz
-            exe: mdl
+            exe: tomix
 
     steps:
       - name: Checkout
@@ -58,7 +58,7 @@ jobs:
 
       - name: Publish
         run: >
-          dotnet publish src/Mdl.Cli/Mdl.Cli.csproj
+          dotnet publish src/Tomix.Cli/Tomix.Cli.csproj
           --configuration Release
           --runtime ${{ matrix.rid }}
           --self-contained true
@@ -73,14 +73,14 @@ jobs:
           set -euo pipefail
           rid="${{ matrix.rid }}"
           publish_dir="artifacts/publish/${rid}"
-          stage_dir="artifacts/stage/mdl-${rid}"
+          stage_dir="artifacts/stage/tomix-${rid}"
           mkdir -p "${stage_dir}"
           cp -R "${publish_dir}/." "${stage_dir}/"
-          rm -f "${stage_dir}/Mdl.Cli.pdb"
-          if [[ -f "${stage_dir}/Mdl.Cli.exe" ]]; then
-            mv "${stage_dir}/Mdl.Cli.exe" "${stage_dir}/${{ matrix.exe }}"
-          elif [[ -f "${stage_dir}/Mdl.Cli" ]]; then
-            mv "${stage_dir}/Mdl.Cli" "${stage_dir}/${{ matrix.exe }}"
+          rm -f "${stage_dir}/Tomix.Cli.pdb"
+          if [[ -f "${stage_dir}/Tomix.Cli.exe" ]]; then
+            mv "${stage_dir}/Tomix.Cli.exe" "${stage_dir}/${{ matrix.exe }}"
+          elif [[ -f "${stage_dir}/Tomix.Cli" ]]; then
+            mv "${stage_dir}/Tomix.Cli" "${stage_dir}/${{ matrix.exe }}"
           fi
           cp LICENSE README.md "${stage_dir}/"
 
@@ -91,15 +91,15 @@ jobs:
           rid="${{ matrix.rid }}"
           mkdir -p artifacts/packages
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
-            (cd artifacts/stage && zip -qr "../packages/mdl-${rid}.zip" "mdl-${rid}")
+            (cd artifacts/stage && zip -qr "../packages/tomix-${rid}.zip" "tomix-${rid}")
           else
-            tar -C artifacts/stage -czf "artifacts/packages/mdl-${rid}.tar.gz" "mdl-${rid}"
+            tar -C artifacts/stage -czf "artifacts/packages/tomix-${rid}.tar.gz" "tomix-${rid}"
           fi
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: mdl-${{ matrix.rid }}
+          name: tomix-${{ matrix.rid }}
           path: artifacts/packages/*
           if-no-files-found: error
 
@@ -119,12 +119,12 @@ jobs:
           dotnet-version: 10.0.x
 
       - name: Pack
-        run: dotnet pack src/Mdl.Cli/Mdl.Cli.csproj --configuration Release --output artifacts/packages
+        run: dotnet pack src/Tomix.Cli/Tomix.Cli.csproj --configuration Release --output artifacts/packages
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: mdl-tool-package
+          name: tomix-tool-package
           path: artifacts/packages/*.nupkg
           if-no-files-found: error
 
@@ -140,19 +140,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts/packages
-          pattern: mdl-*
+          pattern: tomix-*
           merge-multiple: true
 
       - name: Generate checksums
         working-directory: artifacts/packages
-        run: sha256sum mdl-*.zip mdl-*.tar.gz > checksums.txt
+        run: sha256sum tomix-*.zip tomix-*.tar.gz > checksums.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/packages/mdl-*.zip
-            artifacts/packages/mdl-*.tar.gz
+            artifacts/packages/tomix-*.zip
+            artifacts/packages/tomix-*.tar.gz
             artifacts/packages/checksums.txt
           generate_release_notes: true
           draft: false

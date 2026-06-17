@@ -1,4 +1,4 @@
-# mdl
+# tomix
 
 A command-line interface for semantic models. Browse, edit, lint, diff, and
 deploy tabular models the way you work with files: `ls`, `get`, `find`, `rm`,
@@ -9,22 +9,22 @@ Semantic models are code. They deserve tooling that works where code lives:
 in a terminal, in scripts, in CI, in a diff.
 
 ```
-$ mdl connect ./samples/basic-tmdl
+$ tomix connect ./samples/basic-tmdl
 Connected: basic-tmdl (TMDL folder)
 
-$ mdl ls --type table
+$ tomix ls --type table
 Customers
 Products
 Sales
 
-$ mdl find "SUM(" --type measure
+$ tomix find "SUM(" --type measure
 Sales/Total Amount      SUM(Sales[Amount])
 
-$ mdl bpa run
+$ tomix bpa run
 Warning  AVOID_FLOATING_POINT  Sales[Amount] uses double
-1 warning, 0 errors. Run 'mdl bpa run --fix' to apply auto-fixes.
+1 warning, 0 errors. Run 'tomix bpa run --fix' to apply auto-fixes.
 
-$ mdl deploy --server MyWorkspace --database basic-tmdl
+$ tomix deploy --server MyWorkspace --database basic-tmdl
 OK Deployed basic-tmdl to MyWorkspace (4.1s)
 ```
 
@@ -37,14 +37,14 @@ Standalone binary, no runtime required:
 
 ```sh
 # Linux / macOS
-curl -LsSf https://raw.githubusercontent.com/bgarcevic/mdl-cli/main/install/install.sh | sh
+curl -LsSf https://raw.githubusercontent.com/bgarcevic/tomix-cli/main/install/install.sh | sh
 
 # Windows
-powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/bgarcevic/mdl-cli/main/install/install.ps1 | iex"
+powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/bgarcevic/tomix-cli/main/install/install.ps1 | iex"
 ```
 
-If you have the .NET SDK: `dotnet tool install -g mdl`. Archives for six
-platforms are on the [releases page](https://github.com/bgarcevic/mdl-cli/releases);
+If you have the .NET SDK: `dotnet tool install -g tomix`. Archives for six
+platforms are on the [releases page](https://github.com/bgarcevic/tomix-cli/releases);
 checksums included.
 
 Connecting to a locally running Power BI Desktop instance (`--local`) is
@@ -60,7 +60,7 @@ Remote: `connect`, `auth`, `deploy`, `load`, `save`, `profile`
 Workflow: `stage` (mutations are staged, then committed or discarded),
 `session`, `macro`, `interactive`, `config`, `doctor`, `completion`
 
-`mdl <command> --help` shows options and examples. `mdl doctor` checks your
+`tomix <command> --help` shows options and examples. `tomix doctor` checks your
 environment when something seems off.
 
 ## Scripting
@@ -70,10 +70,10 @@ line; most commands accept paths as input:
 
 ```sh
 # Format every measure that mentions CALCULATE
-mdl find "CALCULATE" --type measure --paths-only | xargs -I{} mdl format -p "{}"
+tomix find "CALCULATE" --type measure --paths-only | xargs -I{} tomix format -p "{}"
 
 # Count columns per table
-mdl ls --type column --output-format json | jq 'group_by(.table) | map({(.[0].table): length})'
+tomix ls --type column --output-format json | jq 'group_by(.table) | map({(.[0].table): length})'
 ```
 
 Exit codes are documented and stable. Errors go to stderr (as JSON if you
@@ -87,14 +87,14 @@ before 1.0. `query`, `refresh`, `test`, `vertipaq`, and `incremental-refresh`
 exist as placeholders and are not implemented yet.
 
 If you try it and something breaks or reads wrong, an issue with the output
-of `mdl doctor` attached is genuinely useful at this stage.
+of `tomix doctor` attached is genuinely useful at this stage.
 
 ## Contributing
 
 Build and test with `dotnet build && dotnet test`, then
-`dotnet run --project src/Mdl.Cli -- doctor`. The architecture is documented
+`dotnet run --project src/Tomix.Cli -- doctor`. The architecture is documented
 in `CONTEXT.md` files throughout the tree — start with
-[`src/Mdl.Cli/CONTEXT.md`](src/Mdl.Cli/CONTEXT.md). Color and output
+[`src/Tomix.Cli/CONTEXT.md`](src/Tomix.Cli/CONTEXT.md). Color and output
 conventions live in [`docs/cli-color-strategy.md`](docs/cli-color-strategy.md).
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the rest.
 

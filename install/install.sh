@@ -1,13 +1,13 @@
 #!/bin/sh
-# mdl installer — usage:
-#   curl -LsSf https://raw.githubusercontent.com/bgarcevic/mdl-cli/main/install/install.sh | sh
-# Pin a version:    MDL_VERSION=0.2.0 curl -LsSf ... | sh
-# Custom location:  MDL_INSTALL=~/bin  curl -LsSf ... | sh
+# tomix installer — usage:
+#   curl -LsSf https://raw.githubusercontent.com/bgarcevic/tomix-cli/main/install/install.sh | sh
+# Pin a version:    TOMIX_VERSION=0.2.0 curl -LsSf ... | sh
+# Custom location:  TOMIX_INSTALL=~/bin  curl -LsSf ... | sh
 set -eu
 
-REPO="bgarcevic/mdl-cli"
-VERSION="${MDL_VERSION:-latest}"
-INSTALL_DIR="${MDL_INSTALL:-$HOME/.local/bin}"
+REPO="bgarcevic/tomix-cli"
+VERSION="${TOMIX_VERSION:-latest}"
+INSTALL_DIR="${TOMIX_INSTALL:-$HOME/.local/bin}"
 
 err() { printf '\033[31merror\033[0m: %s\n' "$1" >&2; exit 1; }
 info() { printf '\033[36m%s\033[0m %s\n' "$1" "$2" >&2; }
@@ -26,7 +26,7 @@ case "$arch" in
   *) err "unsupported architecture: $arch" ;;
 esac
 rid="${os}-${arch}"
-asset="mdl-${rid}.tar.gz"
+asset="tomix-${rid}.tar.gz"
 
 # --- resolve URLs ----------------------------------------------------------
 if [ "$VERSION" = "latest" ]; then
@@ -60,8 +60,8 @@ info "verified" "sha256 OK"
 # --- install ---------------------------------------------------------------
 tar -xzf "${tmp}/${asset}" -C "$tmp"
 mkdir -p "$INSTALL_DIR"
-install -m 755 "${tmp}/mdl-${rid}/mdl" "${INSTALL_DIR}/mdl"
-info "installed" "${INSTALL_DIR}/mdl"
+install -m 755 "${tmp}/tomix-${rid}/tomix" "${INSTALL_DIR}/tomix"
+info "installed" "${INSTALL_DIR}/tomix"
 
 # --- PATH hint -------------------------------------------------------------
 case ":$PATH:" in
@@ -77,5 +77,5 @@ case ":$PATH:" in
     ;;
 esac
 
-"${INSTALL_DIR}/mdl" --version >&2 2>/dev/null || true
-printf '\nRun `mdl doctor` to verify your setup.\n' >&2
+"${INSTALL_DIR}/tomix" --version >&2 2>/dev/null || true
+printf '\nRun `tomix doctor` to verify your setup.\n' >&2

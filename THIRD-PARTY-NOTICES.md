@@ -1,22 +1,22 @@
 # Third-Party Notices
 
-`mdl-cli` is licensed under the [MIT License](LICENSE). It redistributes, depends on, or derives
+`tomix-cli` is licensed under the [MIT License](LICENSE). It redistributes, depends on, or derives
 from the third-party components below. Each remains under its own license, reproduced or linked here
 to satisfy that license's attribution requirements.
 
 ## Bundled Best Practice Analyzer rules
 
-The bundled rule set at `src/Mdl.App/Bpa/Rules/bpa-rules.json` is **derived from the Microsoft
+The bundled rule set at `src/Tomix.App/Bpa/Rules/bpa-rules.json` is **derived from the Microsoft
 Analysis Services Best Practice Rules** (the standard Tabular/Power BI BPA ruleset, authored and
 maintained primarily by Michael Kovalsky and Microsoft).
 
 - Source: <https://github.com/microsoft/Analysis-Services/tree/master/BestPracticeRules>
 - License: MIT — Copyright (c) Microsoft Corporation.
 
-The `mdl bpa` engine and CLI are an independent implementation. The
+The `tomix bpa` engine and CLI are an independent implementation. The
 `BestPracticeAnalyzer*` annotation keys, the rule JSON schema, and the dynamic-LINQ expression
 dialect are interoperability conventions (also used by Tabular Editor) so that models authored
-elsewhere work with `mdl`; **no Tabular Editor source code is used or included.** Tabular Editor 2 is
+elsewhere work with `tomix`; **no Tabular Editor source code is used or included.** Tabular Editor 2 is
 itself MIT-licensed (Copyright (c) Tabular Editor ApS).
 
 ## NuGet dependencies (redistributed)

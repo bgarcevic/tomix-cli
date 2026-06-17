@@ -1,4 +1,4 @@
-# Contributing to mdl
+# Contributing to tomix
 
 Thanks for considering it. This file is a map, not a rulebook — the detailed
 architecture docs already live in the tree as `CONTEXT.md` files, and they are
@@ -12,17 +12,17 @@ You need the .NET 10 SDK. Then:
 ```sh
 dotnet build
 dotnet test
-dotnet run --project src/Mdl.Cli -- doctor
+dotnet run --project src/Tomix.Cli -- doctor
 ```
 
-If `doctor` is happy, you're ready. For the inner loop, `./mdl <command>`
-(`.\mdl.ps1` on Windows) is a thin wrapper around `dotnet run` — short to type
+If `doctor` is happy, you're ready. For the inner loop, `./tomix <command>`
+(`.\Tomix.ps1` on Windows) is a thin wrapper around `dotnet run` — short to type
 and always reflects your current source. To try your build as a genuinely
 globally installed tool, `scripts/install-dev.ps1` (Windows) or
 `scripts/install-dev.sh` (macOS/Linux) packs and installs it from source.
 
 The sample model at `samples/basic-tmdl` is the standard fixture for manual
-testing: `dotnet run --project src/Mdl.Cli -- connect ./samples/basic-tmdl`.
+testing: `dotnet run --project src/Tomix.Cli -- connect ./samples/basic-tmdl`.
 
 Note: anything touching the TOM provider or `--local` (Power BI Desktop
 discovery) only runs on Windows. Everything else, including the full test
@@ -31,34 +31,34 @@ suite, works on Linux and macOS.
 ## How the code is organized
 
 ```
-src/Mdl.Cli        CLI surface: parsing, rendering, exit codes. No business logic.
-src/Mdl.App        Application handlers: one handler per operation.
-src/Mdl.Core       Domain model, provider abstractions.
-src/Mdl.Provider.* Model providers (TMDL folders, TOM/XMLA).
-src/Mdl.Auth       Authentication and credential caching.
-tests/             Mdl.Cli.Tests and Mdl.App.Tests, mirroring the source tree.
+src/Tomix.Cli        CLI surface: parsing, rendering, exit codes. No business logic.
+src/Tomix.App        Application handlers: one handler per operation.
+src/Tomix.Core       Domain model, provider abstractions.
+src/Tomix.Provider.* Model providers (TMDL folders, TOM/XMLA).
+src/Tomix.Auth       Authentication and credential caching.
+tests/             Tomix.Cli.Tests and Tomix.App.Tests, mirroring the source tree.
 ```
 
 Each directory has a `CONTEXT.md` describing its responsibilities and
 conventions. Read the one for the area you're changing before you start —
 they're short, and reviewers will assume you have. Start with
-[`src/Mdl.Cli/CONTEXT.md`](src/Mdl.Cli/CONTEXT.md).
+[`src/Tomix.Cli/CONTEXT.md`](src/Tomix.Cli/CONTEXT.md).
 
 ## Adding a command
 
-`LsCommand` is the model citizen; copy its shape (`src/Mdl.Cli/Commands/LsCommand.cs`
-→ `Mdl.App.Ls.LsModelHandler`). It shows the current conventions: an optional
+`LsCommand` is the model citizen; copy its shape (`src/Tomix.Cli/Commands/LsCommand.cs`
+→ `Tomix.App.Ls.LsModelHandler`). It shows the current conventions: an optional
 model argument that falls back to the session-resolved connection, path
 filtering, and machine-friendly output flags. If your command mutates the
 model, also look at how `set`/`rm` route changes through the staging flow
 (`stage` → `commit`/`discard`) rather than writing directly.
 
-1. **Module** — add a class in `src/Mdl.Cli/Commands/` implementing
+1. **Module** — add a class in `src/Tomix.Cli/Commands/` implementing
    `ICommandModule`. `Build()` declares the `Command`, its arguments and
    options (use the shared option factories like `OutputFormats.CreateOption()`
    and `GlobalOptions` rather than redefining flags), and wires `SetAction`.
 2. **Handler** — the action validates input, then delegates to a handler in
-   `src/Mdl.App/<Feature>/` (`XHandler.HandleAsync(XRequest, ct)`). Commands
+   `src/Tomix.App/<Feature>/` (`XHandler.HandleAsync(XRequest, ct)`). Commands
    stay thin: parse, call handler, render. If you're writing a loop or a
    conditional that isn't about parsing or rendering, it belongs in the handler.
 3. **Render** — return through `CommandOutput.Render(result, format, ...)`,
@@ -67,8 +67,8 @@ model, also look at how `set`/`rm` route changes through the staging flow
    in commands. Colors mean things here; see
    [`docs/cli-color-strategy.md`](docs/cli-color-strategy.md).
 4. **Register** — add the module to the array in `Program.cs`.
-5. **Test** — handler tests in `Mdl.App.Tests` for the logic, CLI tests in
-   `Mdl.Cli.Tests` for parsing and output shape.
+5. **Test** — handler tests in `Tomix.App.Tests` for the logic, CLI tests in
+   `Tomix.Cli.Tests` for parsing and output shape.
 
 ## What reviews check for
 
@@ -97,7 +97,7 @@ review; unreviewed bulk output wastes everyone's time and will be closed.
 
 ## Bugs and ideas
 
-Open an issue. For bugs, include the output of `mdl doctor`, the command you
+Open an issue. For bugs, include the output of `tomix doctor`, the command you
 ran, and what you expected — `--error-format json` output is ideal. For
 ideas, describe the workflow you're trying to achieve rather than the flag
 you want; it usually leads somewhere better.

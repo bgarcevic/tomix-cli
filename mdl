@@ -1,3 +1,0 @@
-#!/bin/sh
-# Dev wrapper: run mdl from source without packing/installing. `./mdl <args>`.
-exec dotnet run --project "$(dirname "$0")/src/Mdl.Cli" -v quiet -- "$@"
