@@ -7,7 +7,7 @@ using TabularJsonSerializer = Microsoft.AnalysisServices.Tabular.JsonSerializer;
 namespace Tomix.App.Tests;
 
 /// <summary>
-/// Proves that every object type advertised by <c>tomix add --type</c> is created by the real
+/// Proves that every object type advertised by <c>tx add --type</c> is created by the real
 /// <see cref="TomModelMutator"/> and survives a round-trip through BOTH serializations: the model
 /// is saved to a TMDL folder and to a .bim file (the production export path) and reopened, and the
 /// new object must be present in each reload.

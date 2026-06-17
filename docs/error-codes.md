@@ -1,6 +1,6 @@
 # Error Codes Reference
 
-This document lists every diagnostic code emitted by `tomix`, grouped by prefix.
+This document lists every diagnostic code emitted by `tx`, grouped by prefix.
 Codes are part of the public API surface — renaming or removing a code requires
 a major version bump (see [cli-ux-guidelines.md](cli-ux-guidelines.md#versioning-policy)).
 

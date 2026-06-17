@@ -39,7 +39,7 @@ public sealed class InfoModelHandler
         catch (AuthenticationRequiredException ex)
         {
             return TomixResult<InfoModelResult>.Fail("TOMIX_AUTH_REQUIRED", ex.Message, exitCode: 1,
-                hint: "Run 'tomix auth login' to authenticate, or use --auth spn for service principal.");
+                hint: "Run 'tx auth login' to authenticate, or use --auth spn for service principal.");
         }
         catch (Exception ex) when (request.Model.IsRemote && ex is not OperationCanceledException)
         {

@@ -13,10 +13,10 @@ maintained primarily by Michael Kovalsky and Microsoft).
 - Source: <https://github.com/microsoft/Analysis-Services/tree/master/BestPracticeRules>
 - License: MIT — Copyright (c) Microsoft Corporation.
 
-The `tomix bpa` engine and CLI are an independent implementation. The
+The `tx bpa` engine and CLI are an independent implementation. The
 `BestPracticeAnalyzer*` annotation keys, the rule JSON schema, and the dynamic-LINQ expression
 dialect are interoperability conventions (also used by Tabular Editor) so that models authored
-elsewhere work with `tomix`; **no Tabular Editor source code is used or included.** Tabular Editor 2 is
+elsewhere work with `tx`; **no Tabular Editor source code is used or included.** Tabular Editor 2 is
 itself MIT-licensed (Copyright (c) Tabular Editor ApS).
 
 ## NuGet dependencies (redistributed)

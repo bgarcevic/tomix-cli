@@ -1,6 +1,6 @@
 # Tomix.Cli
 
-CLI entry point for `tomix`.
+CLI entry point for `tx`.
 
 ## Responsibilities
 

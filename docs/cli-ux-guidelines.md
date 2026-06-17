@@ -18,7 +18,7 @@ the bottom for where each concern lives.
 ## Philosophy
 
 - Human-first by default; machine-readable on request. A TTY means a human is reading.
-- Simple parts that compose: output of `tomix` should be usable as input to other tools.
+- Simple parts that compose: output of `tx` should be usable as input to other tools.
 - Be consistent with existing conventions (ours: the filesystem metaphor — `ls`, `get`,
   `rm`, `mv`, `find`) so users can guess commands they have never seen.
 - A CLI is a conversation: confirm state changes, suggest the next command, make
@@ -30,12 +30,12 @@ the bottom for where each concern lives.
 - Exit 0 on success, non-zero on failure. Use the documented exit codes via
   `CommandOutput`; never invent ad-hoc codes in a command.
 - Data goes to stdout. Messages — progress, warnings, errors, hints — go to stderr
-  (`ErrorOutput` / the stderr `AnsiConsole`). A user piping `tomix ls` to a file must
+  (`ErrorOutput` / the stderr `AnsiConsole`). A user piping `tx ls` to a file must
   get only the listing.
 
 ## Help
 
-- `-h` / `--help` shows full help; running a parent command bare (e.g. `tomix`) shows
+- `-h` / `--help` shows full help; running a parent command bare (e.g. `tx`) shows
   concise help. Never make bare invocation an error.
 - Lead with examples. Every command's help gets an `Examples:` block showing the
   2–3 most common invocations; complex syntax (e.g. `ls` path filters) is taught
@@ -118,7 +118,7 @@ the bottom for where each concern lives.
   (`--model`, `--server`, `--output-format` are recursive globals — keep it that way).
 - Keep one shape (`noun verb` like `bpa rules list`); no ambiguous near-duplicate
   names; no catch-all subcommand that guesses intent; no arbitrary prefix
-  abbreviations (`tomix dep` must not silently mean `deploy`).
+  abbreviations (`tx dep` must not silently mean `deploy`).
 
 ## Robustness and responsiveness
 

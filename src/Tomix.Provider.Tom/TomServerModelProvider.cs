@@ -28,7 +28,7 @@ public sealed class TomServerModelProvider : IModelProvider
         if (!reference.IsLocalInstance)
         {
             if (_tokenProvider is null)
-                throw new AuthenticationRequiredException("Not authenticated. Run 'tomix auth login'.");
+                throw new AuthenticationRequiredException("Not authenticated. Run 'tx auth login'.");
 
             var token = await _tokenProvider.GetTokenAsync(reference.Value, cancellationToken).ConfigureAwait(false);
             server.AccessToken = new AsAccessToken(token.Token, token.ExpiresOn.UtcDateTime);

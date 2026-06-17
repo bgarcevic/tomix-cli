@@ -19,7 +19,7 @@ public sealed class CompletionHandlerTests
 
         Assert.True(result.Success);
         Assert.False(string.IsNullOrWhiteSpace(result.Data!.Script));
-        Assert.Contains("tomix completion", result.Data.Script);
+        Assert.Contains("tx completion", result.Data.Script);
         Assert.Contains("[suggest:", result.Data.Script);
         Assert.DoesNotContain("doctor", result.Data.Script);
     }

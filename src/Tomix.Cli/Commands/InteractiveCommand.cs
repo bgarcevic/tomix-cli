@@ -52,7 +52,7 @@ internal sealed class InteractiveCommand : ICommandModule
 
     private static void RenderStart(InteractiveStartResult result)
     {
-        AnsiConsole.MarkupLine(Styling.Title("tomix interactive"));
+        AnsiConsole.MarkupLine(Styling.Title("tx interactive"));
         AnsiConsole.MarkupLine(Styling.KeyValue("sessionId:", result.SessionId));
         if (result.Connection?.Model is not null)
             AnsiConsole.MarkupLine(Styling.KeyValue("model:", Styling.Path(result.Connection.Model)));
@@ -77,7 +77,7 @@ internal sealed class InteractiveCommand : ICommandModule
     {
         while (true)
         {
-            AnsiConsole.Markup(Styling.Title("tomix") + "> ");
+            AnsiConsole.Markup(Styling.Title("tx") + "> ");
             var line = Console.ReadLine();
             if (line is null)
             {
@@ -118,7 +118,7 @@ internal sealed class InteractiveCommand : ICommandModule
         else
         {
             process.StartInfo.FileName = string.IsNullOrWhiteSpace(current)
-                ? Environment.ProcessPath ?? "tomix"
+                ? Environment.ProcessPath ?? "tx"
                 : current;
         }
 

@@ -1,4 +1,4 @@
 #!/usr/bin/env pwsh
-# Dev wrapper: run tomix from source without packing/installing. `.\Tomix.ps1 <args>`.
+# Dev wrapper: run tx from source without packing/installing. `.\tx.ps1 <args>`.
 dotnet run --project "$PSScriptRoot/src/Tomix.Cli" -v quiet -- @args
 exit $LASTEXITCODE

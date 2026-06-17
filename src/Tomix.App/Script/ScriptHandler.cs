@@ -34,7 +34,7 @@ public sealed class ScriptHandler
         if (inputs.Count == 0)
             return TomixResult<ScriptRunResult>.Fail(
                 "TOMIX_SCRIPT_REQUIRED",
-                "No scripts specified.\nHint: Pass --script <file>, -e <inline-expression>, or pipe code with -e -. Run 'tomix script --help' for examples.",
+                "No scripts specified.\nHint: Pass --script <file>, -e <inline-expression>, or pipe code with -e -. Run 'tx script --help' for examples.",
                 exitCode: 1);
 
         var options = new MutationOptions(
@@ -125,7 +125,7 @@ public sealed class ScriptHandler
         catch (AuthenticationRequiredException ex)
         {
             return TomixResult<ScriptRunResult>.Fail("TOMIX_AUTH_REQUIRED", ex.Message, exitCode: 1,
-                hint: "Run 'tomix auth login' to authenticate, or use --auth spn for service principal.");
+                hint: "Run 'tx auth login' to authenticate, or use --auth spn for service principal.");
         }
         catch (Exception ex) when (request.Model.IsRemote && ex is not OperationCanceledException)
         {

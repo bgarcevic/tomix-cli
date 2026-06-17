@@ -22,129 +22,129 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
     private static readonly Dictionary<string, string[]> CommandExamples = new(StringComparer.Ordinal)
     {
         ["ls"] = [
-            "tomix ls",
-            "tomix ls --type table",
-            "tomix ls Sa*",
-            "tomix ls --paths-only --type measure",
+            "tx ls",
+            "tx ls --type table",
+            "tx ls Sa*",
+            "tx ls --paths-only --type measure",
         ],
         ["get"] = [
-            "tomix get \"Table[Measure]\"",
-            "tomix get tables/Sales -t dax",
-            "tomix get Sales/Measures/Revenue --output-format json",
+            "tx get \"Table[Measure]\"",
+            "tx get tables/Sales -t dax",
+            "tx get Sales/Measures/Revenue --output-format json",
         ],
         ["find"] = [
-            "tomix find CALCULATE",
-            "tomix find \"SUM(Sales\" --type measure",
+            "tx find CALCULATE",
+            "tx find \"SUM(Sales\" --type measure",
         ],
         ["info"] = [
-            "tomix info",
-            "tomix info --output-format json",
+            "tx info",
+            "tx info --output-format json",
         ],
         ["deps"] = [
-            "tomix deps \"Table[Measure]\"",
-            "tomix deps tables/Sales --direction downstream",
+            "tx deps \"Table[Measure]\"",
+            "tx deps tables/Sales --direction downstream",
         ],
         ["add"] = [
-            "tomix add measures/MyMeasure -q \"CALCULATE(SUM(Sales[Amount]))\"",
-            "tomix add measures/MyMeasure -i - < query.txt",
+            "tx add measures/MyMeasure -q \"CALCULATE(SUM(Sales[Amount]))\"",
+            "tx add measures/MyMeasure -i - < query.txt",
         ],
         ["set"] = [
-            "tomix set \"Table[Measure]\" -q \"CALCULATE(SUM(Sales[Amount]))\"",
-            "tomix set tables/Sales/Name -i \"Sales_v2\"",
+            "tx set \"Table[Measure]\" -q \"CALCULATE(SUM(Sales[Amount]))\"",
+            "tx set tables/Sales/Name -i \"Sales_v2\"",
         ],
         ["mv"] = [
-            "tomix mv measures/OldName measures/NewName",
-            "tomix mv tables/Sales tables/SalesData",
+            "tx mv measures/OldName measures/NewName",
+            "tx mv tables/Sales tables/SalesData",
         ],
         ["rm"] = [
-            "tomix rm measures/ObsoleteMeasure",
-            "tomix rm tables/Staging --save",
+            "tx rm measures/ObsoleteMeasure",
+            "tx rm tables/Staging --save",
         ],
         ["replace"] = [
-            "tomix replace \"[OrderDate]\" \"[ShipDate]\"",
-            "tomix replace \"old_name\" \"new_name\" --type measure",
+            "tx replace \"[OrderDate]\" \"[ShipDate]\"",
+            "tx replace \"old_name\" \"new_name\" --type measure",
         ],
         ["format"] = [
-            "tomix format",
-            "tomix format -e \"CALCULATE(sum(sales[amt]))\"",
-            "tomix format -p \"Table[Measure]\"",
+            "tx format",
+            "tx format -e \"CALCULATE(sum(sales[amt]))\"",
+            "tx format -p \"Table[Measure]\"",
         ],
         ["script"] = [
-            "tomix script -e \"Model.Tables.Count\"",
-            "tomix script transform.csx --save",
-            "tomix script -e \"Model.Tables[\\\"Sales\\\"].Name\" --output-format json",
+            "tx script -e \"Model.Tables.Count\"",
+            "tx script transform.csx --save",
+            "tx script -e \"Model.Tables[\\\"Sales\\\"].Name\" --output-format json",
         ],
         ["connect"] = [
-            "tomix connect",
-            "tomix connect MyWorkspace Sales",
-            "tomix connect ./model.tmdl",
-            "tomix connect --local",
+            "tx connect",
+            "tx connect MyWorkspace Sales",
+            "tx connect ./model.tmdl",
+            "tx connect --local",
         ],
         ["deploy"] = [
-            "tomix deploy ./model.tmdl",
-            "tomix deploy ./model.tmdl --dry-run",
-            "tomix deploy ./model.bim --skip-bpa",
+            "tx deploy ./model.tmdl",
+            "tx deploy ./model.tmdl --dry-run",
+            "tx deploy ./model.bim --skip-bpa",
         ],
         ["load"] = [
-            "tomix load ./model.tmdl",
-            "tomix load --output-format json",
+            "tx load ./model.tmdl",
+            "tx load --output-format json",
         ],
         ["save"] = [
-            "tomix save ./model.tmdl --serialization bim",
-            "tomix save --output-format tmdl",
+            "tx save ./model.tmdl --serialization bim",
+            "tx save --output-format tmdl",
         ],
         ["auth"] = [
-            "tomix auth login",
-            "tomix auth login --auth spn --client-id $SPN_ID",
-            "tomix auth status",
-            "tomix auth logout",
+            "tx auth login",
+            "tx auth login --auth spn --client-id $SPN_ID",
+            "tx auth status",
+            "tx auth logout",
         ],
         ["session"] = [
-            "tomix session",
-            "tomix session --reset",
+            "tx session",
+            "tx session --reset",
         ],
         ["bpa"] = [
-            "tomix bpa",
-            "tomix bpa --format json",
-            "tomix bpa --severity error",
+            "tx bpa",
+            "tx bpa --format json",
+            "tx bpa --severity error",
         ],
         ["validate"] = [
-            "tomix validate",
-            "tomix validate --ci",
-            "tomix validate --trx",
+            "tx validate",
+            "tx validate --ci",
+            "tx validate --trx",
         ],
         ["diff"] = [
-            "tomix diff ./v1.tmdl ./v2.tmdl",
-            "tomix diff ./v1.bim ./v2.bim --output-format json",
+            "tx diff ./v1.tmdl ./v2.tmdl",
+            "tx diff ./v1.bim ./v2.bim --output-format json",
         ],
         ["doctor"] = [
-            "tomix doctor",
+            "tx doctor",
         ],
         ["config"] = [
-            "tomix config list",
-            "tomix config set noColor true",
+            "tx config list",
+            "tx config set noColor true",
         ],
         ["profile"] = [
-            "tomix profile list",
-            "tomix profile add dev -s MyWorkspace -d Sales",
-            "tomix profile activate dev",
+            "tx profile list",
+            "tx profile add dev -s MyWorkspace -d Sales",
+            "tx profile activate dev",
         ],
         ["init"] = [
-            "tomix init",
-            "tomix init ./my-model",
+            "tx init",
+            "tx init ./my-model",
         ],
         ["completion"] = [
-            "tomix completion powershell | Invoke-Expression",
-            "tomix completion bash >> ~/.bashrc",
+            "tx completion powershell | Invoke-Expression",
+            "tx completion bash >> ~/.bashrc",
         ],
         ["stage"] = [
-            "tomix stage",
-            "tomix stage commit",
-            "tomix stage revert",
+            "tx stage",
+            "tx stage commit",
+            "tx stage revert",
         ],
         ["interactive"] = [
-            "tomix interactive",
-            "tomix interactive ./model.tmdl",
+            "tx interactive",
+            "tx interactive ./model.tmdl",
         ],
     };
 
@@ -174,7 +174,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         AnsiConsole.MarkupLine($"{Styling.Title("tomix")} {Styling.Muted("- open source semantic model CLI")}");
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(Styling.Title("Usage:"));
-        AnsiConsole.MarkupLine($"  {Styling.Bold("tomix")} {Styling.Bold("[command]")} {Styling.Option("[options]")}");
+        AnsiConsole.MarkupLine($"  {Styling.Bold("tx")} {Styling.Bold("[command]")} {Styling.Option("[options]")}");
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(Styling.Title("Global options:"));
 
@@ -205,7 +205,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         AnsiConsole.WriteLine();
         WriteSectionedCommands(root);
         AnsiConsole.WriteLine();
-        AnsiConsole.MarkupLine(Styling.Muted("Use `tomix <command> --help` for command-specific options."));
+        AnsiConsole.MarkupLine(Styling.Muted("Use `tx <command> --help` for command-specific options."));
     }
 
     private static void WriteSectionedCommands(Command root)
@@ -275,7 +275,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         }
 
         AnsiConsole.MarkupLine(Styling.Title("Usage:"));
-        var usageParts = new List<string> { "tomix" };
+        var usageParts = new List<string> { "tx" };
         usageParts.AddRange(parentChain);
         var usageLine = Styling.Bold(string.Join(" ", usageParts));
 

@@ -62,7 +62,7 @@ Open-source CLI for inspecting, validating, querying, testing, and deploying tab
 
 - Build: `dotnet build`
 - Test: `dotnet test`
-- Run CLI (dev, short + always fresh): `./tomix doctor` (`.\Tomix.ps1 doctor` on Windows) — wraps `dotnet run`, no install needed; reflects current source on every call
+- Run CLI (dev, short + always fresh): `./tx doctor` (`.\tx.ps1 doctor` on Windows) — wraps `dotnet run`, no install needed; reflects current source on every call
 - Run CLI (dev, explicit): `dotnet run --project src/Tomix.Cli -- doctor`
-- Run JSON output (dev): `./tomix doctor --output-format json`
-- Install/update global tool: `./scripts/install-dev.ps1` (Windows) or `./scripts/install-dev.sh` (macOS/Linux) — packs and installs `tomix` globally so you can run `tomix <command>` directly (re-run after each change to pick up edits)
+- Run JSON output (dev): `./tx doctor --output-format json`
+- Install/update global tool: `./scripts/install-dev.ps1` (Windows) or `./scripts/install-dev.sh` (macOS/Linux) — packs and installs `tx` globally so you can run `tx <command>` directly (re-run after each change to pick up edits)

@@ -19,22 +19,22 @@ jobs:
         include:
           - rid: win-x64
             archive: zip
-            exe: tomix.exe
+            exe: tx.exe
           - rid: win-arm64
             archive: zip
-            exe: tomix.exe
+            exe: tx.exe
           - rid: osx-x64
             archive: tar.gz
-            exe: tomix
+            exe: tx
           - rid: osx-arm64
             archive: tar.gz
-            exe: tomix
+            exe: tx
           - rid: linux-x64
             archive: tar.gz
-            exe: tomix
+            exe: tx
           - rid: linux-arm64
             archive: tar.gz
-            exe: tomix
+            exe: tx
 
     steps:
       - name: Checkout
@@ -73,7 +73,7 @@ jobs:
           set -euo pipefail
           rid="${{ matrix.rid }}"
           publish_dir="artifacts/publish/${rid}"
-          stage_dir="artifacts/stage/tomix-${rid}"
+          stage_dir="artifacts/stage/tx-${rid}"
           mkdir -p "${stage_dir}"
           cp -R "${publish_dir}/." "${stage_dir}/"
           rm -f "${stage_dir}/Tomix.Cli.pdb"
@@ -91,15 +91,15 @@ jobs:
           rid="${{ matrix.rid }}"
           mkdir -p artifacts/packages
           if [[ "${{ matrix.archive }}" == "zip" ]]; then
-            (cd artifacts/stage && zip -qr "../packages/tomix-${rid}.zip" "tomix-${rid}")
+            (cd artifacts/stage && zip -qr "../packages/tx-${rid}.zip" "tx-${rid}")
           else
-            tar -C artifacts/stage -czf "artifacts/packages/tomix-${rid}.tar.gz" "tomix-${rid}"
+            tar -C artifacts/stage -czf "artifacts/packages/tx-${rid}.tar.gz" "tx-${rid}"
           fi
 
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: tomix-${{ matrix.rid }}
+          name: tx-${{ matrix.rid }}
           path: artifacts/packages/*
           if-no-files-found: error
 
@@ -124,7 +124,7 @@ jobs:
       - name: Upload
         uses: actions/upload-artifact@v4
         with:
-          name: tomix-tool-package
+          name: tx-tool-package
           path: artifacts/packages/*.nupkg
           if-no-files-found: error
 
@@ -140,19 +140,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts/packages
-          pattern: tomix-*
+          pattern: tx-*
           merge-multiple: true
 
       - name: Generate checksums
         working-directory: artifacts/packages
-        run: sha256sum tomix-*.zip tomix-*.tar.gz > checksums.txt
+        run: sha256sum tx-*.zip tx-*.tar.gz > checksums.txt
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            artifacts/packages/tomix-*.zip
-            artifacts/packages/tomix-*.tar.gz
+            artifacts/packages/tx-*.zip
+            artifacts/packages/tx-*.tar.gz
             artifacts/packages/checksums.txt
           generate_release_notes: true
           draft: false

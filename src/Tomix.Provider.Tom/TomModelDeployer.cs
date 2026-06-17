@@ -83,7 +83,7 @@ public static class TomModelDeployer
         if (!ModelReference.IsLocalInstanceEndpoint(endpoint))
         {
             if (tokenProvider is null)
-                throw new AuthenticationRequiredException("Not authenticated. Run 'tomix auth login'.");
+                throw new AuthenticationRequiredException("Not authenticated. Run 'tx auth login'.");
 
             var token = await tokenProvider.GetTokenAsync(endpoint, cancellationToken).ConfigureAwait(false);
             server.AccessToken = new AsAccessToken(token.Token, token.ExpiresOn.UtcDateTime);

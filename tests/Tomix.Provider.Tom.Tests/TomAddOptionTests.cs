@@ -5,7 +5,7 @@ using Microsoft.AnalysisServices.Tabular;
 namespace Tomix.Provider.Tom.Tests;
 
 /// <summary>
-/// Each previously-dead <c>tomix add</c> option now feeds the provider. These tests assert the
+/// Each previously-dead <c>tx add</c> option now feeds the provider. These tests assert the
 /// observable effect of one option each, end-to-end into the created TOM object.
 /// </summary>
 public sealed class TomAddOptionTests

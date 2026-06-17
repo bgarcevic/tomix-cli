@@ -1,3 +1,3 @@
 #!/bin/sh
-# Dev wrapper: run tomix from source without packing/installing. `./tomix <args>`.
+# Dev wrapper: run tx from source without packing/installing. `./tx <args>`.
 exec dotnet run --project "$(dirname "$0")/src/Tomix.Cli" -v quiet -- "$@"

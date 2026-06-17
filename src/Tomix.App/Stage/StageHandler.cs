@@ -5,7 +5,7 @@ using Tomix.Core.Results;
 
 namespace Tomix.App.Stage;
 
-/// <summary>Inspects and clears the session's staged working copies (the <c>tomix stage</c> surface).</summary>
+/// <summary>Inspects and clears the session's staged working copies (the <c>tx stage</c> surface).</summary>
 public sealed class StageHandler
 {
     private readonly StagingStore _staging;

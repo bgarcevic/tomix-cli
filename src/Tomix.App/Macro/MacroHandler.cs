@@ -143,7 +143,7 @@ public sealed class MacroHandler
     private static TomixResult<T> MissingFile<T>(string path)
         => TomixResult<T>.Fail(
             "TOMIX_MACRO_FILE_NOT_FOUND",
-            $"Macros file not found: {path}. Run 'tomix macro init' to create one, or pass --macros <path>.",
+            $"Macros file not found: {path}. Run 'tx macro init' to create one, or pass --macros <path>.",
             exitCode: 1);
 
     private static TomixResult<T> MissingMacro<T>(string nameOrId)

@@ -138,7 +138,7 @@ internal sealed class SetCommand : ICommandModule
 
         AnsiConsole.MarkupLine(Styling.Success($"Set: {result.Set}.{result.Property}"));
         if (result.Staged == true)
-            AnsiConsole.MarkupLine(Styling.Guidance("Staged. Run 'tomix stage commit' to promote."));
+            AnsiConsole.MarkupLine(Styling.Guidance("Staged. Run 'tx stage commit' to promote."));
         else if (result.Saved is false)
             AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist or --stage to stage."));
         else

@@ -1,6 +1,6 @@
 # CLI Color Strategy
 
-Reference for all ANSI color usage in `tomix`. Read this before adding or changing colored output.
+Reference for all ANSI color usage in `tx`. Read this before adding or changing colored output.
 
 ## Palette
 
@@ -46,14 +46,14 @@ Use `Palette.Sage` for Spectre widget styling (table borders, panel borders). Us
 
 | Category           | Style                                         | Example                                          |
 |--------------------|-----------------------------------------------|--------------------------------------------------|
-| Banner             | `[bold]` on title                             | `[bold]tomix doctor[/]`                            |
+| Banner             | `[bold]` on title                             | `[bold]tx doctor[/]`                            |
 | Section header     | `[bold]` label                                | `[bold]Tables[/] (4)`                            |
 | Status progress    | Sage                                          | `Validating...` in Sage                          |
 | Success            | Moss                                          | `Saved: model.tmdl` in Moss                      |
 | Warning            | Amber                                         | `Changes not saved.` in Amber                    |
 | Error              | Rose + bold                                   | `Build failed` in Rose bold                      |
 | Key-value label    | `[bold]` label, plain value                   | `[bold]Version:[/] 1.0.0`                        |
-| Guidance hint      | Slate                                         | `Run 'tomix stage commit' to promote.` in Slate    |
+| Guidance hint      | Slate                                         | `Run 'tx stage commit' to promote.` in Slate    |
 | Diff added         | Moss prefix `+`                               | `+ table Sales`                                  |
 | Diff removed       | Rose prefix `-`                               | `- table Sales`                                  |
 | Diff modified      | Amber prefix `~`                              | `~ table Sales`                                  |
@@ -62,9 +62,9 @@ Use `Palette.Sage` for Spectre widget styling (table borders, panel borders). Us
 
 ## NO_COLOR Compliance
 
-`tomix` follows the [NO_COLOR](https://no-color.org/) convention:
+`tx` follows the [NO_COLOR](https://no-color.org/) convention:
 
-1. **Environment variable.** When `NO_COLOR` is set (any non-empty value), `tomix` suppresses all ANSI color codes.
+1. **Environment variable.** When `NO_COLOR` is set (any non-empty value), `tx` suppresses all ANSI color codes.
 2. **Config override.** `noColor: true` in `~/.tomix/config.json` also disables color.
 3. **Implementation.** Both mechanisms set `AnsiConsole.Profile.Capabilities.ColorSystem = ColorSystem.NoColors` at startup (see `Program.cs`). Spectre.Console automatically strips all markup and color from output when this is set.
 4. **Piped output.** Spectre.Console also detects `Console.IsOutputRedirected` and degrades gracefully.

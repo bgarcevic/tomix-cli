@@ -1,6 +1,6 @@
 # Bundled BPA rules
 
-`bpa-rules.json` is the default Best Practice Analyzer rule set used by `tomix bpa` when no other
+`bpa-rules.json` is the default Best Practice Analyzer rule set used by `tx bpa` when no other
 ruleset is selected.
 
 ## Provenance & license
@@ -19,6 +19,6 @@ be loaded directly. No third-party analyzer source code is included — see
 
 ## Updating
 
-`BpaRuleLoader` can also fetch Microsoft's canonical set on demand (e.g. `tomix bpa run --ruleset
+`BpaRuleLoader` can also fetch Microsoft's canonical set on demand (e.g. `tx bpa run --ruleset
 microsoft`). When editing the bundled copy, keep each rule's `ID` stable — rule IDs are the keys used
 by ignore/disable state and by precedence de-duplication across rule sources.

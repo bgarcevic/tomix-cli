@@ -29,7 +29,7 @@ internal static class Program
         if (noColorEnv || noColorCfg)
             AnsiConsole.Profile.Capabilities.ColorSystem = ColorSystem.NoColors;
 
-        var root = new RootCommand("tomix - CLI for semantic models");
+        var root = new RootCommand("tx - CLI for semantic models");
         foreach (var option in GlobalOptions.All())
             root.Options.Add(option);
 

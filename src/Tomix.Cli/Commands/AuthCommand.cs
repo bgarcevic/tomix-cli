@@ -162,7 +162,7 @@ internal sealed class AuthCommand : ICommandModule
         if (!result.LoggedIn || result.Identity is null)
         {
             AnsiConsole.MarkupLine(Styling.Warning("Not logged in"));
-            AnsiConsole.MarkupLine(Styling.Guidance("Run 'tomix auth login' to authenticate."));
+            AnsiConsole.MarkupLine(Styling.Guidance("Run 'tx auth login' to authenticate."));
             return;
         }
 

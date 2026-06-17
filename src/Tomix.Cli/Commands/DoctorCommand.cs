@@ -37,7 +37,7 @@ internal sealed class DoctorCommand : ICommandModule
 
     private static void Render(DoctorResult result)
     {
-        AnsiConsole.MarkupLine(Styling.Title("tomix doctor"));
+        AnsiConsole.MarkupLine(Styling.Title("tx doctor"));
         AnsiConsole.WriteLine();
         AnsiConsole.MarkupLine(Styling.KeyValue("Version:          ", result.Version));
         AnsiConsole.MarkupLine(Styling.KeyValue("Operating system: ", result.OperatingSystem));

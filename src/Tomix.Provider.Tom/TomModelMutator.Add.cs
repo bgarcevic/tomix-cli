@@ -4,7 +4,7 @@ using Tomix.Core.Models;
 namespace Tomix.Provider.Tom;
 
 /// <summary>
-/// Object-creation logic for <see cref="TomModelMutator"/>. Every advertised <c>tomix add --type</c>
+/// Object-creation logic for <see cref="TomModelMutator"/>. Every advertised <c>tx add --type</c>
 /// value maps to a builder here that creates the corresponding TOM object under the requested path
 /// and reports <c>Changed=true</c>. Builders honor <c>--if-not-exists</c> and the partition/data
 /// source options (mode, expression, columns, connection details).

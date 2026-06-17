@@ -19,7 +19,7 @@ internal sealed partial class LsRenderer
                 return;
 
             AnsiConsole.MarkupLine(Styling.Muted("No objects found."));
-            AnsiConsole.MarkupLine(Styling.Guidance("  → Try: tomix ls, tomix ls --type table, or tomix ls \"Sa*\""));
+            AnsiConsole.MarkupLine(Styling.Guidance("  → Try: tx ls, tx ls --type table, or tx ls \"Sa*\""));
             return;
         }
 

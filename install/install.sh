@@ -1,5 +1,5 @@
 #!/bin/sh
-# tomix installer — usage:
+# tx installer — usage:
 #   curl -LsSf https://raw.githubusercontent.com/bgarcevic/tomix-cli/main/install/install.sh | sh
 # Pin a version:    TOMIX_VERSION=0.2.0 curl -LsSf ... | sh
 # Custom location:  TOMIX_INSTALL=~/bin  curl -LsSf ... | sh
@@ -26,7 +26,7 @@ case "$arch" in
   *) err "unsupported architecture: $arch" ;;
 esac
 rid="${os}-${arch}"
-asset="tomix-${rid}.tar.gz"
+asset="tx-${rid}.tar.gz"
 
 # --- resolve URLs ----------------------------------------------------------
 if [ "$VERSION" = "latest" ]; then
@@ -60,8 +60,8 @@ info "verified" "sha256 OK"
 # --- install ---------------------------------------------------------------
 tar -xzf "${tmp}/${asset}" -C "$tmp"
 mkdir -p "$INSTALL_DIR"
-install -m 755 "${tmp}/tomix-${rid}/tomix" "${INSTALL_DIR}/tomix"
-info "installed" "${INSTALL_DIR}/tomix"
+install -m 755 "${tmp}/tx-${rid}/tx" "${INSTALL_DIR}/tx"
+info "installed" "${INSTALL_DIR}/tx"
 
 # --- PATH hint -------------------------------------------------------------
 case ":$PATH:" in
@@ -77,5 +77,5 @@ case ":$PATH:" in
     ;;
 esac
 
-"${INSTALL_DIR}/tomix" --version >&2 2>/dev/null || true
-printf '\nRun `tomix doctor` to verify your setup.\n' >&2
+"${INSTALL_DIR}/tx" --version >&2 2>/dev/null || true
+printf '\nRun `tx doctor` to verify your setup.\n' >&2

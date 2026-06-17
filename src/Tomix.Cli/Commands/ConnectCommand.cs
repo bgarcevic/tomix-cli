@@ -33,7 +33,7 @@ internal sealed class ConnectCommand : ICommandModule
         workspaceOption.Aliases.Add("-w");
         var profileOption = new Option<string?>("--profile")
         {
-            Description = "Activate a saved connection profile (see: tomix profile list)"
+            Description = "Activate a saved connection profile (see: tx profile list)"
         };
         profileOption.Aliases.Add("-p");
         var clearOption = new Option<bool>("--clear")

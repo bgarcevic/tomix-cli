@@ -40,7 +40,7 @@ public sealed class FormatModelHandler
                     if (matches.Count == 0)
                         throw new ObjectNotFoundException(
                             ModelObjectLookup.NotFoundMessage(request.Path!),
-                            hint: "Run 'tomix ls' to list available objects, or 'tomix ls Sa*' to filter.");
+                            hint: "Run 'tx ls' to list available objects, or 'tx ls Sa*' to filter.");
                     if (matches.Count > 1)
                         throw new AmbiguousObjectException($"Object path matched more than one object: {request.Path}");
 

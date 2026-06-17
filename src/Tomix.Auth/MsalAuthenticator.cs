@@ -149,7 +149,7 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             {
                 var app = await EnsurePublicAppAsync(state?.TenantId).ConfigureAwait(false);
                 var account = (await app.GetAccountsAsync().ConfigureAwait(false)).FirstOrDefault()
-                    ?? throw new AuthenticationRequiredException("Not authenticated. Run 'tomix auth login'.");
+                    ?? throw new AuthenticationRequiredException("Not authenticated. Run 'tx auth login'.");
                 try
                 {
                     var result = await app.AcquireTokenSilent(scopes, account)
@@ -158,7 +158,7 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
                 }
                 catch (MsalUiRequiredException)
                 {
-                    throw new AuthenticationRequiredException("Session expired. Run 'tomix auth login'.");
+                    throw new AuthenticationRequiredException("Session expired. Run 'tx auth login'.");
                 }
             }
 
@@ -189,7 +189,7 @@ public sealed class MsalAuthenticator : IAuthenticator, IAccessTokenProvider
             }
 
             default:
-                throw new AuthenticationRequiredException("Not authenticated. Run 'tomix auth login'.");
+                throw new AuthenticationRequiredException("Not authenticated. Run 'tx auth login'.");
         }
     }
 

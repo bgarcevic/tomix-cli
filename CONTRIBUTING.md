@@ -15,8 +15,8 @@ dotnet test
 dotnet run --project src/Tomix.Cli -- doctor
 ```
 
-If `doctor` is happy, you're ready. For the inner loop, `./tomix <command>`
-(`.\Tomix.ps1` on Windows) is a thin wrapper around `dotnet run` — short to type
+If `doctor` is happy, you're ready. For the inner loop, `./tx <command>`
+(`.\tx.ps1` on Windows) is a thin wrapper around `dotnet run` — short to type
 and always reflects your current source. To try your build as a genuinely
 globally installed tool, `scripts/install-dev.ps1` (Windows) or
 `scripts/install-dev.sh` (macOS/Linux) packs and installs it from source.
@@ -97,7 +97,7 @@ review; unreviewed bulk output wastes everyone's time and will be closed.
 
 ## Bugs and ideas
 
-Open an issue. For bugs, include the output of `tomix doctor`, the command you
+Open an issue. For bugs, include the output of `tx doctor`, the command you
 ran, and what you expected — `--error-format json` output is ideal. For
 ideas, describe the workflow you're trying to achieve rather than the flag
 you want; it usually leads somewhere better.

@@ -9,22 +9,22 @@ Semantic models are code. They deserve tooling that works where code lives:
 in a terminal, in scripts, in CI, in a diff.
 
 ```
-$ tomix connect ./samples/basic-tmdl
+$ tx connect ./samples/basic-tmdl
 Connected: basic-tmdl (TMDL folder)
 
-$ tomix ls --type table
+$ tx ls --type table
 Customers
 Products
 Sales
 
-$ tomix find "SUM(" --type measure
+$ tx find "SUM(" --type measure
 Sales/Total Amount      SUM(Sales[Amount])
 
-$ tomix bpa run
+$ tx bpa run
 Warning  AVOID_FLOATING_POINT  Sales[Amount] uses double
-1 warning, 0 errors. Run 'tomix bpa run --fix' to apply auto-fixes.
+1 warning, 0 errors. Run 'tx bpa run --fix' to apply auto-fixes.
 
-$ tomix deploy --server MyWorkspace --database basic-tmdl
+$ tx deploy --server MyWorkspace --database basic-tmdl
 OK Deployed basic-tmdl to MyWorkspace (4.1s)
 ```
 
@@ -43,7 +43,7 @@ curl -LsSf https://raw.githubusercontent.com/bgarcevic/tomix-cli/main/install/in
 powershell -ExecutionPolicy ByPass -c "irm https://raw.githubusercontent.com/bgarcevic/tomix-cli/main/install/install.ps1 | iex"
 ```
 
-If you have the .NET SDK: `dotnet tool install -g tomix`. Archives for six
+If you have the .NET SDK: `dotnet tool install -g Tomix.Cli`. Archives for six
 platforms are on the [releases page](https://github.com/bgarcevic/tomix-cli/releases);
 checksums included.
 
@@ -60,7 +60,7 @@ Remote: `connect`, `auth`, `deploy`, `load`, `save`, `profile`
 Workflow: `stage` (mutations are staged, then committed or discarded),
 `session`, `macro`, `interactive`, `config`, `doctor`, `completion`
 
-`tomix <command> --help` shows options and examples. `tomix doctor` checks your
+`tx <command> --help` shows options and examples. `tx doctor` checks your
 environment when something seems off.
 
 ## Scripting
@@ -70,10 +70,10 @@ line; most commands accept paths as input:
 
 ```sh
 # Format every measure that mentions CALCULATE
-tomix find "CALCULATE" --type measure --paths-only | xargs -I{} tomix format -p "{}"
+tx find "CALCULATE" --type measure --paths-only | xargs -I{} tx format -p "{}"
 
 # Count columns per table
-tomix ls --type column --output-format json | jq 'group_by(.table) | map({(.[0].table): length})'
+tx ls --type column --output-format json | jq 'group_by(.table) | map({(.[0].table): length})'
 ```
 
 Exit codes are documented and stable. Errors go to stderr (as JSON if you
@@ -87,7 +87,7 @@ before 1.0. `query`, `refresh`, `test`, `vertipaq`, and `incremental-refresh`
 exist as placeholders and are not implemented yet.
 
 If you try it and something breaks or reads wrong, an issue with the output
-of `tomix doctor` attached is genuinely useful at this stage.
+of `tx doctor` attached is genuinely useful at this stage.
 
 ## Contributing
 

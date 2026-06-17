@@ -7,7 +7,7 @@ namespace Tomix.App.Deps;
 /// <summary>
 /// A precomputed dependency graph over a flattened model snapshot. Forward edges record "depends
 /// on" (an object's DAX references plus relationship participation); reverse edges record
-/// "referenced by". This is the engine behind <c>tomix deps</c> and is the analogue of Tabular
+/// "referenced by". This is the engine behind <c>tx deps</c> and is the analogue of Tabular
 /// Editor's <c>DependsOnList</c>/<c>ReferencedByList</c>, including a cycle-safe recursive
 /// <see cref="Deep"/> traversal (its <c>Deep()</c>) and an <see cref="Unused"/> query.
 /// </summary>

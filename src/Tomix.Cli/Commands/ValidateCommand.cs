@@ -201,7 +201,7 @@ internal sealed class ValidateCommand : ICommandModule
 
         var doc = new XDocument(
             new XElement("TestRun",
-                new XAttribute("name", "tomix validate"),
+                new XAttribute("name", "tx validate"),
                 new XElement("ResultSummary",
                     new XAttribute("outcome", result.Valid ? "Passed" : "Failed"))));
         doc.Save(fullPath);

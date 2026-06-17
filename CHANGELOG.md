@@ -32,6 +32,16 @@ and the API surface that major versions protect.
     `MDL_AUTH_*` → `TOMIX_AUTH_*`).
   - Local config directory: `~/.mdl` → `~/.tomix`.
   - Solution file: `Mdl.slnx` → `Tomix.slnx`; dev wrappers `mdl`/`mdl.ps1` → `tomix`/`tomix.ps1`.
+  - Filenames renamed: `MdlConfigStore.cs` → `TomixConfigStore.cs`, `MdlPaths.cs` → `TomixPaths.cs`,
+    `MdlResult.cs` → `TomixResult.cs`, `MdlDiagnostic.cs` → `TomixDiagnostic.cs`.
+- **CLI command name changed from `tomix` to `tx`.** The project/brand remains `Tomix`
+  (namespaces `Tomix.*`, config dir `~/.tomix`, `TOMIX_*` env vars and diagnostic codes);
+  only the typed command/binary surface changed.
+  - Installed command: `dotnet tool install -g Tomix.Cli` now provides `tx` (was `tomix`).
+  - Dev wrappers: `tomix`/`tomix.ps1` → `tx`/`tx.ps1`.
+  - Release artifacts renamed: `tomix-<rid>.zip`/`.tar.gz` → `tx-<rid>.*`; Windows install
+    dir `%LOCALAPPDATA%\Programs\tomix` → `Programs\tx`.
+  - Shell completion now registers for `tx`/`tx.exe`/`.\tx`/`.\tx.exe`.
 - `format` command: `--stage` and `--revert` options are no longer silently ignored.
   They now participate in the full mutation lifecycle (working copy staging, revert,
   and persistence).

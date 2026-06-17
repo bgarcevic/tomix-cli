@@ -102,7 +102,7 @@ public sealed class ErrorCodeContractTests
         var result = TomixResult<object>.Fail(
             "TOMIX_OBJECT_NOT_FOUND",
             "Object 'X' not found.",
-            hint: "Run 'tomix ls' to list available objects.");
+            hint: "Run 'tx ls' to list available objects.");
         var json = JsonDocument.Parse(JsonFromResult(result));
 
         Assert.NotNull(json.RootElement.GetProperty("hint").GetString());

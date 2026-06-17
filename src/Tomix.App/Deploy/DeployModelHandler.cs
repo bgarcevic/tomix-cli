@@ -29,7 +29,7 @@ public sealed class DeployModelHandler
         if (request.Model.Value.Length == 0)
             return TomixResult<DeployModelResult>.Fail(
                 "TOMIX_NO_MODEL",
-                "No model specified. Use --model <path>, --server <url> --database <name>, --local, or set an active connection with 'tomix connect'.",
+                "No model specified. Use --model <path>, --server <url> --database <name>, --local, or set an active connection with 'tx connect'.",
                 exitCode: 1,
                 hint: "Specify a model path or use --recent.");
 
@@ -61,7 +61,7 @@ public sealed class DeployModelHandler
         if (string.IsNullOrWhiteSpace(server))
             return TomixResult<DeployModelResult>.Fail(
                 "TOMIX_DEPLOY_NO_TARGET",
-                "No target workspace specified. Use -s/--server or set an active connection with 'tomix connect'.",
+                "No target workspace specified. Use -s/--server or set an active connection with 'tx connect'.",
                 exitCode: 1,
                 hint: "Specify --workspace or --server and --database.");
 
@@ -120,7 +120,7 @@ public sealed class DeployModelHandler
         catch (AuthenticationRequiredException ex)
         {
             return TomixResult<DeployModelResult>.Fail("TOMIX_AUTH_REQUIRED", ex.Message, exitCode: 1,
-                hint: "Run 'tomix auth login' to authenticate, or use --auth spn for service principal.");
+                hint: "Run 'tx auth login' to authenticate, or use --auth spn for service principal.");
         }
         catch (InvalidOperationException ex)
         {

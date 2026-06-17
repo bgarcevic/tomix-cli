@@ -103,7 +103,7 @@ internal sealed class FindCommand : ICommandModule
             if (!pathsOnly)
             {
                 AnsiConsole.MarkupLine(Styling.Muted($"No matches for '{Styling.MarkupEscape(result.Pattern)}'."));
-                AnsiConsole.MarkupLine(Styling.Guidance($"  → Try: tomix find \"{Styling.MarkupEscape(result.Pattern)}\" --type measure, or remove --case-sensitive"));
+                AnsiConsole.MarkupLine(Styling.Guidance($"  → Try: tx find \"{Styling.MarkupEscape(result.Pattern)}\" --type measure, or remove --case-sensitive"));
             }
 
             return;

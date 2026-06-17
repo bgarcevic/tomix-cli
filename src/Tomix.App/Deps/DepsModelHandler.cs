@@ -49,7 +49,7 @@ public sealed class DepsModelHandler
                 code: "TOMIX_OBJECT_NOT_FOUND",
                 message: ModelObjectLookup.NotFoundMessage(request.Path!),
                 exitCode: 1,
-                hint: "Run 'tomix ls' to list available objects, or 'tomix ls Sa*' to filter.");
+                hint: "Run 'tx ls' to list available objects, or 'tx ls Sa*' to filter.");
 
         if (targetMatches.Count > 1)
             return TomixResult<DepsModelResult>.Fail(
