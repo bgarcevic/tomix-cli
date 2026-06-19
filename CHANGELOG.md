@@ -25,6 +25,26 @@ and the API surface that major versions protect.
 - `refresh` promoted from compatibility stub to real command.
 - `TomServerModelSession` implements `IModelRefreshSession`.
 
+### Added
+
+- `tx refresh` triggers a data refresh on a deployed model with Tabular Editor-compatible flags
+  (`--type`, `--table`, `--partition`, `--apply-refresh-policy` / `--skip-refresh-policy`,
+  `--effective-date`, `--max-parallelism`, `--dry-run`, `--no-progress`, `--trace`). Targets the
+  active remote connection by default, or the remote workspace-mode secondary when the default is
+  local. Live per-table row counts during refresh are streamed from the XMLA `SessionTrace` into a
+  Spectre `Live` table, and a final summary table reports per-table `Rows`, `Query`, `Read`, `Total`,
+  and `Rows/s` plus a roll-up. `--output-format json|csv` machine output is supported.
+- New `TOMIX_REFRESH_*` diagnostic codes (`TOMIX_REFRESH_NO_REMOTE_TARGET`, `TOMIX_REFRESH_UNSUPPORTED`,
+  `TOMIX_REFRESH_BAD_TYPE`, `TOMIX_REFRESH_TABLE_PARTITION_CONFLICT`, `TOMIX_REFRESH_BAD_PARTITION`,
+  `TOMIX_REFRESH_FAILED`).
+- `Styling.Number(long)` and `Styling.DurationSeconds(double)` helpers for human-only output.
+
+### Changed
+
+- `refresh` promoted from a compatibility stub to a real command.
+- `TomServerModelSession` now implements `IModelRefreshSession`; refresh is only supported on
+  sessions connected to a live XMLA endpoint.
+
 ### Removed
 
 - `tx info` command (use `tx load` or `tx connect` instead).
