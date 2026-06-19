@@ -4,6 +4,7 @@ using System.Globalization;
 using Tomix.App.Refresh;
 using Tomix.App.State;
 using Tomix.Cli.Output;
+using Tomix.Core.Diagnostics;
 using Tomix.Core.Models;
 using Tomix.Core.Results;
 using Spectre.Console;
@@ -96,9 +97,21 @@ internal sealed class RefreshCommand : ICommandModule
 
             var type = parseResult.GetValue(typeOption) ?? "automatic";
             var tables = parseResult.GetValue(tableOption);
-            var partitions = ParsePartitions(parseResult.GetValue(partitionOption));
+            var partitions = ParsePartitions(parseResult.GetValue(partitionOption), out var badPartition);
             if (partitions is null)
+            {
+                ErrorOutput.Write(
+                    new[]
+                    {
+                        new TomixDiagnostic(
+                            "TOMIX_REFRESH_BAD_PARTITION",
+                            DiagnosticSeverity.Error,
+                            $"Invalid --partition value '{badPartition}'. Expected TableName.PartitionName.",
+                            Hint: "Example: --partition Sales.Internet")
+                    },
+                    parseResult.GetValue(GlobalOptions.ErrorFormat));
                 return 2;
+            }
 
             var applyPolicy = ResolveApplyPolicy(parseResult.GetValue(applyRefreshPolicyOption), parseResult.GetValue(skipRefreshPolicyOption));
             var effectiveDate = parseResult.GetValue(effectiveDateOption);
@@ -186,8 +199,9 @@ internal sealed class RefreshCommand : ICommandModule
         return command;
     }
 
-    internal static IReadOnlyList<TablePartition>? ParsePartitions(string[]? raw)
+    internal static IReadOnlyList<TablePartition>? ParsePartitions(string[]? raw, out string? badValue)
     {
+        badValue = null;
         if (raw is null || raw.Length == 0)
             return Array.Empty<TablePartition>();
 
@@ -197,7 +211,7 @@ internal sealed class RefreshCommand : ICommandModule
             var dot = value.IndexOf('.');
             if (dot <= 0 || dot >= value.Length - 1)
             {
-                Console.Error.WriteLine($"Invalid --partition value '{value}'. Expected TableName.PartitionName.");
+                badValue = value;
                 return null;
             }
             list.Add(new TablePartition(value[..dot], value[(dot + 1)..]));

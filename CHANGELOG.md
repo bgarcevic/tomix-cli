@@ -51,6 +51,8 @@ and the API surface that major versions protect.
 
 ### Fixed
 
+- `connect` accepts documented bare workspace names (e.g. `tx connect MyWorkspace Sales`) instead of rejecting them with `TOMIX_CONNECT_INVALID_TARGET`; the name is normalized to a fully-qualified `powerbi://` endpoint so every later command can open it.
+- `refresh --partition` malformed values are routed through `ErrorOutput` as `TOMIX_REFRESH_BAD_PARTITION`, honoring `--error-format json` instead of writing raw text to stderr.
 - `refresh` per-table `Query`/`Read`/`Total` accuracy — trace sink now maps `ExecuteSql` → Query, `ReadData` → Read + row count instead of wrong subclasses.
 - `refresh` row counts captured in-flight via `ReadData.IntegerData`; removed broken post-refresh DMV query.
 - `refresh --trace` bare flag now resolves to stderr as documented, instead of silently doing nothing.
