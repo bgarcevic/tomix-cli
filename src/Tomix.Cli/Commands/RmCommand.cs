@@ -113,10 +113,14 @@ internal sealed class RmCommand : ICommandModule
                 GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
                 parseResult.GetValue(GlobalOptions.Database),
                 parseResult.GetValue(GlobalOptions.Server));
-            var saving = parseResult.GetValue(saveOption) || !string.IsNullOrWhiteSpace(parseResult.GetValue(saveToOption));
+            var label = MutationSpinnerLabel.For(
+                parseResult.GetValue(saveOption),
+                parseResult.GetValue(saveToOption),
+                parseResult.GetValue(stageOption),
+                parseResult.GetValue(revertOption));
             var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             var result = await CliSpinner.RunAsync(
-                "Saving...",
+                label,
                 () => new RemoveModelObjectHandler(_providers).HandleAsync(
                     new RemoveModelObjectRequest(
                         reference,
