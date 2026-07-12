@@ -535,6 +535,53 @@ public sealed partial class TomModelMutator
             foreach (var operation in BuildFormatStringReplaceOperations(request))
                 yield return operation;
         }
+
+        // Annotations are explicit-only: values are often tool-generated JSON, so a blanket
+        // '--in all' replace must not rewrite them.
+        if (scope is "annotations")
+        {
+            foreach (var operation in BuildAnnotationReplaceOperations(request))
+                yield return operation;
+        }
+    }
+
+    private IEnumerable<ReplaceOperation> BuildAnnotationReplaceOperations(ModelReplaceRequest request)
+    {
+        foreach (var (path, annotations) in EnumerateAnnotationOwners())
+        {
+            foreach (var annotation in annotations)
+            {
+                var value = annotation;
+                yield return ReplaceProperty(
+                    path, $"Annotation:{annotation.Name}", annotation.Value, v => value.Value = v, request);
+            }
+        }
+    }
+
+    private IEnumerable<(string Path, IEnumerable<Annotation> Annotations)> EnumerateAnnotationOwners()
+    {
+        yield return (".", _database.Model.Annotations);
+
+        foreach (var table in _database.Model.Tables)
+        {
+            var tablePath = Segment(table.Name);
+            yield return (tablePath, table.Annotations);
+
+            foreach (var measure in table.Measures)
+                yield return ($"{tablePath}/{Segment(measure.Name)}", measure.Annotations);
+
+            foreach (var column in table.Columns.Where(c => c.Type != ColumnType.RowNumber))
+                yield return ($"{tablePath}/{Segment(column.Name)}", column.Annotations);
+
+            foreach (var hierarchy in table.Hierarchies)
+                yield return ($"{tablePath}/{Segment(hierarchy.Name)}", hierarchy.Annotations);
+
+            foreach (var partition in table.Partitions)
+                yield return ($"{tablePath}/Partitions/{Segment(partition.Name)}", partition.Annotations);
+        }
+
+        foreach (var role in _database.Model.Roles)
+            yield return ($"Roles/{Segment(role.Name)}", role.Annotations);
     }
 
     private IEnumerable<ReplaceOperation> BuildNameReplaceOperations(ModelReplaceRequest request)
@@ -734,7 +781,10 @@ public sealed partial class TomModelMutator
             "formatstring" or "formatstrings" or "format-strings" => "formatstrings",
             "annotation" or "annotations" => "annotations",
             "all" => "all",
-            _ => scope.Trim().ToLowerInvariant()
+            // An unknown scope would match no Build*ReplaceOperations branch and silently
+            // replace nothing; reject it instead.
+            _ => throw new ArgumentException(
+                $"Unknown replace scope: '{scope}'. Known values: names, expressions, descriptions, displayFolders, formatStrings, annotations, all.")
         };
     }
 

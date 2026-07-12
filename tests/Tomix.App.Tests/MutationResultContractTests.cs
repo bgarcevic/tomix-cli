@@ -110,6 +110,18 @@ public sealed class MutationResultContractTests
     }
 
     [Fact]
+    public void MoveAndRemoveResults_OmitRevertedAtDefault_IncludeOnRevert()
+    {
+        Assert.DoesNotContain("\"reverted\"", Serialize(new MoveModelObjectResult("A", "B", Saved: false, Staged: null)));
+        Assert.DoesNotContain("\"reverted\"", Serialize(new RemoveModelObjectResult(false, null, null, null, null)));
+
+        Assert.Contains("\"reverted\": true", Serialize(
+            new MoveModelObjectResult("A", "B", Saved: false, Staged: null, Reverted: true)));
+        Assert.Contains("\"reverted\": true", Serialize(
+            new RemoveModelObjectResult(false, null, null, null, null, Reverted: true)));
+    }
+
+    [Fact]
     public void AddModelObjectResult_RevertAndNoOp_IncludeNewFields()
     {
         var reverted = Serialize(new AddModelObjectResult(false, Saved: false, Staged: null, Reverted: true));

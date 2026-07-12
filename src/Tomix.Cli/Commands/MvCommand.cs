@@ -59,8 +59,9 @@ internal sealed class MvCommand : ICommandModule
         };
         var serializationOption = new Option<string?>("--serialization")
         {
-            Description = "Model serialization: tmdl, bim, te-folder"
+            Description = "Model serialization: tmdl, bim (tmsl and auto also accepted)"
         };
+        serializationOption.AcceptAmongIgnoreCase("tmdl", "bim", "tmsl", "auto");
 
         var command = new Command("mv", "Move or rename a model object")
         {
@@ -131,6 +132,12 @@ internal sealed class MvCommand : ICommandModule
 
     private static void Render(MoveModelObjectResult result)
     {
+        if (result.Reverted)
+        {
+            AnsiConsole.MarkupLine(Styling.Success("Reverted."));
+            return;
+        }
+
         AnsiConsole.MarkupLine(Styling.Success($"Renamed: {result.Moved} -> {result.To}"));
         if (result.Saved is false)
             AnsiConsole.MarkupLine(Styling.Warning("Changes not saved. Use --save to persist."));

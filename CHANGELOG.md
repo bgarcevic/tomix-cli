@@ -27,6 +27,7 @@ and the API surface that major versions protect.
 - `tx add -t` accepts long-form type aliases: `CalculatedTable`, `CalculatedColumn`, `CalculationGroup`, `CalculationItem`, `CalculatedMeasure`.
 - `tx add` path-keyword inference extended to `calcgroups/`, `calcitems/`, `expressions/`, `functions/`, `calendars/`, and `kpis/`. (`datasources/` still requires `-t` — Provider vs Structured is ambiguous.)
 - `TOMIX_ADD_OPTION_UNSUPPORTED` error code: an `add` option supplied for an object type that cannot consume it now hard-errors instead of being silently ignored.
+- `tx replace --in annotations` now works: replaces annotation values across the model, tables, columns, measures, hierarchies, partitions, and roles. Explicit-only — `--in all` deliberately does not touch annotations (values are often tool-generated JSON).
 
 ### Changed (breaking)
 
@@ -39,6 +40,9 @@ and the API surface that major versions protect.
 - A dangling `-q` with no matching `-i` on `tx add` is now a usage error (exit 2) instead of being silently dropped.
 - `tx add --revert` prints `Reverted.` and an `--if-not-exists` no-op prints `Already exists: <path>` instead of the misleading `Added: False` + "Changes not saved" warning. JSON output gains optional `reverted`/`existingPath` fields.
 - Mutation spinners now label the actual operation (`Working...`/`Staging...`/`Reverting...`) instead of always `Saving...`.
+- `tx replace --in <unknown-scope>` now errors (`TOMIX_MUTATION_INVALID_VALUE`) instead of exiting 0 with nothing replaced.
+- `tx mv --revert` prints `Reverted.` instead of falsely claiming `Renamed: A -> B`; `tx rm --revert` prints `Reverted.` and `rm --if-exists` on a missing object prints `Not found: <path> (nothing removed)` instead of exiting silently. JSON output gains an optional `reverted` field on both.
+- Invalid `--serialization` values on `set`/`mv`/`rm`/`replace`/`save`/`init`/`script`/`bpa`/`macro` are rejected at parse time, matching `add`. Help text no longer advertises the unimplemented `te-folder`/`pbip`/`database.json` formats (`init` genuinely supports `pbip`).
 
 ### Changed
 

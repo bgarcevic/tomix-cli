@@ -32,7 +32,7 @@ internal sealed class ReplaceCommand : ICommandModule
         };
         var inOption = new Option<string?>("--in")
         {
-            Description = "Scope: names, expressions, descriptions, displayFolders, formatStrings, annotations, all"
+            Description = "Scope: names, expressions, descriptions, displayFolders, formatStrings, annotations, all. 'all' covers every scope except annotations (explicit-only: values are often tool-generated JSON)."
         };
         var regexOption = new Option<bool>("--regex")
         {
@@ -72,8 +72,9 @@ internal sealed class ReplaceCommand : ICommandModule
         };
         var serializationOption = new Option<string?>("--serialization")
         {
-            Description = "Model serialization: tmdl, bim, te-folder"
+            Description = "Model serialization: tmdl, bim (tmsl and auto also accepted)"
         };
+        serializationOption.AcceptAmongIgnoreCase("tmdl", "bim", "tmsl", "auto");
 
         var command = new Command("replace", "Find and replace text across model objects")
         {
