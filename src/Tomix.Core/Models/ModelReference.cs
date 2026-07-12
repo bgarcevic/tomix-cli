@@ -47,16 +47,29 @@ public sealed record ModelReference(string Value, string? Database = null)
     /// as <c>MyWorkspace</c> becomes <c>powerbi://api.powerbi.com/v1.0/myorg/MyWorkspace</c> so it
     /// can be opened by remote providers and stored as an active connection.
     /// </summary>
+    /// <remarks>
+    /// Bare workspace names pasted from browser URLs are unescaped first (e.g.
+    /// <c>sandbox%20bkg</c> becomes <c>sandbox bkg</c>) so they resolve to the real name the
+    /// XMLA endpoint expects. Already-formed endpoints (an XMLA scheme, a local instance, or
+    /// anything containing <c>://</c>) are returned verbatim, which keeps this method
+    /// idempotent: a value like <c>powerbi://.../Sales%20Archive</c> survives a second
+    /// normalization pass at connect time instead of being decoded into <c>Sales Archive</c>.
+    /// </remarks>
     public static string NormalizeEndpoint(string? value)
     {
         if (string.IsNullOrWhiteSpace(value))
             return value ?? string.Empty;
 
+        // Already-formed endpoints are returned verbatim so the function is idempotent:
+        // a percent-escaped workspace name (e.g. "Sales%20Archive") survives a second
+        // normalization pass at connect time. Only bare workspace names pasted from
+        // browser URLs are unescaped before being prefixed.
         if (value.Contains("://", StringComparison.Ordinal) ||
             value.StartsWith("localhost:", StringComparison.OrdinalIgnoreCase) ||
             value.StartsWith("127.0.0.1:", StringComparison.OrdinalIgnoreCase))
             return value;
 
-        return $"powerbi://api.powerbi.com/v1.0/myorg/{value}";
+        var decoded = Uri.UnescapeDataString(value);
+        return $"powerbi://api.powerbi.com/v1.0/myorg/{decoded}";
     }
 }

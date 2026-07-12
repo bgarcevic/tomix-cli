@@ -29,6 +29,34 @@ public class ConnectCommandWorkspaceTests
     public void NormalizeWorkspaceTarget_LocalPrimary_PassesEndpointsThrough(string input)
         => Assert.Equal(input, ConnectCommand.NormalizeWorkspaceTarget(model: "./local-model", input));
 
+    // Percent-escaped workspace names (e.g. pasted from a browser URL) are decoded before being
+    // expanded, so the stored mirror matches the real workspace name the XMLA endpoint expects.
+    [Theory]
+    [InlineData("sandbox%20bkg", "powerbi://api.powerbi.com/v1.0/myorg/sandbox bkg")]
+    [InlineData("My%20Workspace", "powerbi://api.powerbi.com/v1.0/myorg/My Workspace")]
+    public void NormalizeWorkspaceTarget_LocalPrimary_DecodesPercentEscapes(string input, string expected)
+    {
+        var normalized = ConnectCommand.NormalizeWorkspaceTarget(model: "./local-model", input);
+
+        Assert.Equal(expected, normalized);
+        Assert.True(ModelReference.IsRemoteEndpoint(normalized));
+    }
+
+    // An already-formed endpoint is returned verbatim, never decoded. This keeps
+    // NormalizeEndpoint idempotent so a percent-escaped workspace name (e.g. one whose
+    // real name contains "%20") survives the second normalization pass applied at connect
+    // time by TomModelDeployer.ResolveEndpoint instead of being turned into a space.
+    [Fact]
+    public void NormalizeWorkspaceTarget_LocalPrimary_PassesEndpointWithPercentEscapesThrough()
+    {
+        var normalized = ConnectCommand.NormalizeWorkspaceTarget(
+            model: "./local-model",
+            "powerbi://api.powerbi.com/v1.0/myorg/sandbox%20bkg");
+
+        Assert.Equal("powerbi://api.powerbi.com/v1.0/myorg/sandbox%20bkg", normalized);
+        Assert.True(ModelReference.IsRemoteEndpoint(normalized));
+    }
+
     // Local primary: a missing workspace stays missing.
     [Theory]
     [InlineData(null)]
