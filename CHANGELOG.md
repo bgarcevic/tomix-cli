@@ -40,6 +40,7 @@ and the API surface that major versions protect.
 
 ### Changed (breaking)
 
+- A failed workspace sync now exits 1 instead of 0. Mutation commands with `--save` (and `tx save`) still perform the local save and render the result — including the `syncWarning` in JSON — but the exit code flags that the mirror was left behind the source, so CI can catch the drift. Use `--no-sync` to intentionally skip the mirror (exit 0).
 - Global `--quiet` no longer has a `-q` alias: `-q` was silently shadowed by the local property/query option on `add`/`set`/`get`/`bpa`/`macro`. Use `--quiet`.
 - `tx add --revert` combined with `--save-to` now errors (`TOMIX_STAGE_OPTIONS_CONFLICT`, exit 2) instead of silently dropping the save target. Applies to all mutation commands.
 - `tx add` options supplied to a type that ignores them (`--columns` on CalcTable/CalcGroup, `--partition-expression` on Entity/PolicyRange partitions, `--connection-string`/`--source` on StructuredDataSource, etc.) now fail with `TOMIX_ADD_OPTION_UNSUPPORTED` (exit 1) instead of exit 0 with the option discarded.
@@ -66,6 +67,8 @@ and the API surface that major versions protect.
 
 ### Fixed
 
+- Workspace sync with no cached login no longer stalls silently for minutes before warning (observed: 4m37s). Token acquisition now gates on the recorded login state and fails immediately with "Not authenticated. Run 'tx auth login'." — without opening the OS-keystore-backed MSAL cache, whose authorization prompt can block a non-interactive process — and silent acquisition is capped at 30s with an actionable timeout error as a backstop.
+- The live spinner now shows `Syncing to <workspace>...` during the workspace-sync phase instead of sitting on `Saving...`, and the sync-failure warning explains how to recover (re-push with `tx save`, or skip with `--no-sync`).
 - `tx add` rejects cross-kind name collisions within a table: measures, columns, and hierarchies share a namespace in tabular models, but `add tables/T/measures/X` succeeded when a column (or hierarchy) named `X` already existed — writing TMDL the engine rejects at deploy. All three collections are checked and the error names the colliding kind. `--if-not-exists` still tolerates a same-kind duplicate; a cross-kind squatter remains a hard error.
 - TMDL saves no longer rewrite every table file of a Power BI Desktop-authored model. `TmdlSerializer` indents M partition `source =` bodies two levels below the property while Desktop writes them one level deep (they agree on measures, calc items, and DAX/calculated partition sources), so any `--save` re-indented every M partition in the folder. The exporter now post-processes M-partition source blocks to Desktop's depth — a save of an untouched Desktop model is byte-identical, and a mutation diffs only the lines it changed. The transform is lossless (TMDL strips common leading whitespace of delimited expressions on parse) and idempotent.
 - `tx set`/`tx rm` DAX bracket paths (`'Table'[Child]`) resolve only to measures and columns, like DAX itself. Previously a same-named partition could be silently picked — `set 'T'[X] -q expression` would replace the partition's M source query instead of the measure's DAX.

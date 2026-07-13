@@ -62,6 +62,38 @@ public sealed class MutationLifecycleSyncTests
         Assert.Contains("does not support deploy", outcome.SyncWarning, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Fact]
+    public async Task CompleteAsync_SyncFailure_MarksOutcomeAsFailed()
+    {
+        var context = NewSaveContext(SyncTarget);
+
+        var failed = await MutationLifecycle.CompleteAsync(
+            new StubMutationSession(deploySucceeds: false),
+            context, "add", "add X", CancellationToken.None);
+        var succeeded = await MutationLifecycle.CompleteAsync(
+            new StubMutationSession(deploySucceeds: true),
+            context, "add", "add X", CancellationToken.None);
+
+        // SyncFailed drives the non-zero exit code so CI catches mirror drift.
+        Assert.True(failed.SyncFailed);
+        Assert.False(succeeded.SyncFailed);
+    }
+
+    [Fact]
+    public async Task SyncAsync_ReportsProgress_AndRecoveryHint()
+    {
+        var messages = new List<string>();
+        using var _ = MutationProgress.Use(messages.Add);
+
+        var (synced, target, warning) = await WorkspaceSync.SyncAsync(
+            new StubMutationSession(deploySucceeds: false),
+            SyncTarget, force: false, CancellationToken.None);
+
+        Assert.False(synced);
+        Assert.Contains(messages, m => m.StartsWith("Syncing to powerbi://", StringComparison.Ordinal));
+        Assert.Contains("--no-sync", warning);
+    }
+
     private static MutationContext NewSaveContext(ModelReference? syncTarget)
         => new(MutationMode.Save, new ModelReference("/local/model"), null, "tmdl", true, null, syncTarget);
 
