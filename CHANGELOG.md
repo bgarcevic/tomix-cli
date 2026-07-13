@@ -62,6 +62,7 @@ and the API surface that major versions protect.
 
 ### Fixed
 
+- TMDL saves no longer rewrite every table file of a Power BI Desktop-authored model. `TmdlSerializer` indents M partition `source =` bodies two levels below the property while Desktop writes them one level deep (they agree on measures, calc items, and DAX/calculated partition sources), so any `--save` re-indented every M partition in the folder. The exporter now post-processes M-partition source blocks to Desktop's depth — a save of an untouched Desktop model is byte-identical, and a mutation diffs only the lines it changed. The transform is lossless (TMDL strips common leading whitespace of delimited expressions on parse) and idempotent.
 - `--save` on an existing model directory no longer fails; the directory is cleared and rewritten so deleted objects don't leave orphan files.
 - Empty `--type` on `tx add` now produces an actionable error ("No object type given…") instead of `Adding object type '' is not supported yet.`
 - `tx ls` honors `--error-format json` (it previously always printed the text error while `get`/`find`/`deps` emitted the JSON envelope).
