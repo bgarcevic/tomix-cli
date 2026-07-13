@@ -62,6 +62,7 @@ and the API surface that major versions protect.
 
 ### Fixed
 
+- `tx add` rejects cross-kind name collisions within a table: measures, columns, and hierarchies share a namespace in tabular models, but `add tables/T/measures/X` succeeded when a column (or hierarchy) named `X` already existed — writing TMDL the engine rejects at deploy. All three collections are checked and the error names the colliding kind. `--if-not-exists` still tolerates a same-kind duplicate; a cross-kind squatter remains a hard error.
 - `--save` on an existing model directory no longer fails; the directory is cleared and rewritten so deleted objects don't leave orphan files.
 - Empty `--type` on `tx add` now produces an actionable error ("No object type given…") instead of `Adding object type '' is not supported yet.`
 - `tx ls` honors `--error-format json` (it previously always printed the text error while `get`/`find`/`deps` emitted the JSON envelope).
