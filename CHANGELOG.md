@@ -66,7 +66,7 @@ and the API surface that major versions protect.
 ### Fixed
 
 - `tx set`/`tx rm` DAX bracket paths (`'Table'[Child]`) resolve only to measures and columns, like DAX itself. Previously a same-named partition could be silently picked — `set 'T'[X] -q expression` would replace the partition's M source query instead of the measure's DAX.
-- `tx set`/`tx rm` mutation paths with embedded apostrophes now resolve, in both `'Høreprøver KPI''er'` (escaped) and raw `Høreprøver KPI'er` forms, matching the `ls`/`get` selector rules.
+- `tx set`/`tx rm` mutation paths with embedded apostrophes now resolve, in both `'Månedens KPI''er'` (escaped) and raw `Månedens KPI'er` forms, matching the `ls`/`get` selector rules.
 - Same-name collisions across object kinds (e.g. a measure and a partition both named `Budget`) now fail with `TOMIX_OBJECT_AMBIGUOUS` and a `--type` hint instead of silently mutating whichever kind resolved first.
 - `tx set`/`tx rm` not-found errors now emit `TOMIX_OBJECT_NOT_FOUND` with a hint (previously generic `TOMIX_MUTATION_FAILED`); unsupported-property errors name the object type that actually resolved.
 - `tx set --revert` combined with `-q`/`-i` hard-errors (`TOMIX_STAGE_OPTIONS_CONFLICT`, exit 2) instead of silently discarding the assignment.

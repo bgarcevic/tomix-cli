@@ -85,23 +85,23 @@ public sealed class TomSetResolutionTests
     public void SetProperty_KeywordPath_ResolvesColumn()
     {
         var db = NewDatabase();
-        var table = AddTable(db, "Kunder");
+        var table = AddTable(db, "Customers");
         table.Columns.Add(new DataColumn { Name = "E-mail", DataType = DataType.String });
 
         var mutator = new TomModelMutator(db);
         mutator.SetProperty(new ModelObjectSetRequest(
-            "tables/Kunder/columns/E-mail", [new ModelPropertyAssignment("ishidden", "true")], null));
+            "tables/Customers/columns/E-mail", [new ModelPropertyAssignment("ishidden", "true")], null));
 
         Assert.True(table.Columns["E-mail"].IsHidden);
     }
 
     [Theory]
-    [InlineData("'Høreprøver KPI''er'")]
-    [InlineData("Høreprøver KPI'er")]
+    [InlineData("'Månedens KPI''er'")]
+    [InlineData("Månedens KPI'er")]
     public void SetProperty_TableNameWithApostrophe_Resolves(string path)
     {
         var db = NewDatabase();
-        var table = AddTable(db, "Høreprøver KPI'er");
+        var table = AddTable(db, "Månedens KPI'er");
 
         var mutator = new TomModelMutator(db);
         mutator.SetProperty(new ModelObjectSetRequest(
@@ -114,12 +114,12 @@ public sealed class TomSetResolutionTests
     public void SetProperty_DaxFormWithEscapedApostrophe_ResolvesMeasure()
     {
         var db = NewDatabase();
-        var table = AddTable(db, "Høreprøver KPI'er");
-        table.Measures.Add(new Measure { Name = "# Høreprøver", Expression = "1" });
+        var table = AddTable(db, "Månedens KPI'er");
+        table.Measures.Add(new Measure { Name = "# Måltal", Expression = "1" });
 
         var mutator = new TomModelMutator(db);
         mutator.SetProperty(new ModelObjectSetRequest(
-            "'Høreprøver KPI''er'[# Høreprøver]", [new ModelPropertyAssignment("description", "d")], null));
+            "'Månedens KPI''er'[# Måltal]", [new ModelPropertyAssignment("description", "d")], null));
 
         Assert.Equal("d", table.Measures.First().Description);
     }
@@ -200,7 +200,7 @@ public sealed class TomSetResolutionTests
     public void SetProperty_Level_ResolvesThreePartPath()
     {
         var db = NewDatabase();
-        var table = AddTable(db, "Datoer");
+        var table = AddTable(db, "Dates");
         var column = new DataColumn { Name = "Year", DataType = DataType.Int64 };
         table.Columns.Add(column);
         var hierarchy = new Hierarchy { Name = "Calendar" };
@@ -209,7 +209,7 @@ public sealed class TomSetResolutionTests
 
         var mutator = new TomModelMutator(db);
         mutator.SetProperty(new ModelObjectSetRequest(
-            "Datoer/Calendar/Year", [new ModelPropertyAssignment("description", "level desc")], null));
+            "Dates/Calendar/Year", [new ModelPropertyAssignment("description", "level desc")], null));
 
         Assert.Equal("level desc", hierarchy.Levels.First().Description);
     }
