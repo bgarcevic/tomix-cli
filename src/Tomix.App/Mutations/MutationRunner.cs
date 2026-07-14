@@ -25,7 +25,12 @@ public static class MutationRunner
 
         if (begin.Mode == MutationMode.Revert)
         {
-            stagingStore.Discard(model);
+            if (!stagingStore.Discard(model))
+                return TomixResult<TResult>.Fail(
+                    "TOMIX_STAGE_NOTHING_STAGED",
+                    "Nothing is staged for this model.",
+                    hint: "Use --stage to stage a mutation first; 'tx stage' lists staged work.");
+
             return TomixResult<TResult>.Ok(revertResult);
         }
 
@@ -54,7 +59,9 @@ public static class MutationRunner
             var outcome = await MutationLifecycle.CompleteAsync(
                 mutator, context, command, summary, cancellationToken);
 
-            return TomixResult<TResult>.Ok(buildResult(outcome));
+            // A failed workspace sync leaves the mirror behind the source; render the saved
+            // result but exit non-zero so CI catches the drift.
+            return TomixResult<TResult>.Ok(buildResult(outcome), outcome.SyncFailed ? 1 : 0);
         }
         catch (UnsupportedAddOptionException ex)
         {

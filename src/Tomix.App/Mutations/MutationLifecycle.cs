@@ -38,7 +38,14 @@ public sealed record MutationOutcome(
     bool? Staged,
     bool Synced = false,
     string? SyncTarget = null,
-    string? SyncWarning = null);
+    string? SyncWarning = null)
+{
+    /// <summary>
+    /// True when a workspace sync was attempted (or required) and did not happen. The command
+    /// should exit non-zero so CI catches mirror drift, while still rendering the saved result.
+    /// </summary>
+    public bool SyncFailed => SyncWarning is not null;
+}
 
 /// <summary>
 /// The shared open/mutate/persist lifecycle for mutation handlers. It owns BOTH "which reference to
@@ -84,8 +91,12 @@ public static class MutationLifecycle
             return new MutationBegin(null, error);
 
         // Workspace mirror sync target, resolved from the active connection (suppressed by --no-sync).
-        // Only consumed by the Save branch of CompleteAsync; harmless on other modes.
-        var syncTarget = options.NoSync ? null : ResolveSyncTarget(connection);
+        // --save-to writes a copy to a side location and leaves the connected source untouched, so
+        // it must not deploy the mutation to the mirror either. Only consumed by the Save branch
+        // of CompleteAsync; harmless on other modes.
+        var syncTarget = options.NoSync || !string.IsNullOrWhiteSpace(options.SaveTo)
+            ? null
+            : ResolveSyncTarget(connection);
 
         if (mode is MutationMode.None or MutationMode.Save)
             return new MutationBegin(
