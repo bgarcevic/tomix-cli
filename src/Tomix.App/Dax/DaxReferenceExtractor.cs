@@ -67,7 +67,13 @@ public static class DaxReferenceExtractor
                         DaxReferenceShape.Table, token.Text, null, token.Start, token.End));
                     break;
 
-                case DaxTokenKind.Identifier when next.Kind == DaxTokenKind.BracketName:
+                // Keywords and VAR names never qualify a bracket ("RETURN [Total]" is the keyword
+                // followed by an unqualified measure, not table "RETURN"); reserved words must be
+                // quoted to name a table. On a failed guard the identifier falls to the case below
+                // and the bracket is reported as Unqualified on the next iteration.
+                case DaxTokenKind.Identifier when next.Kind == DaxTokenKind.BracketName
+                    && !Keywords.Contains(token.Text)
+                    && !variables.Contains(token.Text):
                     references.Add(new DaxReference(
                         DaxReferenceShape.Qualified, token.Text, next.Text, token.Start, next.End));
                     i++;
@@ -113,8 +119,10 @@ public static class DaxReferenceExtractor
         return variables;
     }
 
-    // Bare words that are DAX syntax, not object names. Only consulted for TableCandidate, so a
-    // missing entry merely risks a candidate that no table matches — resolution drops it anyway.
+    // Bare words that are DAX syntax, not object names. For TableCandidate a missing entry merely
+    // risks a candidate that no table matches — resolution drops it anyway. For the qualified
+    // pairing a missing entry would mis-qualify a following bracket (keyword[X] instead of a lone
+    // [X]), so keep operator/statement keywords that can precede a reference in this list.
     private static readonly HashSet<string> Keywords = new(StringComparer.OrdinalIgnoreCase)
     {
         "VAR", "RETURN", "EVALUATE", "DEFINE", "MEASURE", "COLUMN", "TABLE",
