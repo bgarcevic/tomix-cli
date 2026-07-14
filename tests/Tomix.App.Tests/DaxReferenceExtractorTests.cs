@@ -96,6 +96,49 @@ public sealed class DaxReferenceExtractorTests
     }
 
     [Fact]
+    public void KeywordBeforeBracket_DoesNotQualifyTheReference()
+    {
+        // "RETURN [Total]" is the keyword followed by an unqualified measure — pairing it as
+        // table "RETURN" would drop the dependency (no such table resolves).
+        const string expression = "VAR x = 1 RETURN [Total Sales] + x";
+        var reference = Assert.Single(DaxReferenceExtractor.Extract(expression));
+
+        Assert.Equal(DaxReferenceShape.Unqualified, reference.Shape);
+        Assert.Equal("Total Sales", reference.Object);
+        AssertSpan("[Total Sales]", expression, reference);
+    }
+
+    [Fact]
+    public void OperatorKeywordBeforeBracket_DoesNotQualifyTheReference()
+    {
+        var references = DaxReferenceExtractor.Extract("IF(NOT [IsActive], 0, [Amount])");
+
+        Assert.Equal(["IsActive", "Amount"], references.Select(r => r.Object));
+        Assert.All(references, r => Assert.Equal(DaxReferenceShape.Unqualified, r.Shape));
+    }
+
+    [Fact]
+    public void VarNameBeforeBracket_DoesNotQualifyTheReference()
+    {
+        // DAX forbids a VAR sharing a table's name, so a VAR name can never qualify a bracket.
+        var references = DaxReferenceExtractor.Extract("VAR x = 1 RETURN x [Total]");
+
+        var reference = Assert.Single(references);
+        Assert.Equal(DaxReferenceShape.Unqualified, reference.Shape);
+        Assert.Equal("Total", reference.Object);
+    }
+
+    [Fact]
+    public void BareQualifiedReference_WhitespaceBetweenTableAndBracket()
+    {
+        var reference = Assert.Single(DaxReferenceExtractor.Extract("SUM(Sales [Amount])"));
+
+        Assert.Equal(DaxReferenceShape.Qualified, reference.Shape);
+        Assert.Equal("Sales", reference.Table);
+        AssertSpan("Sales [Amount]", "SUM(Sales [Amount])", reference);
+    }
+
+    [Fact]
     public void ReferencesInsideStringLiterals_AreIgnored()
     {
         var references = DaxReferenceExtractor.Extract(
