@@ -1,3 +1,5 @@
+using Tomix.App.Diagnostics;
+using Tomix.Core.Authentication;
 using Tomix.Core.Models;
 using Tomix.Core.Results;
 
@@ -27,14 +29,18 @@ public sealed class ShowRefreshPolicyHandler
                 exitCode: 2,
                 hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
-        if (session is not IModelMutationSession mutator)
-            return TomixResult<RefreshPolicyInfo>.Fail(
-                "TOMIX_MUTATION_UNSUPPORTED_PROVIDER",
-                $"Provider cannot read refresh policies for: {request.Model.Value}");
-
+        // Open + read inside the try: for a remote endpoint OpenAsync can throw on auth or
+        // connection setup, and those must surface as actionable diagnostics rather than an
+        // unhandled exception. (A local ModelLoadException is left to the top-level handler,
+        // mirroring the other read commands.)
         try
         {
+            await using var session = await provider.OpenAsync(request.Model, cancellationToken);
+            if (session is not IModelMutationSession mutator)
+                return TomixResult<RefreshPolicyInfo>.Fail(
+                    "TOMIX_MUTATION_UNSUPPORTED_PROVIDER",
+                    $"Provider cannot read refresh policies for: {request.Model.Value}");
+
             var policy = mutator.GetRefreshPolicy(request.Table);
             if (policy is null)
                 return TomixResult<RefreshPolicyInfo>.Fail(
@@ -45,6 +51,11 @@ public sealed class ShowRefreshPolicyHandler
 
             return TomixResult<RefreshPolicyInfo>.Ok(policy);
         }
+        catch (AuthenticationRequiredException ex)
+        {
+            return TomixResult<RefreshPolicyInfo>.Fail("TOMIX_AUTH_REQUIRED", ex.Message, exitCode: 1,
+                hint: "Run 'tx auth login' to authenticate, or use --auth spn for service principal.");
+        }
         catch (ObjectNotFoundException ex)
         {
             return TomixResult<RefreshPolicyInfo>.Fail(
@@ -53,6 +64,14 @@ public sealed class ShowRefreshPolicyHandler
         catch (NotSupportedException ex)
         {
             return TomixResult<RefreshPolicyInfo>.Fail("TOMIX_MUTATION_UNSUPPORTED", ex.Message);
+        }
+        catch (Exception ex) when (request.Model.IsRemote && ex is not OperationCanceledException)
+        {
+            return TomixResult<RefreshPolicyInfo>.Fail(
+                "TOMIX_CONNECT_FAILED",
+                RemoteConnectError.Describe(request.Model.Value, ex),
+                exitCode: 1,
+                hint: "Verify the server URL and credentials.");
         }
     }
 }

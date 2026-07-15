@@ -1,5 +1,6 @@
 using Tomix.App.IncrementalRefresh;
 using Tomix.App.State;
+using Tomix.Core.Authentication;
 using Tomix.Core.Models;
 using Tomix.Provider.Tmdl;
 
@@ -44,6 +45,20 @@ public sealed class IncrementalRefreshHandlerTests
 
         Assert.False(result.Success);
         Assert.Equal("TOMIX_OBJECT_NOT_FOUND", result.Diagnostics[0].Code);
+    }
+
+    [Fact]
+    public async Task Show_RemoteOpenAuthFailure_ReturnsAuthRequired()
+    {
+        // OpenAsync throwing on a remote endpoint must be caught and rendered as an actionable
+        // diagnostic, not bubble out as an unhandled exception.
+        var handler = new ShowRefreshPolicyHandler([new ThrowingProvider()]);
+        var result = await handler.HandleAsync(
+            new ShowRefreshPolicyRequest(new ModelReference("powerbi://api.powerbi.com/v1.0/myorg/ws", "MyModel"), "Sales"),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("TOMIX_AUTH_REQUIRED", result.Diagnostics[0].Code);
     }
 
     [Fact]
@@ -95,6 +110,21 @@ public sealed class IncrementalRefreshHandlerTests
         Assert.False(result.Success);
         Assert.Equal("TOMIX_REFRESH_NO_REMOTE_TARGET", result.Diagnostics[0].Code);
         Assert.Equal(2, result.ExitCode);
+    }
+
+    [Fact]
+    public async Task Apply_BareWorkspaceName_IsAcceptedAsRemoteTarget()
+    {
+        // -s MyWorkspace (a bare workspace name, no scheme) must be normalized to an XMLA
+        // endpoint and accepted as a remote target, not rejected as non-remote. With no provider
+        // registered it falls through to TOMIX_NO_PROVIDER — proving it cleared the remote gate.
+        var handler = new ApplyRefreshPolicyHandler([], () => null);
+        var result = await handler.HandleAsync(
+            new ApplyRefreshPolicyRequest(null, "MyWorkspace", "Model", "Sales", null, Refresh: true, null),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("TOMIX_NO_PROVIDER", result.Diagnostics[0].Code);
     }
 
     [Fact]
@@ -316,6 +346,13 @@ public sealed class IncrementalRefreshHandlerTests
         public ModelReplaceResult ReplaceText(ModelReplaceRequest request) => throw new NotSupportedException();
         public Task<ModelExportResult> SaveAsync(string? outputPath, string serialization, bool force, CancellationToken ct)
             => Task.FromResult(new ModelExportResult("stub", "stub"));
+    }
+
+    private sealed class ThrowingProvider : IModelProvider
+    {
+        public bool CanOpen(ModelReference reference) => true;
+        public Task<IModelSession> OpenAsync(ModelReference _, CancellationToken __)
+            => throw new AuthenticationRequiredException("Not authenticated. Run 'tx auth login'.");
     }
 
     private sealed class StubApplyProvider(StubApplySession session) : IModelProvider
