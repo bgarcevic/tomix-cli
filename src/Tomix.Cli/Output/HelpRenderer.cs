@@ -24,7 +24,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
     ];
 
     private static readonly string[] NotImplementedCommands =
-        ["incremental-refresh", "query", "test"];
+        ["incremental-refresh", "query"];
 
     private static readonly Dictionary<string, string[]> CommandExamples = new(StringComparer.Ordinal)
     {
