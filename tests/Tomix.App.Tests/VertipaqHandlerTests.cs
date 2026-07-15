@@ -220,7 +220,7 @@ public sealed class VertipaqHandlerTests
     [Fact]
     public async Task HandleAsync_Annotate_WritesVertipaqAnnotations_AndSkipsMissingObjects()
     {
-        var mutator = new RecordingMutationSession(notFoundPaths: ["Product"]);
+        var mutator = new RecordingMutationSession(notFoundPaths: ["'Product'"]);
         var handler = new VertipaqHandler(
             [new StubMutationProvider(mutator)], new StubAnalyzer());
 
@@ -233,15 +233,16 @@ public sealed class VertipaqHandlerTests
         Assert.NotNull(annotate);
         Assert.Equal(1, annotate.SkippedObjects); // the Product table path was unresolvable
 
-        // Model root, Sales table, and the two non-row-number Sales/Product columns minus skips.
+        // Model root, Sales table, columns, and the relationship endpoints, minus skips.
         var paths = mutator.SetRequests.Select(r => r.Path).ToList();
         Assert.Contains(".", paths);
-        Assert.Contains("Sales", paths);
-        Assert.Contains("Sales/Amount", paths);
+        Assert.Contains("'Sales'", paths);
+        Assert.Contains("'Sales'/'Amount'", paths);
+        Assert.Contains("'Sales'[ProductKey]->'Product'[ProductKey]", paths);
         Assert.DoesNotContain(paths, p => p.Contains("RowNumber"));
 
-        var salesAssignments = mutator.SetRequests.Single(r => r.Path == "Sales").Properties;
-        Assert.Contains(salesAssignments, a => a is { Property: "Annotation:Vertipaq_RowsCount", Value: "1000" });
+        var salesAssignments = mutator.SetRequests.Single(r => r.Path == "'Sales'").Properties;
+        Assert.Contains(salesAssignments, a => a is { Property: "Annotation:Vertipaq_RowCount", Value: "1000" });
     }
 
     [Fact]

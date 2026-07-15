@@ -166,10 +166,12 @@ public sealed class VertipaqHandler
                         mutator.SetProperty(new ModelObjectSetRequest(target.Path, target.Assignments, target.Type));
                         annotated++;
                     }
-                    catch (ObjectNotFoundException)
+                    catch (Exception ex) when (ex is ObjectNotFoundException or ArgumentException)
                     {
                         // Statistics may cover engine-side objects the mutated model doesn't have
-                        // (auto date tables, mirror drift); skip those instead of failing the run.
+                        // (auto date tables, mirror drift), and a few names are unaddressable as
+                        // paths (e.g. relationship endpoints with apostrophes); skip those
+                        // instead of failing the run.
                         skipped++;
                     }
                 }

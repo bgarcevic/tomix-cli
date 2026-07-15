@@ -24,13 +24,14 @@ public sealed class VertipaqAnnotationBuilderTests
     }
 
     [Fact]
-    public void Build_EmitsTableAnnotations()
+    public void Build_EmitsTableAnnotations_WithTheBpaRowCountKey()
     {
         var targets = VertipaqAnnotationBuilder.Build(NewStats());
 
-        var sales = Assert.Single(targets, t => t.Path == "Sales");
+        var sales = Assert.Single(targets, t => t.Path == "'Sales'");
         Assert.Equal(ModelObjectKind.Table, sales.Type);
-        Assert.Contains(sales.Assignments, a => a is { Property: "Annotation:Vertipaq_RowsCount", Value: "1000" });
+        // Singular RowCount: the bundled LARGE_TABLES_SHOULD_BE_PARTITIONED rule reads it.
+        Assert.Contains(sales.Assignments, a => a is { Property: "Annotation:Vertipaq_RowCount", Value: "1000" });
         Assert.Contains(sales.Assignments, a => a is { Property: "Annotation:Vertipaq_TableSize", Value: "1300" });
     }
 
@@ -39,7 +40,7 @@ public sealed class VertipaqAnnotationBuilderTests
     {
         var targets = VertipaqAnnotationBuilder.Build(NewStats());
 
-        var amount = Assert.Single(targets, t => t.Path == "Sales/Amount");
+        var amount = Assert.Single(targets, t => t.Path == "'Sales'/'Amount'");
         Assert.Equal(ModelObjectKind.Column, amount.Type);
         Assert.Contains(amount.Assignments, a => a is { Property: "Annotation:Vertipaq_Cardinality", Value: "900" });
         Assert.Contains(amount.Assignments, a => a is { Property: "Annotation:Vertipaq_Encoding", Value: "VALUE" });
@@ -48,7 +49,42 @@ public sealed class VertipaqAnnotationBuilderTests
     }
 
     [Fact]
-    public void Build_QuotesSegmentsContainingSlashes()
+    public void Build_EmitsRelationshipAnnotations_ForTheRiViolationRule()
+    {
+        var targets = VertipaqAnnotationBuilder.Build(NewStats());
+
+        var relationship = Assert.Single(targets, t => t.Type == ModelObjectKind.Relationship);
+        Assert.Equal("'Sales'[ProductKey]->'Product'[ProductKey]", relationship.Path);
+        Assert.Contains(relationship.Assignments, a => a is { Property: "Annotation:Vertipaq_RIViolationInvalidRows", Value: "1" });
+        Assert.Contains(relationship.Assignments, a => a is { Property: "Annotation:Vertipaq_MissingKeys", Value: "2" });
+        Assert.Contains(relationship.Assignments, a => a is { Property: "Annotation:Vertipaq_UsedSize", Value: "24" });
+    }
+
+    [Fact]
+    public void Build_AlwaysQuotesSegments_SoKeywordNamesStayLiteral()
+    {
+        var stats = NewStats() with
+        {
+            Tables =
+            [
+                new VertipaqTableStats("Measures", 1, 1, 1, 1, 0, 0, 0, 0, 100, 1, 1, 1, true)
+            ],
+            Columns =
+            [
+                NewColumn("Measures", "Columns", 1, "HASH")
+            ],
+            Relationships = []
+        };
+
+        var targets = VertipaqAnnotationBuilder.Build(stats);
+
+        // Unquoted, these names would be consumed as container keywords by the path parser.
+        Assert.Contains(targets, t => t.Path == "'Measures'");
+        Assert.Contains(targets, t => t.Path == "'Measures'/'Columns'");
+    }
+
+    [Fact]
+    public void Build_EscapesApostrophesAndSlashes_InQuotedSegments()
     {
         var stats = NewStats() with
         {
@@ -58,14 +94,15 @@ public sealed class VertipaqAnnotationBuilderTests
             ],
             Columns =
             [
-                NewColumn("A/B", "C/D", 1, "HASH")
-            ]
+                NewColumn("A/B", "KPI'er", 1, "HASH")
+            ],
+            Relationships = []
         };
 
         var targets = VertipaqAnnotationBuilder.Build(stats);
 
         Assert.Contains(targets, t => t.Path == "'A/B'");
-        Assert.Contains(targets, t => t.Path == "'A/B'/'C/D'");
+        Assert.Contains(targets, t => t.Path == "'A/B'/'KPI''er'");
     }
 
     private static VertipaqModelStats NewStats()
@@ -81,7 +118,13 @@ public sealed class VertipaqAnnotationBuilderTests
                 NewColumn("Sales", "Amount", 900, "VALUE"),
                 NewColumn("Sales", "RowNumber-2662979B", 0, "HASH", isRowNumber: true)
             ],
-            Relationships: [],
+            Relationships:
+            [
+                new VertipaqRelationshipStats(
+                    "'Sales'[ProductKey] -> 'Product'[ProductKey]",
+                    "Sales", "Product", "'Sales'[ProductKey]", "'Product'[ProductKey]",
+                    24, 100, 100, 2, 1, 0.1, true, "OneDirection")
+            ],
             Partitions: []);
 
     private static VertipaqColumnStats NewColumn(

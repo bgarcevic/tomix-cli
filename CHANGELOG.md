@@ -22,8 +22,10 @@ and the API surface that major versions protect.
   `--fields <list>` per-view field selection (with a relative-size `bar`); `--top <N>`.
   A positional table name filters to one table. `--export <file.vpax>` / `--import <file.vpax>`
   for offline analysis, `--obfuscate` (writes a private `.dict` dictionary). `--annotate` writes
-  `Vertipaq_*` annotations onto the model/tables/columns via the mutation lifecycle (`--save` to
-  persist, workspace mirroring included). In workspace sessions with a local primary, statistics
+  `Vertipaq_*` annotations onto the model/tables/columns/relationships via the mutation lifecycle
+  (`--save` to persist, workspace mirroring included), using the community keys the bundled BPA
+  rules read (`Vertipaq_RowCount`, `Vertipaq_Cardinality`, `Vertipaq_RIViolationInvalidRows`).
+  In workspace sessions with a local primary, statistics
   are read from the remote side automatically. JSON (stable contract) and single-view CSV output.
   New `TOMIX_VERTIPAQ_*` / `TOMIX_VPAX_*` diagnostic codes.
 - `tx set -q name` and `tx mv` warn when a rename leaves DAX expressions referencing the old name, listing the referencing objects (renames never rewrite dependent DAX, so the breakage was previously silent until a deploy). JSON output gains an optional `brokenReferences` field. New `--strict-refs` flag fails the rename instead (`TOMIX_RENAME_BREAKS_REFS`, exit 1) so CI can gate on it.

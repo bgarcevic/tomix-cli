@@ -11,10 +11,11 @@ public sealed record VertipaqAnnotationTarget(
     IReadOnlyList<ModelPropertyAssignment> Assignments);
 
 /// <summary>
-/// Maps statistics to <c>Vertipaq_*</c> annotation assignments (the community naming convention,
-/// so rule engines that consume these annotations keep working). Values are invariant-culture
-/// raw numbers; the extraction date is ISO 8601 UTC. Row-number columns are skipped — they are
-/// storage artifacts that cannot be addressed as model objects.
+/// Maps statistics to <c>Vertipaq_*</c> annotation assignments (the community naming convention
+/// consumed by the bundled BPA rules: <c>Vertipaq_RowCount</c>, <c>Vertipaq_Cardinality</c>,
+/// <c>Vertipaq_RIViolationInvalidRows</c>). Values are invariant-culture raw numbers; the
+/// extraction date is ISO 8601 UTC. Row-number columns are skipped — they are storage artifacts
+/// that cannot be addressed as model objects.
 /// </summary>
 public static class VertipaqAnnotationBuilder
 {
@@ -40,7 +41,7 @@ public static class VertipaqAnnotationBuilder
                 Segment(table.TableName),
                 ModelObjectKind.Table,
                 [
-                    Annotation("Vertipaq_RowsCount", table.RowCount),
+                    Annotation("Vertipaq_RowCount", table.RowCount),
                     Annotation("Vertipaq_TableSize", table.TableSize),
                     Annotation("Vertipaq_ColumnsTotalSize", table.ColumnsTotalSize),
                     Annotation("Vertipaq_RelationshipsSize", table.RelationshipsSize),
@@ -66,13 +67,27 @@ public static class VertipaqAnnotationBuilder
                 ]));
         }
 
+        foreach (var relationship in stats.Relationships)
+        {
+            targets.Add(new VertipaqAnnotationTarget(
+                $"{relationship.FromColumn}->{relationship.ToColumn}",
+                ModelObjectKind.Relationship,
+                [
+                    Annotation("Vertipaq_RIViolationInvalidRows", relationship.InvalidRows),
+                    Annotation("Vertipaq_MissingKeys", relationship.MissingKeys),
+                    Annotation("Vertipaq_UsedSize", relationship.UsedSize)
+                ]));
+        }
+
         return targets;
     }
 
     private static ModelPropertyAssignment Annotation(string name, long value)
         => new($"Annotation:{name}", value.ToString(CultureInfo.InvariantCulture));
 
-    // Same quoting rule as the TOM mutator's path parser: segments containing '/' are quoted.
+    // Quoting forces a literal match in ObjectPath.Parse, so always quote: unquoted names that
+    // collide with container keywords (Measures, Columns, ...) would be consumed as keywords,
+    // and a leading apostrophe would open a quoted group. Embedded quotes double per the parser.
     private static string Segment(string name)
-        => name.Contains('/') ? $"'{name}'" : name;
+        => $"'{name.Replace("'", "''", StringComparison.Ordinal)}'";
 }
