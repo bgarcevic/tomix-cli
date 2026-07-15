@@ -81,12 +81,15 @@ public sealed class ApplyRefreshPolicyHandler
             return TomixResult<RefreshPolicyApplyResult>.Fail(
                 "TOMIX_OBJECT_NOT_FOUND", ex.Message, exitCode: 1, hint: ex.Hint);
         }
-        catch (InvalidOperationException ex)
+        catch (RefreshPolicyNotFoundException ex)
         {
             return TomixResult<RefreshPolicyApplyResult>.Fail(
                 "TOMIX_REFRESH_POLICY_NOT_FOUND", ex.Message, exitCode: 1,
-                hint: "Use 'tx incremental-refresh show' to inspect the table's policy.");
+                hint: "Use 'tx incremental-refresh set' to create a policy first.");
         }
+        // Everything else — database resolution failures from OpenAsync (no/multiple databases,
+        // a bad --database) and server-side apply rejections — is a real failure, not a missing
+        // policy; surface it as apply-failed with the underlying message rather than masking it.
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
             var message = ex.InnerException?.Message ?? ex.Message;

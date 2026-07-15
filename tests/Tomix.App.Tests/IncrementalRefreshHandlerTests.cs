@@ -157,6 +157,35 @@ public sealed class IncrementalRefreshHandlerTests
         Assert.True(session.ApplyCalled);
     }
 
+    [Fact]
+    public async Task Apply_NoPolicy_ReturnsPolicyNotFound()
+    {
+        var session = new StubApplySession(
+            new RefreshPolicyNotFoundException("Table 'Sales' has no incremental refresh policy."));
+        var handler = new ApplyRefreshPolicyHandler([new StubApplyProvider(session)], () => RemoteSession());
+        var result = await handler.HandleAsync(
+            new ApplyRefreshPolicyRequest(null, null, "MyModel", "Sales", null, Refresh: true, null),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("TOMIX_REFRESH_POLICY_NOT_FOUND", result.Diagnostics[0].Code);
+    }
+
+    [Fact]
+    public async Task Apply_ServerFailure_ReturnsApplyFailed_NotPolicyNotFound()
+    {
+        // A generic InvalidOperationException (e.g. bad --database from OpenAsync, or a server-side
+        // apply rejection) must not be mislabeled as a missing policy.
+        var session = new StubApplySession(new InvalidOperationException("Multiple databases on the endpoint."));
+        var handler = new ApplyRefreshPolicyHandler([new StubApplyProvider(session)], () => RemoteSession());
+        var result = await handler.HandleAsync(
+            new ApplyRefreshPolicyRequest(null, null, "MyModel", "Sales", null, Refresh: true, null),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("TOMIX_REFRESH_POLICY_APPLY_FAILED", result.Diagnostics[0].Code);
+    }
+
     // ---- end-to-end round-trip through the real TMDL provider + MutationRunner ----
 
     [Fact]
@@ -250,6 +279,55 @@ public sealed class IncrementalRefreshHandlerTests
         }
     }
 
+    [Fact]
+    public async Task Set_ForcedInvalid_KeepsErrorsInResult()
+    {
+        var model = CopySample();
+        try
+        {
+            var providers = new IModelProvider[] { new TmdlModelProvider() };
+            var result = await new SetRefreshPolicyHandler(providers).HandleAsync(
+                NewSetRequest(new ModelReference(model),
+                    rollingWindowPeriods: 10, rollingWindowGranularity: "year",
+                    incrementalPeriods: 3, incrementalGranularity: "day",
+                    sourceExpression: "let Source = Src in Source", save: true, force: true),
+                CancellationToken.None);
+
+            // --force overrode the blocking error; the save succeeds but the error must remain
+            // visible in the result rather than being silently dropped.
+            Assert.True(result.Success);
+            Assert.NotNull(result.Data!.Issues);
+            Assert.Contains(result.Data.Issues!, i => i.IsError && i.Code == "source_expression_range_refs");
+        }
+        finally
+        {
+            Directory.Delete(model, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task Rm_NoPolicyWithoutIfExists_ReturnsPolicyNotFound()
+    {
+        var model = CopySample();
+        try
+        {
+            var providers = new IModelProvider[] { new TmdlModelProvider() };
+            // The sample's Sales table has no policy; rm without --if-exists must emit the
+            // documented code, not the generic TOMIX_MUTATION_FAILED.
+            var result = await new RemoveRefreshPolicyHandler(providers).HandleAsync(
+                new RemoveRefreshPolicyRequest(new ModelReference(model), "Sales", IfExists: false,
+                    Save: true, SaveTo: null, Serialization: "", Force: false, NoSync: true),
+                CancellationToken.None);
+
+            Assert.False(result.Success);
+            Assert.Equal("TOMIX_REFRESH_POLICY_NOT_FOUND", result.Diagnostics[0].Code);
+        }
+        finally
+        {
+            Directory.Delete(model, recursive: true);
+        }
+    }
+
     private static SetRefreshPolicyRequest NewSetRequest(
         ModelReference? model = null,
         string table = "Sales",
@@ -259,7 +337,8 @@ public sealed class IncrementalRefreshHandlerTests
         string? incrementalGranularity = null,
         string? sourceExpression = null,
         bool save = false,
-        bool revert = false)
+        bool revert = false,
+        bool force = false)
         => new(
             model ?? new ModelReference("model.bim"),
             table,
@@ -271,7 +350,7 @@ public sealed class IncrementalRefreshHandlerTests
             IncrementalOffset: null,
             PollingExpression: null,
             sourceExpression,
-            Force: false,
+            Force: force,
             Save: save,
             SaveTo: null,
             Serialization: "",
@@ -362,7 +441,7 @@ public sealed class IncrementalRefreshHandlerTests
             => Task.FromResult<IModelSession>(session);
     }
 
-    private sealed class StubApplySession : IModelSession, IModelRefreshSession
+    private sealed class StubApplySession(Exception? throwOnApply = null) : IModelSession, IModelRefreshSession
     {
         public bool ApplyCalled { get; private set; }
         public string SourcePath => "";
@@ -383,6 +462,8 @@ public sealed class IncrementalRefreshHandlerTests
             RefreshPolicyApplyRequest request, CancellationToken cancellationToken)
         {
             ApplyCalled = true;
+            if (throwOnApply is not null)
+                throw throwOnApply;
             return Task.FromResult(new RefreshPolicyApplyResult(
                 "stub-server", "MyModel", request.Table,
                 request.EffectiveDate ?? new DateOnly(2024, 1, 1),

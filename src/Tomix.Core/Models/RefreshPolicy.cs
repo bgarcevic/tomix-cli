@@ -73,6 +73,19 @@ public sealed class RefreshPolicyValidationException : Exception
     }
 }
 
+/// <summary>
+/// Thrown when an operation targets a table that has no incremental refresh policy. Callers
+/// (the mutation runner for <c>rm</c>, the apply handler) map it to TOMIX_REFRESH_POLICY_NOT_FOUND,
+/// keeping it distinct from generic mutation/apply failures so the documented code is emitted.
+/// </summary>
+public sealed class RefreshPolicyNotFoundException : Exception
+{
+    public RefreshPolicyNotFoundException(string message)
+        : base(message)
+    {
+    }
+}
+
 /// <param name="EffectiveDate">Date the policy is evaluated against; null = today.</param>
 /// <param name="Refresh">False = bootstrap: create/merge partition definitions without loading data.</param>
 public sealed record RefreshPolicyApplyRequest(

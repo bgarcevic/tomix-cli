@@ -227,10 +227,10 @@ public sealed class TomRefreshPolicyManagerTests
     }
 
     [Fact]
-    public void Remove_NoPolicy_WithoutIfExists_Throws()
+    public void Remove_NoPolicy_WithoutIfExists_ThrowsNotFound()
     {
         var db = BaseModel();
-        Assert.Throws<InvalidOperationException>(
+        Assert.Throws<RefreshPolicyNotFoundException>(
             () => new TomRefreshPolicyManager(db).Remove("Sales", ifExists: false));
     }
 

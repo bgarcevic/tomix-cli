@@ -11,8 +11,11 @@ public sealed record SetRefreshPolicyResult(
     object Saved,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     IReadOnlyList<string>? CreatedExpressions = null,
+    // All validation findings, not just warnings: when --force overrides blocking errors the
+    // save still succeeds, and those errors must remain visible in the result rather than being
+    // silently dropped.
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    IReadOnlyList<RefreshPolicyIssue>? Warnings = null,
+    IReadOnlyList<RefreshPolicyIssue>? Issues = null,
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     bool? Staged = null,
     bool Synced = false,

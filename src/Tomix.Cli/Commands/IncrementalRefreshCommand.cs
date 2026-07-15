@@ -411,8 +411,16 @@ internal sealed class IncrementalRefreshCommand : ICommandModule
             foreach (var name in expressions)
                 AnsiConsole.MarkupLine(Styling.Guidance($"Created shared expression '{name}' (DateTime parameter)."));
 
-        if (result.Warnings is { Count: > 0 })
-            RenderIssues(result.Warnings);
+        if (result.Issues is { Count: > 0 } issues)
+        {
+            // A saved result carrying errors means --force overrode blocking validation; call
+            // that out so the user sees what they bypassed rather than a bare success.
+            var errorCount = issues.Count(i => i.IsError);
+            if (errorCount > 0)
+                AnsiConsole.MarkupLine(Styling.Warning(
+                    $"Saved despite {errorCount} validation error(s) (--force)."));
+            RenderIssues(issues);
+        }
 
         if (result.Staged == true)
             AnsiConsole.MarkupLine(Styling.Guidance("Staged. Run 'tx stage commit' to promote."));

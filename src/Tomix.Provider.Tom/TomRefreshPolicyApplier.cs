@@ -27,7 +27,7 @@ internal static class TomRefreshPolicyApplier
                 hint: "Run 'tx ls tables' to list tables.");
 
         if (table.RefreshPolicy is null)
-            throw new InvalidOperationException(
+            throw new RefreshPolicyNotFoundException(
                 $"Table '{table.Name}' has no incremental refresh policy. Use 'tx incremental-refresh set' to create one.");
 
         var effectiveDate = request.EffectiveDate?.ToDateTime(TimeOnly.MinValue) ?? DateTime.Today;

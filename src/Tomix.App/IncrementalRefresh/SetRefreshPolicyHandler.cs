@@ -49,7 +49,7 @@ public sealed class SetRefreshPolicyHandler
                     request.SourceExpression,
                     request.Force));
 
-                var warnings = mutation.Policy.Issues.Where(i => !i.IsError).ToList();
+                var issues = mutation.Policy.Issues;
                 return Task.FromResult<(bool, string, Func<MutationOutcome, SetRefreshPolicyResult>)>((
                     true,
                     $"incremental-refresh set {mutation.Policy.Table}",
@@ -59,7 +59,7 @@ public sealed class SetRefreshPolicyHandler
                         mutation.Policy,
                         outcome.Saved,
                         CreatedExpressions: mutation.CreatedExpressions.Count > 0 ? mutation.CreatedExpressions : null,
-                        Warnings: warnings.Count > 0 ? warnings : null,
+                        Issues: issues.Count > 0 ? issues : null,
                         Staged: outcome.Staged == true ? true : null,
                         Synced: outcome.Synced,
                         SyncTarget: outcome.SyncTarget,

@@ -93,7 +93,7 @@ public sealed class TomRefreshPolicyManager
             if (ifExists)
                 return new ModelObjectMutationResult(table.Name, Changed: false, Reason: "not_found");
 
-            throw new InvalidOperationException(
+            throw new RefreshPolicyNotFoundException(
                 $"Table '{table.Name}' has no incremental refresh policy.");
         }
 

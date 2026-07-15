@@ -85,6 +85,12 @@ public static class MutationRunner
                 "TOMIX_REFRESH_POLICY_INVALID", ex.Message,
                 hint: "Fix the reported issues or re-run with --force to save anyway.");
         }
+        catch (RefreshPolicyNotFoundException ex)
+        {
+            return TomixResult<TResult>.Fail(
+                "TOMIX_REFRESH_POLICY_NOT_FOUND", ex.Message,
+                hint: "Use --if-exists to ignore, or 'tx incremental-refresh show' to inspect.");
+        }
         catch (NotSupportedException ex)
         {
             return TomixResult<TResult>.Fail("TOMIX_MUTATION_UNSUPPORTED", ex.Message);
