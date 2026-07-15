@@ -1,7 +1,9 @@
 using System.Diagnostics;
 using Tomix.App.Dax;
+using Tomix.App.Diagnostics;
 using Tomix.App.ModelObjects;
 using Tomix.App.Mutations;
+using Tomix.Core.Authentication;
 using Tomix.Core.Models;
 using Tomix.Core.Results;
 
@@ -36,10 +38,24 @@ public sealed class ValidateModelHandler
                 ? new LocalIssues([], [])
                 : ValidateLocal(snapshot);
         }
+        catch (AuthenticationRequiredException ex)
+        {
+            return TomixResult<ValidateModelResult>.Fail("TOMIX_AUTH_REQUIRED", ex.Message, exitCode: 1,
+                hint: "Run 'tx auth login' to authenticate, or use --auth spn for service principal.");
+        }
+        catch (Exception ex) when (request.Model.IsRemote && ex is not OperationCanceledException)
+        {
+            return TomixResult<ValidateModelResult>.Fail(
+                "TOMIX_CONNECT_FAILED",
+                RemoteConnectError.Describe(request.Model.Value, ex),
+                exitCode: 1,
+                hint: "Verify the server URL and credentials.");
+        }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            // A model that cannot even be loaded (e.g. TMDL with unresolvable references) is a
-            // validation failure, not a crash.
+            // A local model that cannot even be loaded (e.g. TMDL with unresolvable references)
+            // is a validation failure, not a crash. Auth and remote-connect failures above stay
+            // diagnostics: they describe the connection, not the model.
             issues = new LocalIssues(
                 [new ValidationIssue("TOMIX_MODEL_LOAD_FAILED", ex.Message, request.Model.Value, Expression: null)],
                 []);

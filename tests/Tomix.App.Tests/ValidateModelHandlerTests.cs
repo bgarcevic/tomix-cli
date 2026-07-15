@@ -248,12 +248,48 @@ public sealed class ValidateModelHandlerTests
         Assert.Contains("cannot be resolved", issue.Message);
     }
 
+    [Fact]
+    public async Task HandleAsync_PreservesAuthRequiredDiagnostic()
+    {
+        var handler = new ValidateModelHandler(
+            [new ThrowingModelProvider(new Tomix.Core.Authentication.AuthenticationRequiredException("Not authenticated. Run 'tx auth login'."))]);
+        var result = await handler.HandleAsync(
+            new ValidateModelRequest(new ModelReference("powerbi://api.powerbi.com/v1.0/myorg/ws", "Model"),
+                ErrorsOnly: false, NoWarnings: false, ServerOnly: true),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Data);
+        Assert.Equal("TOMIX_AUTH_REQUIRED", result.Diagnostics[0].Code);
+        Assert.Contains("auth login", result.Diagnostics[0].Hint);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ReportsRemoteFailureAsConnectDiagnostic()
+    {
+        var handler = new ValidateModelHandler(
+            [new ThrowingModelProvider(new InvalidOperationException("connection refused"))]);
+        var result = await handler.HandleAsync(
+            new ValidateModelRequest(new ModelReference("powerbi://api.powerbi.com/v1.0/myorg/ws", "Model"),
+                ErrorsOnly: false, NoWarnings: false, ServerOnly: true),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Null(result.Data);
+        Assert.Equal("TOMIX_CONNECT_FAILED", result.Diagnostics[0].Code);
+    }
+
     private sealed class ThrowingModelProvider : IModelProvider
     {
+        private readonly Exception _exception;
+
+        public ThrowingModelProvider(Exception? exception = null)
+            => _exception = exception ?? new InvalidOperationException("Property FromColumn cannot be resolved.");
+
         public bool CanOpen(ModelReference _) => true;
 
         public Task<IModelSession> OpenAsync(ModelReference _, CancellationToken ct)
-            => throw new InvalidOperationException("Property FromColumn cannot be resolved.");
+            => throw _exception;
     }
 
     private static Task<Tomix.Core.Results.TomixResult<ValidateModelResult>> ValidateAsync(
