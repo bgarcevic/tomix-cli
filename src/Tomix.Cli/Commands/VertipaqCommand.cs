@@ -150,7 +150,9 @@ internal sealed class VertipaqCommand : ICommandModule
                 if (!string.IsNullOrWhiteSpace(server))
                     server = ModelReference.NormalizeEndpoint(server);
 
-                var resolver = new ActiveModelResolver();
+                // Seed with the picked --recent entry (if any) so the workspace-primary read side
+                // (syncTarget) comes from that entry's mirror, not the active session's.
+                var resolver = RecentConnections.CreateResolver(source);
                 reference = resolver.ResolveReference(source.Model, source.Database, server);
                 syncTarget = resolver.ResolveSyncTarget();
             }

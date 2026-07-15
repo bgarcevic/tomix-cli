@@ -15,9 +15,17 @@ internal static class RecentConnections
 {
     /// <summary>
     /// The model/server/database triple a command should resolve its model from,
-    /// after the --recent override (if any) has been applied.
+    /// after the --recent override (if any) has been applied. <see cref="RecentEntry"/>
+    /// holds the picked connection when --recent was used (else null); callers must resolve
+    /// against it — not the active session — so a recent never inherits the active
+    /// connection's database or workspace mirror. Build the resolver via
+    /// <see cref="CreateResolver"/>.
     /// </summary>
-    public readonly record struct ModelSource(string? Model, string? Server, string? Database);
+    public readonly record struct ModelSource(
+        string? Model,
+        string? Server,
+        string? Database,
+        CliConnectionState? RecentEntry);
 
     /// <summary>
     /// Reads the --server/--database globals and applies the --recent override on top:
@@ -38,7 +46,7 @@ internal static class RecentConnections
 
         if (!GlobalOptions.RecentSpecified(parseResult))
         {
-            source = new ModelSource(explicitModel, server, database);
+            source = new ModelSource(explicitModel, server, database, RecentEntry: null);
             return true;
         }
 
@@ -59,9 +67,28 @@ internal static class RecentConnections
         source = new ModelSource(
             entry!.Connection.Model,
             entry.Connection.Server,
-            string.IsNullOrWhiteSpace(database) ? entry.Connection.Database : database);
+            string.IsNullOrWhiteSpace(database) ? entry.Connection.Database : database,
+            entry.Connection);
         return true;
     }
+
+    /// <summary>
+    /// Builds the resolver a command should use for <paramref name="source"/>. For a --recent
+    /// selection the resolver is seeded with the picked entry so both <c>ResolveReference</c>
+    /// and <c>ResolveSyncTarget</c> draw the database and workspace mirror from that entry,
+    /// never the active session. Otherwise it reads the active session as usual.
+    /// </summary>
+    public static ActiveModelResolver CreateResolver(ModelSource source)
+        => source.RecentEntry is null
+            ? new ActiveModelResolver()
+            : new ActiveModelResolver(() => source.RecentEntry);
+
+    /// <summary>
+    /// The session source a handler that resolves in the App layer (refresh, deploy) should use
+    /// for <paramref name="source"/>: the picked --recent entry, or null to read the active session.
+    /// </summary>
+    public static Func<CliConnectionState?>? SessionSource(ModelSource source)
+        => source.RecentEntry is null ? null : () => source.RecentEntry;
 
     /// <summary>
     /// Resolves --recent to a stored recent connection. Returns false with

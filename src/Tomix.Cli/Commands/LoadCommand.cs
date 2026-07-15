@@ -35,7 +35,7 @@ internal sealed class LoadCommand : ICommandModule
                     out var source,
                     out var recentExit))
                 return recentExit;
-            var reference = new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server);
+            var reference = RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server);
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
             var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
 

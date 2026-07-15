@@ -114,7 +114,7 @@ internal sealed class MvCommand : ICommandModule
                     out var source,
                     out var recentExit))
                 return recentExit;
-            var reference = new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server);
+            var reference = RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server);
             var label = MutationSpinnerLabel.For(
                 parseResult.GetValue(saveOption),
                 parseResult.GetValue(saveToOption),

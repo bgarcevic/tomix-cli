@@ -209,7 +209,7 @@ internal sealed class BpaCommand : ICommandModule
                 "Running BPA analysis...",
                 () => new BpaRunHandler(_providers).HandleAsync(
                     new BpaRunRequest(
-                        new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server),
+                        RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server),
                         ruleFiles,
                         parseResult.GetValue(noDefaultsOption),
                         parseResult.GetValue(pathOption),
@@ -334,7 +334,7 @@ internal sealed class BpaCommand : ICommandModule
             {
                 if (!RecentConnections.TryGetSource(parseResult, modelPath, out var source, out var recentExit))
                     return recentExit;
-                model = new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server);
+                model = RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server);
             }
             else if (!string.IsNullOrWhiteSpace(modelPath))
             {
@@ -527,7 +527,7 @@ internal sealed class BpaCommand : ICommandModule
                     out var source,
                     out var recentExit))
                 return recentExit;
-            var model = new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server);
+            var model = RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server);
 
             var result = await new BpaRulesIgnoreHandler(_providers).HandleAsync(
                 new BpaRulesIgnoreRequest(

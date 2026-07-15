@@ -76,7 +76,7 @@ internal sealed class GetCommand : ICommandModule
                     out var source,
                     out var recentExit))
                 return recentExit;
-            var reference = new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server);
+            var reference = RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server);
             var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             var result = await CliSpinner.RunAsync(
                 "Loading model...",

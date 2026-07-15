@@ -111,7 +111,7 @@ internal sealed class DepsCommand : ICommandModule
                 "Analyzing dependencies...",
                 () => new DepsModelHandler(_providers).HandleAsync(
                     new DepsModelRequest(
-                        new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server),
+                        RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server),
                         parseResult.GetValue(pathArgument),
                         type,
                         upstreamOnly,

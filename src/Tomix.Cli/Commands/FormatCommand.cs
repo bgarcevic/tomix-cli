@@ -132,7 +132,7 @@ internal sealed class FormatCommand : ICommandModule
                 "Formatting...",
                 () => new FormatModelHandler(_providers, _formatter).HandleAsync(
                     new FormatModelRequest(
-                        new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server),
+                        RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server),
                         expression,
                         parseResult.GetValue(pathOption),
                         parseResult.GetValue(langOption) ?? "",

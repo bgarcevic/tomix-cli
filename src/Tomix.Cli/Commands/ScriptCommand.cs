@@ -119,7 +119,7 @@ internal sealed class ScriptCommand : ICommandModule
                 "Running script...",
                 () => new ScriptHandler(_providers).HandleAsync(
                     new ScriptRunRequest(
-                        new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server),
+                        RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server),
                         scriptFiles,
                         expressions,
                         parseResult.GetValue(dryRunOption),

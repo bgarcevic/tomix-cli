@@ -69,7 +69,7 @@ internal sealed class LsCommand : ICommandModule
                     out var recentExit))
                 return recentExit;
 
-            var activeReference = new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server);
+            var activeReference = RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server);
             var hasContextModel = !string.IsNullOrWhiteSpace(activeReference.Value);
 
             // Canonical order is `ls [path-filter] [model]`, matching `get <path> [model]`.

@@ -97,7 +97,10 @@ internal sealed class SaveCommand : ICommandModule
                     out var recentExit))
                 return recentExit;
 
-            var resolver = new ActiveModelResolver();
+            // Seed the resolver with the picked --recent entry (if any) so the sync target is the
+            // mirror saved with that entry, not the active session's — otherwise `save --recent`
+            // could push the recent model to the wrong workspace mirror.
+            var resolver = RecentConnections.CreateResolver(source);
             var reference = resolver.ResolveReference(source.Model, source.Database, source.Server);
 
             var syncTarget = noSync ? null : resolver.ResolveSyncTarget();

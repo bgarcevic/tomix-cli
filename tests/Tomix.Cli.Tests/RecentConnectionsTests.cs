@@ -101,4 +101,48 @@ public sealed class RecentConnectionsTests
     [Fact]
     public void RecentOption_AbsentByDefault()
         => Assert.False(GlobalOptions.RecentSpecified(Parse("connect")));
+
+    // Regression: a server-only recent must resolve against the picked entry, not the active
+    // session, so it never inherits the active connection's database (a `load --recent` on a
+    // server-only entry must not open the active session's database on that server).
+    [Fact]
+    public void CreateResolver_ServerOnlyRecent_DoesNotInheritDatabase()
+    {
+        var entry = new CliConnectionState(
+            "powerbi://api.powerbi.com/v1.0/myorg/ws", Database: null, Model: null,
+            Auth: null, Local: false, Profile: null);
+        var source = new RecentConnections.ModelSource(entry.Model, entry.Server, entry.Database, entry);
+
+        var reference = RecentConnections.CreateResolver(source)
+            .ResolveReference(source.Model, source.Database, source.Server);
+
+        Assert.True(reference.IsRemote);
+        Assert.Null(reference.Database);
+    }
+
+    // Regression: the sync target for a recent must be the mirror stored with that entry, not the
+    // active session's mirror — otherwise `save --recent` could push to the wrong workspace.
+    [Fact]
+    public void CreateResolver_Recent_UsesEntryMirrorAsSyncTarget()
+    {
+        var entry = new CliConnectionState(
+            Server: null, Database: "Sales", Model: "/models/sales",
+            Auth: null, Local: true, Profile: null,
+            Workspace: "powerbi://api.powerbi.com/v1.0/myorg/mirror");
+        var source = new RecentConnections.ModelSource(entry.Model, entry.Server, entry.Database, entry);
+
+        var syncTarget = RecentConnections.CreateResolver(source).ResolveSyncTarget();
+
+        Assert.NotNull(syncTarget);
+        Assert.Equal("powerbi://api.powerbi.com/v1.0/myorg/mirror", syncTarget!.Value);
+        Assert.Equal("Sales", syncTarget.Database);
+    }
+
+    // A non-recent source keeps reading the active session (RecentEntry is null).
+    [Fact]
+    public void CreateResolver_NonRecentSource_HasNullRecentEntry()
+    {
+        var source = new RecentConnections.ModelSource("/models/x", null, null, RecentEntry: null);
+        Assert.Null(source.RecentEntry);
+    }
 }

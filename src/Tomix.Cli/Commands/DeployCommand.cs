@@ -133,8 +133,10 @@ internal sealed class DeployCommand : ICommandModule
                 if (!RecentConnections.TryResolve(parseResult, new CliStateStore(), out var entry, out var recentExit))
                     return recentExit;
 
+                // Resolve against the picked entry (not the active session) so a server-only
+                // recent source does not inherit the active connection's database.
                 var recent = entry!.Connection;
-                reference = new ActiveModelResolver().ResolveReference(recent.Model, recent.Database, recent.Server);
+                reference = new ActiveModelResolver(() => recent).ResolveReference(recent.Model, recent.Database, recent.Server);
             }
             else
             {

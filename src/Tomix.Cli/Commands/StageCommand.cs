@@ -170,7 +170,7 @@ internal sealed class StageCommand : ICommandModule
         // Stage resolution deliberately ignores --server today; a server only takes part
         // when it comes from the --recent override.
         reference = GlobalOptions.RecentSpecified(parseResult)
-            ? new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server)
+            ? RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server)
             : new ActiveModelResolver().ResolveReference(source.Model, source.Database);
         return true;
     }

@@ -77,7 +77,7 @@ internal sealed class ValidateCommand : ICommandModule
                 "Validating model...",
                 () => new ValidateModelHandler(_providers).HandleAsync(
                     new ValidateModelRequest(
-                        new ActiveModelResolver().ResolveReference(source.Model, source.Database, source.Server),
+                        RecentConnections.CreateResolver(source).ResolveReference(source.Model, source.Database, source.Server),
                         errorsOnly,
                         parseResult.GetValue(noWarningsOption) || errorsOnly,
                         parseResult.GetValue(serverOnlyOption)),
