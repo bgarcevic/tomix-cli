@@ -17,14 +17,14 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
     private static readonly (string Heading, string[] Commands)[] RootSections =
     [
         ("Discover", ["ls", "get", "find", "deps"]),
-        ("Modify", ["add", "set", "mv", "rm", "replace", "format", "script"]),
+        ("Modify", ["add", "set", "mv", "rm", "replace", "format", "script", "incremental-refresh"]),
         ("Connect", ["connect", "deploy", "refresh", "load", "save", "auth", "session"]),
-        ("Validate", ["bpa", "validate", "diff", "doctor"]),
+        ("Validate", ["bpa", "validate", "vertipaq", "diff", "doctor"]),
         ("Manage", ["config", "profile", "init", "completion", "stage", "interactive"]),
     ];
 
     private static readonly string[] NotImplementedCommands =
-        ["incremental-refresh", "query", "vertipaq"];
+        ["query"];
 
     private static readonly Dictionary<string, string[]> CommandExamples = new(StringComparer.Ordinal)
     {
@@ -78,10 +78,17 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx script transform.csx --save",
             "tx script -e \"Model.Tables[\\\"Sales\\\"].Name\" --output-format json",
         ],
+        ["incremental-refresh"] = [
+            "tx incremental-refresh show Sales",
+            "tx incremental-refresh set Sales --rolling-window-periods 10 --rolling-window-granularity year --incremental-periods 3 --incremental-granularity day --source-expression-file source.m --save",
+            "tx incremental-refresh apply Sales --no-refresh",
+        ],
         ["connect"] = [
             "tx connect",
+            "tx connect --remote",
             "tx connect MyWorkspace Sales",
             "tx connect ./model.tmdl",
+            "tx connect ./model.tmdl -w",
             "tx connect --local",
             "tx connect ./model.tmdl -w MyWorkspace Sales",
         ],
@@ -117,6 +124,13 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx validate",
             "tx validate --ci",
             "tx validate --trx",
+        ],
+        ["vertipaq"] = [
+            "tx vertipaq",
+            "tx vertipaq Sales --detail",
+            "tx vertipaq --stats --all --top 10",
+            "tx vertipaq --export stats.vpax",
+            "tx vertipaq --import stats.vpax --relationships",
         ],
         ["diff"] = [
             "tx diff ./v1.tmdl ./v2.tmdl",

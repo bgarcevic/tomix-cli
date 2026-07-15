@@ -130,10 +130,37 @@ Emitted by `get`, `deps`, and `format -p` when a model object path fails to reso
 | `TOMIX_QUERY_INPUT_CONFLICT` | 2 | `-q` and `--file` were passed together; choose one. |
 | `TOMIX_QUERY_FILE_NOT_FOUND` | 2 | The `--file` path does not exist. |
 | `TOMIX_QUERY_BAD_PARAM` | 2 | A `--param` value was not formatted as `name=value`. |
+| `TOMIX_QUERY_OUTPUT_FORMAT` | 2 | `-o`/`--output-file` could not resolve a json or csv format (pass `--output-format json\|csv` or use a `.json`/`.csv` extension). |
 | `TOMIX_QUERY_INVALID` | 2 | The query does not start with `EVALUATE`, `DEFINE`, or `SELECT`; bypass with `--no-validate`. |
 | `TOMIX_QUERY_NO_REMOTE_TARGET` | 2 | `query` could not resolve a live endpoint (default connection is local and no remote workspace-mode secondary is set). |
 | `TOMIX_QUERY_UNSUPPORTED` | 2 | The provider session does not implement `IModelQuerySession` (e.g. a local TMDL/BIM model). |
 | `TOMIX_QUERY_FAILED` | 1 | The query was rejected or failed on the server (DAX error, no permissions, timeout, etc.). |
+
+## Incremental Refresh Codes (`TOMIX_REFRESH_POLICY_*`)
+
+Emitted by `incremental-refresh` (show/set/rm/apply).
+
+| Code | Exit | Trigger |
+|------|------|---------|
+| `TOMIX_REFRESH_POLICY_NOT_FOUND` | 1 | `show`/`rm`/`apply` targeted a table that has no incremental refresh policy. |
+| `TOMIX_REFRESH_POLICY_INVALID` | 1 | `set` produced validation errors (missing range parameters, source expression not referencing RangeStart/RangeEnd, incoherent granularity/periods, incompatible compatibility level) and `--force` was not passed. |
+| `TOMIX_REFRESH_POLICY_UNSUPPORTED` | 2 | `apply` targeted a session that is not XMLA-backed (partition generation runs on the server). |
+| `TOMIX_REFRESH_POLICY_APPLY_FAILED` | 1 | The server rejected the `apply` operation. |
+
+`incremental-refresh` also reuses `TOMIX_OBJECT_NOT_FOUND` (table missing), `TOMIX_REFRESH_NO_REMOTE_TARGET` (`apply` with no remote endpoint), `TOMIX_NO_PROVIDER`, `TOMIX_AUTH_REQUIRED`, and the `TOMIX_MUTATION_*` / `TOMIX_STAGE_*` families via the shared mutation runner. Validation findings surfaced in the result payload (e.g. `range_parameter_missing`, `granularity_order`, `no_polling_expression`) are lowercase snake tokens, not `TOMIX_` diagnostic codes.
+
+## VertiPaq Codes (`TOMIX_VERTIPAQ_*` / `TOMIX_VPAX_*`)
+
+| Code | Exit | Trigger |
+|------|------|---------|
+| `TOMIX_VERTIPAQ_UNSUPPORTED_SOURCE` | 2 | The source is a local model definition (TMDL/BIM) with no live storage engine; connect to a deployed model or use `--import`. |
+| `TOMIX_VERTIPAQ_OPTIONS_CONFLICT` | 2 | Conflicting options: `--import` with `--export` or `--annotate`, `--obfuscate` without `--export`, or `--save` without `--annotate`. |
+| `TOMIX_VERTIPAQ_INVALID_FIELDS` | 2 | An unknown `--fields` token for the selected view, or `--fields` used with multiple views. |
+| `TOMIX_VERTIPAQ_INVALID_TOP` | 2 | `--top` was not a positive integer. |
+| `TOMIX_VERTIPAQ_TABLE_NOT_FOUND` | 1 | The positional table filter matched no table in the statistics. |
+| `TOMIX_VERTIPAQ_FAILED` | 1 | Statistics extraction against the live engine failed. |
+| `TOMIX_VPAX_READ_FAILED` | 2 | The `--import` file is missing, unreadable, or not a valid statistics package. |
+| `TOMIX_VPAX_WRITE_FAILED` | 2 | The `--export` target (or its obfuscation dictionary) could not be written. |
 
 ## Init Codes (`TOMIX_INIT_*`)
 
@@ -177,14 +204,33 @@ Emitted by `get`, `deps`, and `format -p` when a model object path fails to reso
 | `TOMIX_PROFILE_NOT_FOUND` | 1 | The named profile was not found. |
 | `TOMIX_PROFILE_NAME_REQUIRED` | 2 | `profile set` called without a profile name. |
 
+## Validate Issue Codes
+
+Codes carried on the issues inside a `validate` result (not top-level diagnostics; the
+command exits `1` when any error-severity issue is present). `DAX*` codes come from the
+offline DAX reference scan; `TOMIX_*` codes come from structural integrity checks.
+
+| Code | Severity | Trigger |
+|------|----------|---------|
+| `DAX0001` | Error | A DAX expression references a table that does not exist in the model. |
+| `DAX0002` | Error | A DAX expression references a column that does not exist on the named table (and no measure by that name exists). |
+| `DAX0003` | Warning | An unqualified `[X]` reference resolves to no measure or column anywhere in the model. Warning-severity because it may be a query-scoped extension column (`ADDCOLUMNS`/`SUMMARIZE`), which offline analysis cannot see. |
+| `TOMIX_BROKEN_RELATIONSHIP` | Error | A relationship endpoint refers to a missing column. |
+| `TOMIX_BROKEN_SORT_BY` | Error | A column's sort-by column does not exist on its table. |
+| `TOMIX_BROKEN_LEVEL` | Error | A hierarchy level is bound to a column that does not exist on its table. |
+| `TOMIX_MODEL_LOAD_FAILED` | Error | The model could not be opened or snapshotted at all (e.g. TMDL with unresolvable references); the provider's message is passed through. |
+
 ## General Codes
 
 | Code | Exit | Trigger |
 |------|------|---------|
 | `TOMIX_NO_PROVIDER` | 2 | No registered provider can open the model. |
+| `TOMIX_MODEL_LOAD_FAILED` | 2 | A provider matched the model but its source could not be loaded (unparsable TMDL/BIM, unresolvable references, unreadable file). The provider's message describes what failed; the command never ran. |
 | `TOMIX_NO_MODEL` | 2 | No model reference was provided and none could be inferred. |
 | `TOMIX_CONNECT_FAILED` | 1 | `connect` failed to establish a session. |
 | `TOMIX_CONNECT_INVALID_TARGET` | 1 | `connect` was given a server that is neither a remote endpoint nor a local model path. |
+| `TOMIX_INTERACTIVE_REQUIRED` | 1 | An interactive-only flow (`connect --remote`, a valueless `-w`) was invoked without a TTY (e.g. `--non-interactive`, `--quiet`, redirected input, or json/csv output). Pass the workspace/model explicitly. |
+| `TOMIX_REMOTE_LIST_FAILED` | 1 | Listing workspaces or models failed (Power BI REST or XMLA error) during an interactive `connect`. |
 | `TOMIX_DATABASE_NOT_FOUND` | 1 | The database/model name was not found on the server. |
 | `TOMIX_DEPS_PATH_REQUIRED` | 2 | `deps` called without an object path. |
 | `TOMIX_FIND_INVALID_REGEX` | 2 | `find --regex` called with an invalid regular expression pattern. |

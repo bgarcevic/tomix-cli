@@ -91,6 +91,15 @@ internal sealed class TomFileModelSession : IModelSession, IModelExportSession, 
     public ModelExpressionRewriteResult RewriteExpressions(IReadOnlyList<ModelExpressionEdit> edits)
         => new TomModelMutator(GetDatabase()).RewriteExpressions(edits);
 
+    public RefreshPolicyInfo? GetRefreshPolicy(string table)
+        => new TomRefreshPolicyManager(GetDatabase()).Get(table);
+
+    public RefreshPolicySetResult SetRefreshPolicy(RefreshPolicySetRequest request)
+        => new TomRefreshPolicyManager(GetDatabase()).Set(request);
+
+    public ModelObjectMutationResult RemoveRefreshPolicy(string table, bool ifExists = false)
+        => new TomRefreshPolicyManager(GetDatabase()).Remove(table, ifExists);
+
     public Task<ModelExportResult> SaveAsync(
         string? outputPath,
         string serialization,
@@ -130,10 +139,22 @@ internal sealed class TomFileModelSession : IModelSession, IModelExportSession, 
         => TomModelDeployer.GenerateScript(GetDatabase(), request);
 
     private TabularDatabase GetDatabase()
-        => _database ??= TabularJsonSerializer.DeserializeDatabase(
-            ExtractDatabaseJson(File.ReadAllText(_path)),
-            new DeserializeOptions(),
-            CompatibilityMode.PowerBI);
+    {
+        if (_database is not null)
+            return _database;
+
+        try
+        {
+            return _database = TabularJsonSerializer.DeserializeDatabase(
+                ExtractDatabaseJson(File.ReadAllText(_path)),
+                new DeserializeOptions(),
+                CompatibilityMode.PowerBI);
+        }
+        catch (Exception ex)
+        {
+            throw new ModelLoadException($"Cannot load model from '{_path}': {ex.Message}", ex);
+        }
+    }
 
     private static string ExtractDatabaseJson(string json)
     {

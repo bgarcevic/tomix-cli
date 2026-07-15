@@ -65,6 +65,15 @@ public sealed class TmdlModelSession : IModelSession, IModelExportSession, IMode
     public ModelExpressionRewriteResult RewriteExpressions(IReadOnlyList<ModelExpressionEdit> edits)
         => new TomModelMutator(GetDatabase()).RewriteExpressions(edits);
 
+    public RefreshPolicyInfo? GetRefreshPolicy(string table)
+        => new TomRefreshPolicyManager(GetDatabase()).Get(table);
+
+    public RefreshPolicySetResult SetRefreshPolicy(RefreshPolicySetRequest request)
+        => new TomRefreshPolicyManager(GetDatabase()).Set(request);
+
+    public ModelObjectMutationResult RemoveRefreshPolicy(string table, bool ifExists = false)
+        => new TomRefreshPolicyManager(GetDatabase()).Remove(table, ifExists);
+
     public Task<ModelExportResult> SaveAsync(
         string? outputPath,
         string serialization,
@@ -103,7 +112,20 @@ public sealed class TmdlModelSession : IModelSession, IModelExportSession, IMode
     public string GenerateScript(ModelDeployRequest request)
         => TomModelDeployer.GenerateScript(GetDatabase(), request);
 
-    private Database GetDatabase() => _database ??= TmdlSerializer.DeserializeDatabaseFromFolder(_path);
+    private Database GetDatabase()
+    {
+        if (_database is not null)
+            return _database;
+
+        try
+        {
+            return _database = TmdlSerializer.DeserializeDatabaseFromFolder(_path);
+        }
+        catch (Exception ex)
+        {
+            throw new ModelLoadException($"Cannot load TMDL model from '{_path}': {ex.Message}", ex);
+        }
+    }
 
     private static string ModelName(Database database)
         => string.IsNullOrWhiteSpace(database.Name) ? "(unnamed)" : database.Name;

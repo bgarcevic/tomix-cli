@@ -11,9 +11,9 @@ namespace Tomix.Provider.Tom;
 /// <c>localhost:&lt;port&gt;</c> Power BI Desktop instance). Remote endpoints acquire a token
 /// from the injected <see cref="IAccessTokenProvider"/>; local instances connect without one.
 /// Supports read operations (summary, snapshot), mutation (add/set/rm/replace), deploy, and export.
-/// Mutations are persisted to the server via <c>Database.Update()</c> on save.
+/// Mutations are persisted to the server via <c>Model.SaveChanges()</c> on save.
 /// </summary>
-public sealed class TomServerModelProvider : IModelProvider
+public sealed class TomServerModelProvider : IModelProvider, IServerCatalog
 {
     private readonly IAccessTokenProvider? _tokenProvider;
 
@@ -22,6 +22,42 @@ public sealed class TomServerModelProvider : IModelProvider
     public bool CanOpen(ModelReference reference) => reference.IsRemote;
 
     public async Task<IModelSession> OpenAsync(ModelReference reference, CancellationToken cancellationToken)
+    {
+        var server = await ConnectServerAsync(reference, cancellationToken).ConfigureAwait(false);
+        return new TomServerModelSession(server, ResolveDatabase(server, reference.Database), reference, _tokenProvider);
+    }
+
+    public bool CanList(ModelReference endpoint) => endpoint.IsRemote;
+
+    public async Task<IReadOnlyList<ServerDatabaseInfo>> ListDatabasesAsync(
+        ModelReference endpoint,
+        CancellationToken cancellationToken)
+    {
+        var server = await ConnectServerAsync(endpoint with { Database = null }, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var databases = new List<ServerDatabaseInfo>(server.Databases.Count);
+            foreach (TabularDatabase database in server.Databases)
+            {
+                databases.Add(new ServerDatabaseInfo(
+                    string.IsNullOrWhiteSpace(database.Name) ? database.ID : database.Name,
+                    database.CompatibilityLevel,
+                    database.LastUpdate == default
+                        ? null
+                        : new DateTimeOffset(DateTime.SpecifyKind(database.LastUpdate, DateTimeKind.Utc))));
+            }
+
+            return databases;
+        }
+        finally
+        {
+            if (server.Connected)
+                server.Disconnect();
+            server.Dispose();
+        }
+    }
+
+    private async Task<TabularServer> ConnectServerAsync(ModelReference reference, CancellationToken cancellationToken)
     {
         var server = new TabularServer();
 
@@ -41,7 +77,7 @@ public sealed class TomServerModelProvider : IModelProvider
         }
 
         server.Connect(BuildConnectionString(reference));
-        return new TomServerModelSession(server, ResolveDatabase(server, reference.Database), reference, _tokenProvider);
+        return server;
     }
 
     internal static string BuildConnectionString(ModelReference reference)
@@ -127,6 +163,15 @@ internal sealed class TomServerModelSession : IModelSession, IModelExportSession
     public ModelExpressionRewriteResult RewriteExpressions(IReadOnlyList<ModelExpressionEdit> edits)
         => new TomModelMutator(_database).RewriteExpressions(edits);
 
+    public RefreshPolicyInfo? GetRefreshPolicy(string table)
+        => new TomRefreshPolicyManager(_database).Get(table);
+
+    public RefreshPolicySetResult SetRefreshPolicy(RefreshPolicySetRequest request)
+        => new TomRefreshPolicyManager(_database).Set(request);
+
+    public ModelObjectMutationResult RemoveRefreshPolicy(string table, bool ifExists = false)
+        => new TomRefreshPolicyManager(_database).Remove(table, ifExists);
+
     public Task<ModelExportResult> SaveAsync(
         string? outputPath,
         string serialization,
@@ -134,7 +179,19 @@ internal sealed class TomServerModelSession : IModelSession, IModelExportSession
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _database.Update();
+
+        // Database.Update() without options alters only the database object itself; model-tree
+        // changes (measures, properties, annotations) silently vanish. SaveChanges() sends the
+        // incremental model edits, and its result can carry XMLA errors without throwing.
+        var result = _database.Model.SaveChanges();
+        if (result.XmlaResults is { } xmlaResults)
+        {
+            var serverErrors = new List<string>();
+            XmlaResultHelper.ExtractMessages(xmlaResults, serverErrors);
+            if (serverErrors.Count > 0)
+                throw new InvalidOperationException(
+                    $"The server rejected the save: {string.Join("; ", serverErrors)}");
+        }
 
         if (string.IsNullOrWhiteSpace(outputPath))
             return Task.FromResult(new ModelExportResult(ModelName(), "remote"));
@@ -162,6 +219,11 @@ internal sealed class TomServerModelSession : IModelSession, IModelExportSession
 
     public string GenerateRefreshScript(ModelRefreshRequest request)
         => TomModelRefresher.GenerateRefreshScript(_database, request);
+
+    public Task<RefreshPolicyApplyResult> ApplyRefreshPolicyAsync(
+        RefreshPolicyApplyRequest request,
+        CancellationToken cancellationToken)
+        => TomRefreshPolicyApplier.ApplyAsync(_server, _database, request, cancellationToken);
 
     public Task<ModelQueryResult> ExecuteQueryAsync(
         ModelQueryRequest request,

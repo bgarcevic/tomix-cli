@@ -69,6 +69,22 @@ public sealed class ErrorCodeContractTests
         Assert.Matches(@"^TOMIX_[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$", code);
     }
 
+    // ── VertiPaq / VPAX error codes ─────────────────────────────────────────
+
+    [Theory]
+    [InlineData("TOMIX_VERTIPAQ_UNSUPPORTED_SOURCE")]
+    [InlineData("TOMIX_VERTIPAQ_FAILED")]
+    [InlineData("TOMIX_VERTIPAQ_TABLE_NOT_FOUND")]
+    [InlineData("TOMIX_VERTIPAQ_OPTIONS_CONFLICT")]
+    [InlineData("TOMIX_VERTIPAQ_INVALID_FIELDS")]
+    [InlineData("TOMIX_VERTIPAQ_INVALID_TOP")]
+    [InlineData("TOMIX_VPAX_READ_FAILED")]
+    [InlineData("TOMIX_VPAX_WRITE_FAILED")]
+    public void VertipaqErrorCodes_AreValidUppercaseSnakeCase(string code)
+    {
+        Assert.Matches(@"^TOMIX_[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$", code);
+    }
+
     [Fact]
     public void MutationErrorCode_Failed_UsedForInvalidOperationException()
     {
@@ -93,6 +109,7 @@ public sealed class ErrorCodeContractTests
     [InlineData("TOMIX_QUERY_INPUT_CONFLICT")]
     [InlineData("TOMIX_QUERY_FILE_NOT_FOUND")]
     [InlineData("TOMIX_QUERY_BAD_PARAM")]
+    [InlineData("TOMIX_QUERY_OUTPUT_FORMAT")]
     [InlineData("TOMIX_QUERY_INVALID")]
     [InlineData("TOMIX_QUERY_NO_REMOTE_TARGET")]
     [InlineData("TOMIX_QUERY_UNSUPPORTED")]
@@ -100,6 +117,31 @@ public sealed class ErrorCodeContractTests
     public void QueryErrorCodes_AreValidUppercaseSnakeCase(string code)
     {
         Assert.Matches(@"^TOMIX_[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$", code);
+    }
+
+    // ── Incremental-refresh error codes ─────────────────────────────────────
+
+    [Theory]
+    [InlineData("TOMIX_REFRESH_POLICY_NOT_FOUND")]
+    [InlineData("TOMIX_REFRESH_POLICY_INVALID")]
+    [InlineData("TOMIX_REFRESH_POLICY_UNSUPPORTED")]
+    [InlineData("TOMIX_REFRESH_POLICY_APPLY_FAILED")]
+    public void RefreshPolicyCodes_AreValidUppercaseSnakeCase(string code)
+    {
+        Assert.Matches(@"^TOMIX_[A-Z][A-Z0-9]*(_[A-Z0-9]+)*$", code);
+        Assert.StartsWith("TOMIX_REFRESH_POLICY_", code);
+    }
+
+    [Fact]
+    public void RefreshPolicyInvalid_IncludesForceHint()
+    {
+        var result = TomixResult<object>.Fail(
+            "TOMIX_REFRESH_POLICY_INVALID",
+            "Refresh policy for 'Sales' has validation errors: ...",
+            hint: "Fix the reported issues or re-run with --force to save anyway.");
+        var json = JsonDocument.Parse(JsonFromResult(result));
+
+        Assert.Contains("--force", json.RootElement.GetProperty("hint").GetString());
     }
 
     // ── Object lookup error codes ───────────────────────────────────────────

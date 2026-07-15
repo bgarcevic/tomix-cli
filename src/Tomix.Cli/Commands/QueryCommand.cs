@@ -114,7 +114,16 @@ internal sealed class QueryCommand : ICommandModule
                 fileFormat = ResolveOutputFileFormat(outputFile, explicitFormat);
                 if (fileFormat is null)
                 {
-                    Console.Error.WriteLine("'tx query --output-file' writes json or csv. Use --output-format json|csv or a .json/.csv extension.");
+                    ErrorOutput.Write(
+                        new[]
+                        {
+                            new TomixDiagnostic(
+                                "TOMIX_QUERY_OUTPUT_FORMAT",
+                                DiagnosticSeverity.Error,
+                                "'tx query --output-file' writes json or csv.",
+                                Hint: "Use --output-format json|csv or a .json/.csv extension.")
+                        },
+                        errorFormat);
                     return 2;
                 }
             }

@@ -48,68 +48,7 @@ internal sealed class CompatibilityStubCommand : ICommandModule
         return command;
     }
 
-    public static IReadOnlyList<CompatibilityStubCommand> All() =>
-    [
-        New("incremental-refresh", "Configure incremental refresh policy on a table",
-            subcommands:
-            [
-                New("apply", "Apply incremental refresh policy",
-                    args: [Required("table")],
-                    options:
-                    [
-                        Value("--effective-date")
-                    ]),
-                New("rm", "Remove incremental refresh policy",
-                    args: [Required("table")],
-                    options:
-                    [
-                        Flag("--force"),
-                        Flag("--stage"),
-                        Flag("--revert"),
-                        Flag("--save")
-                    ]),
-                New("set", "Set incremental refresh policy",
-                    args: [Required("table")],
-                    options:
-                    [
-                        Value("--mode"),
-                        Value("--rolling-window-periods"),
-                        Value("--rolling-window-granularity"),
-                        Value("--incremental-periods"),
-                        Value("--incremental-granularity"),
-                        Value("--incremental-offset"),
-                        Value("--polling-expression"),
-                        Value("--polling-expression-file"),
-                        Value("--source-expression"),
-                        Value("--source-expression-file"),
-                        Flag("--force"),
-                        Flag("--stage"),
-                        Flag("--revert"),
-                        Flag("--save"),
-                        Value("--save-to")
-                    ]),
-                New("show", "Show incremental refresh policy",
-                    args: [Required("table")])
-            ]),
-        New("vertipaq", "Analyze VertiPaq storage statistics for a semantic model",
-            args: [Optional("path")],
-            options:
-            [
-                Value("--import"),
-                Value("--export"),
-                Flag("--obfuscate"),
-                Flag("--columns"),
-                Flag("--relationships"),
-                Flag("--partitions"),
-                Flag("--all"),
-                Flag("--detail"),
-                Value("--top"),
-                Flag("--stats"),
-                Flag("--annotate"),
-                Flag("--save"),
-                Value("--fields")
-            ])
-    ];
+    public static IReadOnlyList<CompatibilityStubCommand> All() => [];
 
     private static CompatibilityStubCommand New(
         string name,
