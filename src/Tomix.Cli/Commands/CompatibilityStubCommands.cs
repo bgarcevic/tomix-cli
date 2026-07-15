@@ -318,24 +318,6 @@ internal sealed class CompatibilityStubCommand : ICommandModule
                 Flag("--no-antipatterns"),
                 Flag("--no-multiline"),
                 Flag("--server-only")
-            ]),
-        New("vertipaq", "Analyze VertiPaq storage statistics for a semantic model",
-            args: [Optional("path")],
-            options:
-            [
-                Value("--import"),
-                Value("--export"),
-                Flag("--obfuscate"),
-                Flag("--columns"),
-                Flag("--relationships"),
-                Flag("--partitions"),
-                Flag("--all"),
-                Flag("--detail"),
-                Value("--top"),
-                Flag("--stats"),
-                Flag("--annotate"),
-                Flag("--save"),
-                Value("--fields")
             ])
     ];
 
