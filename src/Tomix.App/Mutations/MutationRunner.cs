@@ -79,6 +79,12 @@ public static class MutationRunner
                 "TOMIX_RM_BREAKS_REFS", ex.Message,
                 hint: "Inspect with 'tx deps', update with 'tx replace', or re-run with --force to remove anyway.");
         }
+        catch (RefreshPolicyValidationException ex)
+        {
+            return TomixResult<TResult>.Fail(
+                "TOMIX_REFRESH_POLICY_INVALID", ex.Message,
+                hint: "Fix the reported issues or re-run with --force to save anyway.");
+        }
         catch (NotSupportedException ex)
         {
             return TomixResult<TResult>.Fail("TOMIX_MUTATION_UNSUPPORTED", ex.Message);
