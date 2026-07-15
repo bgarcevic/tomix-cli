@@ -80,7 +80,7 @@ public sealed class RecentConnectionsTests
         foreach (var option in GlobalOptions.All())
             root.Options.Add(option);
         IReadOnlyList<IModelProvider> providers = [];
-        root.Subcommands.Add(new ConnectCommand(providers).Build());
+        root.Subcommands.Add(new ConnectCommand(providers, FakeWorkspaceCatalog.Empty, () => null).Build());
         root.Subcommands.Add(new LsCommand(providers).Build());
         return root.Parse(args);
     }

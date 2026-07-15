@@ -135,11 +135,7 @@ internal static class RecentConnections
             return true;
         }
 
-        var format = GlobalOptions.OutputFormatValue(parseResult);
-        if (parseResult.GetValue(GlobalOptions.NonInteractive) ||
-            Console.IsInputRedirected ||
-            OutputFormats.IsJson(format) ||
-            OutputFormats.IsCsv(format))
+        if (!InteractionGate.CanPrompt(parseResult, GlobalOptions.OutputFormatValue(parseResult)))
         {
             WriteError("--recent needs an index when prompts are unavailable.");
             WriteGuidance("Use --recent <n>; list with: tx connect --recent");
