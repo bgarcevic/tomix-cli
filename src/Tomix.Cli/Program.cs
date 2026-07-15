@@ -10,9 +10,12 @@ using Tomix.Auth;
 using Tomix.Cli.Commands;
 using Tomix.Cli.Output;
 using Tomix.Core.Configuration;
+using Tomix.Core.Diagnostics;
 using Tomix.Core.Models;
+using Tomix.Core.Vertipaq;
 using Tomix.Provider.Tom;
 using Tomix.Provider.Tmdl;
+using Tomix.Provider.Vpax;
 using Spectre.Console;
 
 namespace Tomix.Cli;
@@ -42,7 +45,10 @@ internal static class Program
             ]);
         var workspaceCatalog = new PowerBiWorkspaceCatalog(new HttpClient(), tokenProvider);
 
-        var root = BuildRootCommand(providers, formatter, ResolveVersion(), workspaceCatalog, tokenProvider.CachedUsername);
+        var version = ResolveVersion();
+        var root = BuildRootCommand(
+            providers, formatter, version, workspaceCatalog, tokenProvider.CachedUsername,
+            new VpaxVertipaqAnalyzer(tokenProvider, version));
 
         if (args.Length == 0)
         {
@@ -75,7 +81,40 @@ internal static class Program
             return 2;
         }
 
-        return parseResult.Invoke();
+        return Invoke(parseResult);
+    }
+
+    /// <summary>
+    /// Invokes the parsed command with the library's default exception handler disabled so
+    /// provider load failures surface as diagnostics instead of raw stack traces.
+    /// </summary>
+    internal static int Invoke(ParseResult parseResult)
+    {
+        try
+        {
+            return parseResult.Invoke(new InvocationConfiguration { EnableDefaultExceptionHandler = false });
+        }
+        catch (OperationCanceledException)
+        {
+            return 130;
+        }
+        catch (ModelLoadException ex)
+        {
+            ErrorOutput.Write(
+                [new TomixDiagnostic(
+                    "TOMIX_MODEL_LOAD_FAILED",
+                    DiagnosticSeverity.Error,
+                    ex.Message,
+                    "Fix the model source and retry; the message lists what could not be loaded.")],
+                parseResult.GetValue(GlobalOptions.ErrorFormat));
+            return 2;
+        }
+        catch (Exception ex)
+        {
+            // Preserve the previous behavior for genuinely unexpected exceptions.
+            Console.Error.WriteLine($"Unhandled exception: {ex}");
+            return 1;
+        }
     }
 
     internal static RootCommand BuildRootCommand(
@@ -83,8 +122,10 @@ internal static class Program
         IExpressionFormatterClient formatter,
         string version,
         IWorkspaceCatalog? workspaceCatalog = null,
-        Func<string?>? cachedUsername = null)
+        Func<string?>? cachedUsername = null,
+        IVertipaqAnalyzer? analyzer = null)
     {
+        analyzer ??= new VpaxVertipaqAnalyzer(tokenProvider: null, version);
         var root = new RootCommand("tx - CLI for semantic models");
         foreach (var option in GlobalOptions.All())
             root.Options.Add(option);
@@ -126,7 +167,7 @@ internal static class Program
             new SetCommand(providers),
             new StageCommand(providers),
             new ValidateCommand(providers),
-            stubs["vertipaq"]
+            new VertipaqCommand(providers, analyzer)
         };
 
         foreach (var module in modules)
