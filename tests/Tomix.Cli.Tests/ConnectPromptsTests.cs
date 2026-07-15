@@ -56,7 +56,7 @@ public class ConnectPromptsTests
         Assert.Null(result);
     }
 
-    // Selecting an existing model returns its name.
+    // Selecting an existing model returns its name (not a workspace-only choice).
     [Fact]
     public async Task PickDatabase_ExistingSelected_ReturnsName()
     {
@@ -68,7 +68,8 @@ public class ConnectPromptsTests
             console, catalog, Endpoint,
             allowCreateNew: false, allowWorkspaceOnly: false, suggestedNewName: null, CancellationToken.None);
 
-        Assert.Equal("SalesModel", result);
+        Assert.False(result.IsWorkspaceOnly);
+        Assert.Equal("SalesModel", result.Name);
     }
 
     // "Create new" with only the create entry offered: selecting it and pressing Enter accepts
@@ -85,7 +86,8 @@ public class ConnectPromptsTests
             console, catalog, Endpoint,
             allowCreateNew: true, allowWorkspaceOnly: false, suggestedNewName: "sales-dev-bokg", CancellationToken.None);
 
-        Assert.Equal("sales-dev-bokg", result);
+        Assert.False(result.IsWorkspaceOnly);
+        Assert.Equal("sales-dev-bokg", result.Name);
     }
 
     // "Create new" with a typed name overrides the suggestion.
@@ -101,12 +103,12 @@ public class ConnectPromptsTests
             console, catalog, Endpoint,
             allowCreateNew: true, allowWorkspaceOnly: false, suggestedNewName: "sales-dev-bokg", CancellationToken.None);
 
-        Assert.Equal("custom-name", result);
+        Assert.Equal("custom-name", result.Name);
     }
 
-    // "Workspace only" returns null (store the endpoint without pinning a model).
+    // "Workspace only" is an explicit choice, distinct from a failure.
     [Fact]
-    public async Task PickDatabase_WorkspaceOnly_ReturnsNull()
+    public async Task PickDatabase_WorkspaceOnly_ReturnsWorkspaceOnly()
     {
         var console = Interactive();
         console.Input.PushKey(ConsoleKey.Enter);
@@ -116,6 +118,20 @@ public class ConnectPromptsTests
             console, catalog, Endpoint,
             allowCreateNew: false, allowWorkspaceOnly: true, suggestedNewName: null, CancellationToken.None);
 
-        Assert.Null(result);
+        Assert.True(result.IsWorkspaceOnly);
+        Assert.Null(result.Name);
+    }
+
+    // A listing failure (e.g. expired auth) surfaces as an exception — it must never be mistaken
+    // for an explicit "workspace only" choice by callers.
+    [Fact]
+    public async Task PickDatabase_ListingFails_Throws()
+    {
+        var console = Interactive();
+        var catalog = new FakeServerCatalog { Failure = new InvalidOperationException("XMLA denied") };
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => ConnectPrompts.PickDatabaseAsync(
+            console, catalog, Endpoint,
+            allowCreateNew: false, allowWorkspaceOnly: true, suggestedNewName: null, CancellationToken.None));
     }
 }

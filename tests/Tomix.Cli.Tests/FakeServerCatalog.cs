@@ -10,9 +10,12 @@ internal sealed class FakeServerCatalog : IServerCatalog
     public FakeServerCatalog(params string[] databaseNames)
         => _databases = databaseNames.Select(n => new ServerDatabaseInfo(n)).ToList();
 
+    /// <summary>When set, <see cref="ListDatabasesAsync"/> throws it (simulates auth/XMLA failure).</summary>
+    public Exception? Failure { get; init; }
+
     public bool CanList(ModelReference endpoint) => true;
 
     public Task<IReadOnlyList<ServerDatabaseInfo>> ListDatabasesAsync(
         ModelReference endpoint, CancellationToken cancellationToken)
-        => Task.FromResult(_databases);
+        => Failure is null ? Task.FromResult(_databases) : Task.FromException<IReadOnlyList<ServerDatabaseInfo>>(Failure);
 }

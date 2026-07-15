@@ -15,6 +15,18 @@ namespace Tomix.Cli.Commands;
 /// </summary>
 internal static class ConnectPrompts
 {
+    /// <summary>
+    /// Outcome of the model picker: either a chosen/created model name, or an explicit
+    /// "connect to workspace only" choice. A listing failure is signalled by an exception,
+    /// never by this type, so callers can tell a real selection from a failure.
+    /// </summary>
+    internal readonly record struct DatabaseSelection(bool IsWorkspaceOnly, string? Name)
+    {
+        public static readonly DatabaseSelection WorkspaceOnly = new(true, null);
+
+        public static DatabaseSelection ForModel(string name) => new(false, name);
+    }
+
     /// <summary>Prompts for a workspace, returning null when none can be listed.</summary>
     public static async Task<WorkspaceInfo?> PickWorkspaceAsync(
         IAnsiConsole console,
@@ -56,11 +68,12 @@ internal static class ConnectPrompts
     /// Prompts for a semantic model on <paramref name="endpoint"/>. When
     /// <paramref name="allowCreateNew"/> is set, offers a "create new" entry that opens a text
     /// prompt pre-filled with <paramref name="suggestedNewName"/>. When
-    /// <paramref name="allowWorkspaceOnly"/> is set, offers a "workspace only" entry that returns
-    /// null (store the endpoint without pinning a model). Returns the chosen/typed model name, or
-    /// null for "workspace only".
+    /// <paramref name="allowWorkspaceOnly"/> is set, offers a "workspace only" entry.
+    /// Returns a <see cref="DatabaseSelection"/> distinguishing a chosen/created model from an
+    /// explicit "workspace only" choice. Throws (rather than returning a sentinel) if listing
+    /// fails or nothing can be offered, so callers never mistake a failure for "workspace only".
     /// </summary>
-    public static async Task<string?> PickDatabaseAsync(
+    public static async Task<DatabaseSelection> PickDatabaseAsync(
         IAnsiConsole console,
         IServerCatalog catalog,
         ModelReference endpoint,
@@ -85,12 +98,9 @@ internal static class ConnectPrompts
             choices.Add(DatabaseChoice.WorkspaceOnly());
 
         if (choices.Count == 0)
-        {
-            console.MarkupLine(Styling.Error(
+            throw new InvalidOperationException(
                 "No semantic models found on the workspace, and creating one is not offered here. "
-                + "Deploy a model first, or pass a model name explicitly."));
-            return null;
-        }
+                + "Deploy a model first, or pass a model name explicitly.");
 
         var prompt = new SelectionPrompt<DatabaseChoice>()
             .Title("Select a [green]semantic model[/]:")
@@ -102,9 +112,9 @@ internal static class ConnectPrompts
         var choice = await console.PromptAsync(prompt, cancellationToken).ConfigureAwait(false);
         return choice.Kind switch
         {
-            DatabaseChoiceKind.Existing => choice.Name,
-            DatabaseChoiceKind.WorkspaceOnly => null,
-            _ => await PromptNewNameAsync(console, suggestedNewName, cancellationToken).ConfigureAwait(false)
+            DatabaseChoiceKind.Existing => DatabaseSelection.ForModel(choice.Name),
+            DatabaseChoiceKind.WorkspaceOnly => DatabaseSelection.WorkspaceOnly,
+            _ => DatabaseSelection.ForModel(await PromptNewNameAsync(console, suggestedNewName, cancellationToken).ConfigureAwait(false))
         };
     }
 

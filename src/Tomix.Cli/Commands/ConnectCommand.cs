@@ -122,19 +122,10 @@ internal sealed class ConnectCommand : ICommandModule
                     return RenderWorkspaceOptionError("--remote cannot be combined with a server/database, --local, --profile, or --workspace.");
 
                 if (!canPrompt)
-                {
-                    ErrorOutput.Write(
-                        new[]
-                        {
-                            new TomixDiagnostic(
-                                "TOMIX_INTERACTIVE_REQUIRED",
-                                DiagnosticSeverity.Error,
-                                "connect --remote is interactive and needs a TTY.",
-                                Hint: "Pass the workspace and model explicitly: tx connect <workspace> <database>")
-                        },
-                        parseResult.GetValue(GlobalOptions.ErrorFormat));
-                    return 1;
-                }
+                    return RenderInteractiveRequired(
+                        parseResult,
+                        "connect --remote is interactive and needs a TTY.",
+                        "Pass the workspace and model explicitly: tx connect <workspace> <database>");
 
                 var pickedRemote = await ResolveRemoteInteractiveAsync(cancellationToken);
                 if (pickedRemote is null)
@@ -191,12 +182,12 @@ internal sealed class ConnectCommand : ICommandModule
                     ModelReference.IsRemoteEndpoint(ModelReference.NormalizeEndpoint(workspace)))
                 {
                     var suggestion = ConnectPrompts.SuggestMirrorDatabaseName(ModelNameFromPath(server!), _cachedUsername());
-                    var pickedDb = await PickDatabaseAsync(
+                    var selection = await PickDatabaseAsync(
                         ModelReference.Remote(ModelReference.NormalizeEndpoint(workspace)),
                         allowCreateNew: true, allowWorkspaceOnly: false, suggestion, cancellationToken);
-                    if (pickedDb is null)
-                        return 1;
-                    database = pickedDb;
+                    if (selection is null)
+                        return 1; // listing failed — do not save a half-configured mirror
+                    database = selection.Value.Name; // workspace-only is not offered here
                 }
 
                 // Remote primary without a dataset (no mirror): pick a model, or connect workspace-only.
@@ -207,9 +198,12 @@ internal sealed class ConnectCommand : ICommandModule
                     !ModelReference.IsLocalInstanceEndpoint(ModelReference.NormalizeEndpoint(server)) &&
                     string.IsNullOrWhiteSpace(database))
                 {
-                    database = await PickDatabaseAsync(
+                    var selection = await PickDatabaseAsync(
                         ModelReference.Remote(ModelReference.NormalizeEndpoint(server)),
                         allowCreateNew: false, allowWorkspaceOnly: true, null, cancellationToken);
+                    if (selection is null)
+                        return 1; // listing failed — do not overwrite the active connection
+                    database = selection.Value.IsWorkspaceOnly ? null : selection.Value.Name;
                 }
 
                 // Remote primary + valueless -w: -w is a local mirror folder — prompt for the path.
@@ -227,11 +221,13 @@ internal sealed class ConnectCommand : ICommandModule
             }
 
             // A valueless -w that could not be resolved interactively (non-TTY, --non-interactive,
-            // --quiet, or json/csv output) has no target — fail with the flag-equivalent hint.
+            // --quiet, or json/csv output) has no target — surface the same machine-readable
+            // TOMIX_INTERACTIVE_REQUIRED diagnostic as --remote, with the flag-equivalent hint.
             if (workspaceValueless)
-                return RenderWorkspaceOptionError(
-                    "--workspace needs a value here (no interactive picker available). "
-                    + "Pass the target explicitly: tx connect <model> <database> -w <workspace>.");
+                return RenderInteractiveRequired(
+                    parseResult,
+                    "-w with no value needs an interactive terminal to pick the workspace.",
+                    "Pass the target explicitly: tx connect <model> <database> -w <workspace>.");
 
             if (!string.IsNullOrWhiteSpace(workspace))
             {
@@ -503,6 +499,17 @@ internal sealed class ConnectCommand : ICommandModule
         return 1;
     }
 
+    // An interactive-only flow (--remote, valueless -w) was invoked without a usable TTY. Emit the
+    // documented TOMIX_INTERACTIVE_REQUIRED diagnostic through ErrorOutput so --error-format json
+    // callers can detect the condition, and exit 1.
+    private static int RenderInteractiveRequired(ParseResult parseResult, string message, string hint)
+    {
+        ErrorOutput.Write(
+            new[] { new TomixDiagnostic("TOMIX_INTERACTIVE_REQUIRED", DiagnosticSeverity.Error, message, Hint: hint) },
+            parseResult.GetValue(GlobalOptions.ErrorFormat));
+        return 1;
+    }
+
     private static IAnsiConsole ErrConsole()
         => AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
 
@@ -521,10 +528,13 @@ internal sealed class ConnectCommand : ICommandModule
         if (workspace is null)
             return null;
 
-        var database = await PickDatabaseAsync(
+        var selection = await PickDatabaseAsync(
             ModelReference.Remote(workspace.XmlaEndpoint),
             allowCreateNew: false, allowWorkspaceOnly: true, suggestedNewName: null, cancellationToken);
-        return (workspace.XmlaEndpoint, database);
+        if (selection is null)
+            return null; // listing failed — do not fall through to "workspace only"
+
+        return (workspace.XmlaEndpoint, selection.Value.IsWorkspaceOnly ? null : selection.Value.Name);
     }
 
     private async Task<WorkspaceInfo?> PickWorkspaceAsync(CancellationToken cancellationToken)
@@ -540,7 +550,10 @@ internal sealed class ConnectCommand : ICommandModule
         }
     }
 
-    private async Task<string?> PickDatabaseAsync(
+    // Returns the model selection, or null on failure (listing error, expired auth, or no catalog).
+    // A null here means "could not resolve" and must NOT be treated as an explicit workspace-only
+    // choice — callers stop with exit 1 rather than saving a connection.
+    private async Task<ConnectPrompts.DatabaseSelection?> PickDatabaseAsync(
         ModelReference endpoint,
         bool allowCreateNew,
         bool allowWorkspaceOnly,
@@ -549,7 +562,11 @@ internal sealed class ConnectCommand : ICommandModule
     {
         var catalog = _providers.OfType<IServerCatalog>().FirstOrDefault(c => c.CanList(endpoint));
         if (catalog is null)
+        {
+            RenderInteractiveError(new InvalidOperationException(
+                $"No provider can list models on '{endpoint.Value}'."));
             return null;
+        }
 
         try
         {
