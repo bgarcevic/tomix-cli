@@ -124,10 +124,17 @@ internal sealed class RefreshCommand : ICommandModule
                 ? null
                 : ResolveTracePath(parseResult.GetValue(traceOption));
 
+            if (!RecentConnections.TryGetSource(
+                    parseResult,
+                    GlobalOptions.ModelValue(parseResult),
+                    out var source,
+                    out var recentExit))
+                return recentExit;
+
             var request = new RefreshModelRequest(
-                Model: GlobalOptions.ModelValue(parseResult),
-                Server: parseResult.GetValue(GlobalOptions.Server),
-                Database: parseResult.GetValue(GlobalOptions.Database),
+                Model: source.Model,
+                Server: source.Server,
+                Database: source.Database,
                 Auth: GlobalOptions.AuthValue(parseResult),
                 RefreshType: type,
                 Tables: tables is { Length: > 0 } ? tables : null,

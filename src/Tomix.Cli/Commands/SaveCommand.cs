@@ -90,11 +90,15 @@ internal sealed class SaveCommand : ICommandModule
             var bpaRules = parseResult.GetValue(bpaRulesOption);
             var noSync = parseResult.GetValue(noSyncOption);
 
+            if (!RecentConnections.TryGetSource(
+                    parseResult,
+                    GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
+                    out var source,
+                    out var recentExit))
+                return recentExit;
+
             var resolver = new ActiveModelResolver();
-            var reference = resolver.ResolveReference(
-                GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                parseResult.GetValue(GlobalOptions.Database),
-                parseResult.GetValue(GlobalOptions.Server));
+            var reference = resolver.ResolveReference(source.Model, source.Database, source.Server);
 
             var syncTarget = noSync ? null : resolver.ResolveSyncTarget();
 
