@@ -91,19 +91,6 @@ internal sealed class CompatibilityStubCommand : ICommandModule
                 New("show", "Show incremental refresh policy",
                     args: [Required("table")])
             ]),
-        New("query", "Execute a DAX query against a deployed model (-q inline, -f file, or stdin)",
-            options:
-            [
-                Value("--query", "-q"),
-                Value("--file"),
-                Value("--limit"),
-                Value("--output-file", "-o"),
-                Flag("--no-validate"),
-                Flag("--trace"),
-                Flag("--cold"),
-                Flag("--plan"),
-                Value("--runs")
-            ]),
         New("vertipaq", "Analyze VertiPaq storage statistics for a semantic model",
             args: [Optional("path")],
             options:

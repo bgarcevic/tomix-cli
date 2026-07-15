@@ -41,10 +41,10 @@ public sealed class TomServerModelProvider : IModelProvider
         }
 
         server.Connect(BuildConnectionString(reference));
-        return new TomServerModelSession(server, ResolveDatabase(server, reference.Database), _tokenProvider);
+        return new TomServerModelSession(server, ResolveDatabase(server, reference.Database), reference, _tokenProvider);
     }
 
-    private static string BuildConnectionString(ModelReference reference)
+    internal static string BuildConnectionString(ModelReference reference)
     {
         var connectionString = $"Data Source={TomModelDeployer.ResolveEndpoint(reference.Value)}";
         return string.IsNullOrWhiteSpace(reference.Database)
@@ -67,16 +67,18 @@ public sealed class TomServerModelProvider : IModelProvider
     }
 }
 
-internal sealed class TomServerModelSession : IModelSession, IModelExportSession, IModelMutationSession, IModelDeploySession, IModelRefreshSession
+internal sealed class TomServerModelSession : IModelSession, IModelExportSession, IModelMutationSession, IModelDeploySession, IModelRefreshSession, IModelQuerySession
 {
     private readonly TabularServer _server;
     private readonly TabularDatabase _database;
+    private readonly ModelReference _reference;
     private readonly IAccessTokenProvider? _tokenProvider;
 
-    public TomServerModelSession(TabularServer server, TabularDatabase database, IAccessTokenProvider? tokenProvider)
+    public TomServerModelSession(TabularServer server, TabularDatabase database, ModelReference reference, IAccessTokenProvider? tokenProvider)
     {
         _server = server;
         _database = database;
+        _reference = reference;
         _tokenProvider = tokenProvider;
     }
 
@@ -160,6 +162,19 @@ internal sealed class TomServerModelSession : IModelSession, IModelExportSession
 
     public string GenerateRefreshScript(ModelRefreshRequest request)
         => TomModelRefresher.GenerateRefreshScript(_database, request);
+
+    public Task<ModelQueryResult> ExecuteQueryAsync(
+        ModelQueryRequest request,
+        CancellationToken cancellationToken)
+        // Rebuild the connection string with the *resolved* database so single-database
+        // endpoints opened without --database still target the right catalog over ADOMD.
+        => TomModelQueryExecutor.ExecuteAsync(
+            TomServerModelProvider.BuildConnectionString(_reference with { Database = ModelName() }),
+            _reference,
+            ModelName(),
+            _tokenProvider,
+            request,
+            cancellationToken);
 
     private string ModelName()
         => string.IsNullOrWhiteSpace(_database.Name) ? _database.ID : _database.Name;

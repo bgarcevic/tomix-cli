@@ -109,7 +109,7 @@ internal static class Program
             new LsCommand(providers),
             new MvCommand(providers),
             new ProfileCommand(),
-            stubs["query"],
+            new QueryCommand(providers),
             new RefreshCommand(providers),
             new ReplaceCommand(providers),
             new RmCommand(providers),
