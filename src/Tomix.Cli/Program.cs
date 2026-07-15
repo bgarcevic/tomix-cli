@@ -4,6 +4,7 @@ using System.Reflection;
 using System.Text;
 using Tomix.App.Auth;
 using Tomix.App.Config;
+using Tomix.App.Connect;
 using Tomix.App.Format;
 using Tomix.Auth;
 using Tomix.Cli.Commands;
@@ -39,8 +40,9 @@ internal static class Program
                 new DaxFormatterApiClient(),
                 new PowerQueryFormatterApiClient(new HttpClient())
             ]);
+        var workspaceCatalog = new PowerBiWorkspaceCatalog(new HttpClient(), tokenProvider);
 
-        var root = BuildRootCommand(providers, formatter, ResolveVersion());
+        var root = BuildRootCommand(providers, formatter, ResolveVersion(), workspaceCatalog, tokenProvider.CachedUsername);
 
         if (args.Length == 0)
         {
@@ -79,7 +81,9 @@ internal static class Program
     internal static RootCommand BuildRootCommand(
         IReadOnlyList<IModelProvider> providers,
         IExpressionFormatterClient formatter,
-        string version)
+        string version,
+        IWorkspaceCatalog? workspaceCatalog = null,
+        Func<string?>? cachedUsername = null)
     {
         var root = new RootCommand("tx - CLI for semantic models");
         foreach (var option in GlobalOptions.All())
@@ -94,7 +98,10 @@ internal static class Program
             new BpaCommand(providers),
             new CompletionCommand(() => root.Subcommands.Select(command => command.Name).ToList()),
             new ConfigCommand(),
-            new ConnectCommand(providers),
+            new ConnectCommand(
+                providers,
+                workspaceCatalog ?? EmptyWorkspaceCatalog.Instance,
+                cachedUsername ?? (() => null)),
             new DeployCommand(providers),
             new DepsCommand(providers),
             new DiffCommand(providers),
@@ -137,6 +144,15 @@ internal static class Program
 
         foreach (var sub in command.Subcommands)
             ApplySpectreHelp(sub);
+    }
+
+    /// <summary>No-op workspace catalog for contexts that never prompt (e.g. help-only test roots).</summary>
+    private sealed class EmptyWorkspaceCatalog : IWorkspaceCatalog
+    {
+        public static readonly EmptyWorkspaceCatalog Instance = new();
+
+        public Task<IReadOnlyList<WorkspaceInfo>> ListWorkspacesAsync(CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<WorkspaceInfo>>([]);
     }
 
     private static string ResolveVersion()
