@@ -71,6 +71,33 @@ public sealed class CatalogWritableAgreementTests
         }
     }
 
+    [Fact]
+    public void UnsupportedPartitionPropertyHint_OmitsExpression_ForNonMSources()
+    {
+        // 'expression' is only settable on M-source partitions, so the hint must not
+        // advertise it for calculated/entity/policy-range partitions.
+        var db = NewDatabase();
+        db.Model.Tables["T"].Partitions["T"].Source = new CalculatedPartitionSource { Expression = "T2" };
+        var mutator = new TomModelMutator(db);
+
+        var exception = Assert.Throws<NotSupportedException>(() => mutator.SetProperty(new ModelObjectSetRequest(
+            "T/T", [new ModelPropertyAssignment("bogus", "x")], ModelObjectKind.Partition)));
+
+        Assert.DoesNotContain("expression", exception.Message);
+        Assert.Contains("name", exception.Message);
+    }
+
+    [Fact]
+    public void UnsupportedPartitionPropertyHint_IncludesExpression_ForMSources()
+    {
+        var mutator = new TomModelMutator(NewDatabase());
+
+        var exception = Assert.Throws<NotSupportedException>(() => mutator.SetProperty(new ModelObjectSetRequest(
+            "T/T", [new ModelPropertyAssignment("bogus", "x")], ModelObjectKind.Partition)));
+
+        Assert.Contains("expression", exception.Message);
+    }
+
     private static (string Path, ModelObjectKind? Type) TargetFor(ModelObjectKind kind) => kind switch
     {
         ModelObjectKind.Table => ("tables/T", null),

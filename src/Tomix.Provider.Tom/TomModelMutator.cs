@@ -468,13 +468,17 @@ public sealed partial class TomModelMutator
                     "Setting 'expression' is only supported for partitions with an M source; " +
                     $"this partition's source is {partition.SourceType}.");
             default:
-                throw UnsupportedProperty(displayName, "partitions", ModelObjectKind.Partition);
+                // 'expression' is only settable on M-source partitions, so keep it out of the
+                // hint for Entity/PolicyRange/Calculated partitions.
+                throw UnsupportedProperty(displayName, "partitions", ModelObjectKind.Partition,
+                    exclude: partition.Source is MPartitionSource ? null : "expression");
         }
     }
 
-    private static NotSupportedException UnsupportedProperty(string displayName, string kindPlural, ModelObjectKind kind)
+    private static NotSupportedException UnsupportedProperty(
+        string displayName, string kindPlural, ModelObjectKind kind, string? exclude = null)
     {
-        var writable = ModelPropertyCatalog.WritableTokens(kind);
+        var writable = ModelPropertyCatalog.WritableTokens(kind).Where(t => t != exclude).ToList();
         var hint = writable.Count > 0
             ? $" Writable properties: {string.Join(", ", writable)}, {PropertyBagKeys.AnnotationPrefix}<name>."
             : "";
