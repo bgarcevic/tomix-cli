@@ -62,6 +62,19 @@ public sealed class ModelLoadFailureTests
         Assert.Contains("InvalidOperationException", stderr); // full exception under --debug
     }
 
+    [Fact]
+    public void UnexpectedException_DebugWithJsonErrorFormat_KeepsStderrValidJson()
+    {
+        var (exitCode, stderr) = Invoke("ls", "explode", "--error-format", "json", "--debug");
+
+        Assert.Equal(1, exitCode);
+        // The stack trace rides inside the envelope's "detail" field; stderr must stay
+        // one parseable JSON document for automation even in the debugging scenario.
+        using var doc = System.Text.Json.JsonDocument.Parse(stderr);
+        Assert.Equal("TOMIX_UNEXPECTED", doc.RootElement.GetProperty("code").GetString());
+        Assert.Contains("InvalidOperationException", doc.RootElement.GetProperty("detail").GetString());
+    }
+
     private static (int ExitCode, string Stderr) Invoke(params string[] args)
     {
         var root = new RootCommand("test");
