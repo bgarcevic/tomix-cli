@@ -111,8 +111,19 @@ internal static class Program
         }
         catch (Exception ex)
         {
-            // Preserve the previous behavior for genuinely unexpected exceptions.
-            Console.Error.WriteLine($"Unhandled exception: {ex}");
+            // Unexpected failures still follow the error contract: stable code via
+            // ErrorOutput, stack trace only under --debug (docs/cli-ux-guidelines.md).
+            ErrorOutput.Write(
+                [new TomixDiagnostic(
+                    "TOMIX_UNEXPECTED",
+                    DiagnosticSeverity.Error,
+                    $"Unexpected error: {ex.Message}",
+                    "Re-run with --debug for the full stack trace; if this persists, report it at https://github.com/bgarcevic/tomix-cli/issues.")],
+                parseResult.GetValue(GlobalOptions.ErrorFormat));
+
+            if (parseResult.GetValue(GlobalOptions.Debug))
+                Console.Error.WriteLine(ex.ToString());
+
             return 1;
         }
     }
