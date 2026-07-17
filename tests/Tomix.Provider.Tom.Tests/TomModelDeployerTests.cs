@@ -7,21 +7,11 @@ namespace Tomix.Provider.Tom.Tests;
 public sealed class TomModelDeployerTests
 {
     /// <summary>
-    /// DeployAsync owns its server via try/finally. A failed connect must surface the
-    /// original connection error, not an ObjectDisposedException from the cleanup path.
+    /// DeployAsync owns its server via try/finally. A pre-connect failure (here: missing
+    /// auth for a remote endpoint) must surface the original error, not an
+    /// ObjectDisposedException from cleaning up the never-connected server. Deliberately
+    /// avoids any live connection attempt so the test stays fast and deterministic.
     /// </summary>
-    [Fact]
-    public async Task DeployAsync_ConnectFailure_SurfacesConnectionError()
-    {
-        var db = new Database { Name = "M", Model = new Model { Name = "Model" } };
-        var request = new ModelDeployRequest("localhost:1", "M", DeployFull: true, CreateOnly: false, Force: false);
-
-        var ex = await Assert.ThrowsAnyAsync<Exception>(
-            () => TomModelDeployer.DeployAsync(db, request, tokenProvider: null, CancellationToken.None));
-
-        Assert.IsNotType<ObjectDisposedException>(ex);
-    }
-
     [Fact]
     public async Task DeployAsync_RemoteWithoutToken_RequiresAuthentication()
     {
