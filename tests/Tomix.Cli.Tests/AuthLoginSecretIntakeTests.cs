@@ -96,6 +96,30 @@ public sealed class AuthLoginSecretIntakeTests
     }
 
     [Fact]
+    public void Resolver_EmptySecretFile_ReturnsSecretRequired()
+    {
+        // A file that exists but holds no secret is "no secret provided", the same code as
+        // empty stdin or an empty prompt; FILE_NOT_FOUND is reserved for a missing path
+        // (docs/error-codes.md).
+        var file = Path.Combine(Path.GetTempPath(), $"secret-{Guid.NewGuid():N}.txt");
+        File.WriteAllText(file, "\r\n");
+        try
+        {
+            var resolution = AuthSecretResolver.Resolve(
+                optionValue: null, filePath: file, "--password", "--password-file",
+                readStdinLine: () => null);
+
+            Assert.Null(resolution.Secret);
+            Assert.Equal("TOMIX_AUTH_SECRET_REQUIRED", resolution.ErrorCode);
+            Assert.Contains("empty", resolution.ErrorMessage);
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
     public void Resolver_UsesPromptFallback_WhenNoOtherSource()
     {
         var resolution = AuthSecretResolver.Resolve(

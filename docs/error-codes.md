@@ -186,9 +186,9 @@ Emitted by `incremental-refresh` (show/set/rm/apply).
 |------|------|---------|
 | `TOMIX_AUTH_FAILED` | 1 | Authentication failed (invalid credentials, token expired, etc.). |
 | `TOMIX_AUTH_REQUIRED` | 1 | Authentication is required but no credentials were provided. |
-| `TOMIX_AUTH_SECRET_REQUIRED` | 2 | A service-principal login needs a secret and none was provided via `--password -` (stdin), `--password-file`, or the interactive prompt. |
+| `TOMIX_AUTH_SECRET_REQUIRED` | 2 | A service-principal login needs a secret and none was provided: no source given, empty stdin under `--password -`, an empty secret file, or an empty interactive prompt. |
 | `TOMIX_AUTH_SECRET_SOURCE_CONFLICT` | 2 | `--password -` and `--password-file` (or the certificate-password equivalents) were combined; choose one. |
-| `TOMIX_AUTH_SECRET_FILE_NOT_FOUND` | 2 | The `--password-file` / `--certificate-password-file` path does not exist or is empty. |
+| `TOMIX_AUTH_SECRET_FILE_NOT_FOUND` | 2 | The `--password-file` / `--certificate-password-file` path does not exist. |
 
 ## Script Codes (`TOMIX_SCRIPT_*`)
 
