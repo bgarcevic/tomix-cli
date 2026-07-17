@@ -46,6 +46,8 @@ public sealed class StagingStore
         IReadOnlyList<IModelProvider> providers,
         CancellationToken cancellationToken)
     {
+        using var _ = AcquireModelLock(ModelDirectory(source));
+
         var existing = TryLoadManifest(source);
         if (existing is not null)
             return new StagingHandle(this, ManifestFile(source), existing);
@@ -121,6 +123,7 @@ public sealed class StagingStore
         if (!Directory.Exists(modelDirectory))
             return false;
 
+        using var _ = AcquireModelLock(modelDirectory);
         Directory.Delete(modelDirectory, recursive: true);
         return true;
     }
@@ -133,6 +136,7 @@ public sealed class StagingStore
         var count = 0;
         foreach (var modelDir in Directory.EnumerateDirectories(SessionStagingDirectory))
         {
+            using var _ = AcquireModelLock(modelDir);
             Directory.Delete(modelDir, recursive: true);
             count++;
         }
@@ -148,11 +152,11 @@ public sealed class StagingStore
     internal void WriteManifest(ModelReference source, StagingManifest manifest)
     {
         Directory.CreateDirectory(ModelDirectory(source));
-        File.WriteAllText(ManifestFile(source), JsonSerializer.Serialize(manifest, SerializerOptions));
+        AtomicFile.WriteAllText(ManifestFile(source), JsonSerializer.Serialize(manifest, SerializerOptions));
     }
 
     internal void WriteManifest(string manifestFile, StagingManifest manifest)
-        => File.WriteAllText(manifestFile, JsonSerializer.Serialize(manifest, SerializerOptions));
+        => AtomicFile.WriteAllText(manifestFile, JsonSerializer.Serialize(manifest, SerializerOptions));
 
     private StagingManifest? TryLoadManifest(ModelReference source)
     {
@@ -163,9 +167,52 @@ public sealed class StagingStore
     private static StagingManifest? ReadManifest(string manifestFile)
     {
         var json = File.ReadAllText(manifestFile);
-        return string.IsNullOrWhiteSpace(json)
-            ? null
-            : JsonSerializer.Deserialize<StagingManifest>(json);
+        if (string.IsNullOrWhiteSpace(json))
+            return null;
+
+        try
+        {
+            return JsonSerializer.Deserialize<StagingManifest>(json);
+        }
+        catch (JsonException ex)
+        {
+            // Staged work is user data; never silently reset it. The caller surfaces
+            // TOMIX_STAGE_MANIFEST_CORRUPT with the discard recovery path.
+            throw new StagingManifestCorruptException(manifestFile, ex);
+        }
+    }
+
+    /// <summary>
+    /// Takes an exclusive cross-process lock for one staged model so concurrent tx invocations
+    /// cannot interleave materialize/append/discard and lose staged operations. Config and
+    /// session files stay unlocked on purpose: they are single-value last-writer-wins state.
+    /// The lock file sits beside (not inside) the model directory so Discard can delete the
+    /// directory while holding the lock, and is removed on release.
+    /// </summary>
+    internal static IDisposable AcquireModelLock(string modelDirectory)
+    {
+        var lockFile = modelDirectory + ".lock";
+        Directory.CreateDirectory(Path.GetDirectoryName(lockFile)!);
+
+        var deadline = DateTime.UtcNow.AddSeconds(5);
+        while (true)
+        {
+            try
+            {
+                return new FileStream(
+                    lockFile, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None,
+                    bufferSize: 1, FileOptions.DeleteOnClose);
+            }
+            catch (IOException) when (DateTime.UtcNow < deadline)
+            {
+                Thread.Sleep(50);
+            }
+            catch (IOException)
+            {
+                throw new InvalidOperationException(
+                    $"Another tx process is working on this staged model (lock: {lockFile}). Retry when it finishes.");
+            }
+        }
     }
 
     private string ManifestFile(ModelReference source) => Path.Combine(ModelDirectory(source), "manifest.json");
@@ -248,6 +295,15 @@ public sealed class StagingStore
     }
 }
 
+/// <summary>Thrown when a staged manifest exists but no longer parses (torn write, manual edit).</summary>
+public sealed class StagingManifestCorruptException : InvalidOperationException
+{
+    public StagingManifestCorruptException(string manifestFile, Exception inner)
+        : base($"Staged manifest is corrupt: {manifestFile}. Run 'tx stage discard' to reset staging for this model.", inner)
+    {
+    }
+}
+
 public sealed record StagingManifest(
     string SessionId,
     string Source,
@@ -289,6 +345,7 @@ public sealed class StagingHandle
     public Task AppendOpAsync(string command, string summary, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        using var _ = StagingStore.AcquireModelLock(Path.GetDirectoryName(_manifestFile)!);
         var op = new StagedOp(Manifest.Ops.Count + 1, DateTimeOffset.UtcNow, command, summary);
         Manifest = Manifest with
         {
