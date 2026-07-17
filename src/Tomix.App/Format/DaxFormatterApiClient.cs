@@ -38,7 +38,7 @@ public sealed class DaxFormatterApiClient : IExpressionFormatterClient
                     : DaxFormatterSpacingStyle.BestPractice
             };
 
-            var response = await _client.FormatAsync(formatterRequest);
+            var response = await _client.FormatAsync(formatterRequest, cancellationToken);
             var formatted = response?.Formatted ?? request.Expression;
             var errors = (response?.Errors ?? [])
                 .Select(error => error.Message ?? "")
