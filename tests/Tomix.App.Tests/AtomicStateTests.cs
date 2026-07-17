@@ -1,3 +1,4 @@
+using Tomix.App.Stage;
 using Tomix.App.State;
 using Tomix.Core.Configuration;
 using Tomix.Core.Models;
@@ -70,6 +71,59 @@ public sealed class AtomicStateTests : IDisposable
         var ex = Assert.Throws<StagingManifestCorruptException>(() => store.TryLoad(source));
         Assert.Contains("stage discard", ex.Message);
         Assert.Contains(modelDir, ex.Message);
+    }
+
+    [Fact]
+    public void StageHandler_CorruptManifest_SurfacesDiagnosticFromEveryCommand()
+    {
+        var store = new StagingStore(_dir, "test-session");
+        var source = new ModelReference(Path.Combine(_dir, "model"));
+        PlantManifest(store, source, "{ not json");
+        var handler = new StageHandler(store);
+
+        var status = handler.Status(source);
+        var list = handler.List();
+        var commit = handler.CommitAsync(source, [], force: false, CancellationToken.None).Result;
+
+        foreach (var diagnostics in new[] { status.Diagnostics, list.Diagnostics, commit.Diagnostics })
+        {
+            var diagnostic = Assert.Single(diagnostics);
+            Assert.Equal("TOMIX_STAGE_MANIFEST_CORRUPT", diagnostic.Code);
+            Assert.Contains("stage discard", diagnostic.Message);
+        }
+        Assert.Equal(2, status.ExitCode);
+        Assert.Equal(2, list.ExitCode);
+        Assert.Equal(2, commit.ExitCode);
+    }
+
+    [Fact]
+    public async Task StagingHandle_OwnsModelLock_AppendDoesNotReacquire_DisposeReleases()
+    {
+        var store = new StagingStore(_dir, "test-session");
+        var source = new ModelReference(Path.Combine(_dir, "model"));
+        var modelDir = PlantManifest(
+            store, source,
+            """
+            {"SessionId":"test-session","Source":"s","SourceKind":"local","SourceEndpoint":null,
+             "SourceDatabase":null,"Workspace":null,"Serialization":"tmdl","WorkingCopy":"w",
+             "CreatedUtc":"2026-01-01T00:00:00Z","UpdatedUtc":"2026-01-01T00:00:00Z",
+             "SourceFingerprint":null,"Ops":[]}
+            """);
+        var manifestFile = Path.Combine(modelDir, "manifest.json");
+
+        // The handle owns the lock for its lifetime; AppendOpAsync must not try to re-acquire
+        // it (that would deadlock against the handle's own lock until the 5s deadline).
+        var handle = new StagingHandle(
+            store, manifestFile, store.TryLoad(source)!.Manifest, StagingStore.AcquireModelLock(modelDir));
+        var append = Task.Run(() => handle.AppendOpAsync("set", "set x", CancellationToken.None));
+        Assert.True(await Task.WhenAny(append, Task.Delay(2000)) == append, "AppendOpAsync deadlocked on its own model lock");
+        Assert.Single(handle.Manifest.Ops);
+
+        handle.Dispose();
+        using (StagingStore.AcquireModelLock(modelDir))
+        {
+            // Lock is free again after the handle is disposed.
+        }
     }
 
     [Fact]

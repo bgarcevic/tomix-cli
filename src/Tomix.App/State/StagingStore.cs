@@ -39,56 +39,67 @@ public sealed class StagingStore
 
     public string SessionStagingDirectory => Path.Combine(StagingRoot, SafeFileName(_sessionId));
 
-    /// <summary>Returns the existing working copy for <paramref name="source"/>, or materializes a fresh one.</summary>
+    /// <summary>
+    /// Returns the existing working copy for <paramref name="source"/>, or materializes a fresh one.
+    /// The returned handle OWNS the per-model lock until disposed, so a concurrent invocation cannot
+    /// interleave its working-copy save/append with this one and lose staged operations.
+    /// </summary>
     public async Task<StagingHandle> GetOrCreateAsync(
         ModelReference source,
         CliConnectionState? connection,
         IReadOnlyList<IModelProvider> providers,
         CancellationToken cancellationToken)
     {
-        using var _ = AcquireModelLock(ModelDirectory(source));
+        var modelLock = AcquireModelLock(ModelDirectory(source));
+        try
+        {
+            var existing = TryLoadManifest(source);
+            if (existing is not null)
+                return new StagingHandle(this, ManifestFile(source), existing, modelLock);
 
-        var existing = TryLoadManifest(source);
-        if (existing is not null)
-            return new StagingHandle(this, ManifestFile(source), existing);
+            var serialization = ResolveSerialization(source, connection);
+            var modelDirectory = ModelDirectory(source);
+            var workingRoot = Path.Combine(modelDirectory, "working");
+            Directory.CreateDirectory(workingRoot);
 
-        var serialization = ResolveSerialization(source, connection);
-        var modelDirectory = ModelDirectory(source);
-        var workingRoot = Path.Combine(modelDirectory, "working");
-        Directory.CreateDirectory(workingRoot);
+            var provider = providers.FirstOrDefault(p => p.CanOpen(source))
+                ?? throw new InvalidOperationException($"No provider can open model: {source.Value}");
 
-        var provider = providers.FirstOrDefault(p => p.CanOpen(source))
-            ?? throw new InvalidOperationException($"No provider can open model: {source.Value}");
+            await using var session = await provider.OpenAsync(source, cancellationToken);
+            if (session is not IModelExportSession exporter)
+                throw new NotSupportedException($"Provider cannot materialize a working copy for: {source.Value}");
 
-        await using var session = await provider.OpenAsync(source, cancellationToken);
-        if (session is not IModelExportSession exporter)
-            throw new NotSupportedException($"Provider cannot materialize a working copy for: {source.Value}");
+            var workingTarget = serialization == "bim"
+                ? Path.Combine(workingRoot, "model.bim")
+                : workingRoot;
 
-        var workingTarget = serialization == "bim"
-            ? Path.Combine(workingRoot, "model.bim")
-            : workingRoot;
+            var export = await exporter.ExportAsync(
+                new ModelExportRequest(workingTarget, serialization, Force: true, SupportingFiles: false),
+                cancellationToken);
 
-        var export = await exporter.ExportAsync(
-            new ModelExportRequest(workingTarget, serialization, Force: true, SupportingFiles: false),
-            cancellationToken);
+            var now = DateTimeOffset.UtcNow;
+            var manifest = new StagingManifest(
+                SessionId: _sessionId,
+                Source: CanonicalSource(source),
+                SourceKind: source.IsRemote ? "remote" : "local",
+                SourceEndpoint: source.IsRemote ? source.Value : null,
+                SourceDatabase: source.IsRemote ? source.Database : null,
+                Workspace: ResolveWorkspace(connection),
+                Serialization: serialization,
+                WorkingCopy: export.SavedPath,
+                CreatedUtc: now,
+                UpdatedUtc: now,
+                SourceFingerprint: ComputeFingerprint(source),
+                Ops: []);
 
-        var now = DateTimeOffset.UtcNow;
-        var manifest = new StagingManifest(
-            SessionId: _sessionId,
-            Source: CanonicalSource(source),
-            SourceKind: source.IsRemote ? "remote" : "local",
-            SourceEndpoint: source.IsRemote ? source.Value : null,
-            SourceDatabase: source.IsRemote ? source.Database : null,
-            Workspace: ResolveWorkspace(connection),
-            Serialization: serialization,
-            WorkingCopy: export.SavedPath,
-            CreatedUtc: now,
-            UpdatedUtc: now,
-            SourceFingerprint: ComputeFingerprint(source),
-            Ops: []);
-
-        WriteManifest(source, manifest);
-        return new StagingHandle(this, ManifestFile(source), manifest);
+            WriteManifest(source, manifest);
+            return new StagingHandle(this, ManifestFile(source), manifest, modelLock);
+        }
+        catch
+        {
+            modelLock.Dispose();
+            throw;
+        }
     }
 
     public StagingInfo? TryLoad(ModelReference source)
@@ -184,10 +195,13 @@ public sealed class StagingStore
 
     /// <summary>
     /// Takes an exclusive cross-process lock for one staged model so concurrent tx invocations
-    /// cannot interleave materialize/append/discard and lose staged operations. Config and
-    /// session files stay unlocked on purpose: they are single-value last-writer-wins state.
-    /// The lock file sits beside (not inside) the model directory so Discard can delete the
-    /// directory while holding the lock, and is removed on release.
+    /// cannot interleave materialize/mutate/append/discard and lose staged operations. A staged
+    /// mutation holds the lock for its entire lifetime (via <see cref="StagingHandle"/>), because
+    /// releasing between materialize and append would let a second invocation save its working
+    /// copy and manifest from stale state, silently dropping the first invocation's change.
+    /// Config and session files stay unlocked on purpose: they are single-value last-writer-wins
+    /// state. The lock file sits beside (not inside) the model directory so Discard can delete
+    /// the directory while holding the lock, and is removed on release.
     /// </summary>
     internal static IDisposable AcquireModelLock(string modelDirectory)
     {
@@ -324,16 +338,22 @@ public sealed record StagedOp(int Seq, DateTimeOffset Utc, string Command, strin
 
 public sealed record StagingInfo(StagingManifest Manifest, bool IsCurrentSession);
 
-/// <summary>A live handle to a materialized working copy; records staged operations into its manifest.</summary>
-public sealed class StagingHandle
+/// <summary>
+/// A live handle to a materialized working copy; records staged operations into its manifest.
+/// Holds the per-model lock from materialization until disposed so a concurrent invocation's
+/// working-copy save/append cannot interleave with (and silently overwrite) this one's.
+/// </summary>
+public sealed class StagingHandle : IDisposable
 {
     private readonly StagingStore _store;
     private readonly string _manifestFile;
+    private readonly IDisposable _modelLock;
 
-    internal StagingHandle(StagingStore store, string manifestFile, StagingManifest manifest)
+    internal StagingHandle(StagingStore store, string manifestFile, StagingManifest manifest, IDisposable modelLock)
     {
         _store = store;
         _manifestFile = manifestFile;
+        _modelLock = modelLock;
         Manifest = manifest;
     }
 
@@ -345,7 +365,8 @@ public sealed class StagingHandle
     public Task AppendOpAsync(string command, string summary, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        using var _ = StagingStore.AcquireModelLock(Path.GetDirectoryName(_manifestFile)!);
+        // No lock acquisition here: this handle has held the model lock since materialization,
+        // so the on-disk manifest cannot have changed underneath the in-memory copy.
         var op = new StagedOp(Manifest.Ops.Count + 1, DateTimeOffset.UtcNow, command, summary);
         Manifest = Manifest with
         {
@@ -355,4 +376,6 @@ public sealed class StagingHandle
         _store.WriteManifest(_manifestFile, Manifest);
         return Task.CompletedTask;
     }
+
+    public void Dispose() => _modelLock.Dispose();
 }
