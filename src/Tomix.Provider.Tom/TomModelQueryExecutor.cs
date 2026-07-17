@@ -94,8 +94,11 @@ public static class TomModelQueryExecutor
 
                 for (var run = 1; run <= runs; run++)
                 {
+                    // A run is only "cold" if the cache actually cleared; a best-effort clear that
+                    // failed (no admin rights / shared capacity) leaves the cache warm.
+                    var cold = false;
                     if (request.ClearCache)
-                        coldWarned = ClearCache(connection, databaseId, coldWarned);
+                        (cold, coldWarned) = ClearCache(connection, databaseId, coldWarned);
 
                     sink?.StartRun();
                     var runStopwatch = Stopwatch.StartNew();
@@ -124,7 +127,7 @@ public static class TomModelQueryExecutor
                     var timings = sink is { Active: true }
                         ? sink.WaitForRun(TimeSpan.FromSeconds(5))
                         : null;
-                    runResults.Add(new QueryRun(run, request.ClearCache, runStopwatch.ElapsedMilliseconds, timings));
+                    runResults.Add(new QueryRun(run, cold, runStopwatch.ElapsedMilliseconds, timings));
                 }
 
                 var plans = sink?.BuildPlans();
@@ -155,9 +158,10 @@ public static class TomModelQueryExecutor
     /// Clears the model cache (database-scoped) then runs a marked warm-up query so the calculation
     /// script re-evaluates and the following cold run isn't polluted by one-time init. Best-effort:
     /// clearing the cache needs admin rights, so a failure warns once and leaves the cache warm.
-    /// Returns the updated "already warned" flag.
+    /// Returns whether the cache was actually cleared (so the run can be labeled cold) and the
+    /// updated "already warned" flag.
     /// </summary>
-    private static bool ClearCache(AdomdConnection connection, string databaseId, bool alreadyWarned)
+    private static (bool Cleared, bool Warned) ClearCache(AdomdConnection connection, string databaseId, bool alreadyWarned)
     {
         try
         {
@@ -172,7 +176,7 @@ public static class TomModelQueryExecutor
             using var warmup = new AdomdCommand(
                 $"EVALUATE /* {TomQueryTraceSink.InternalMarker} */ ROW(\"tomix\", 0)", connection);
             warmup.ExecuteNonQuery();
-            return alreadyWarned;
+            return (true, alreadyWarned);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -181,7 +185,7 @@ public static class TomModelQueryExecutor
                 try { Console.Error.WriteLine($"[tomix] --cold clear-cache failed (need admin rights?): {ex.Message}"); }
                 catch { /* ignore */ }
             }
-            return true;
+            return (false, true);
         }
     }
 
