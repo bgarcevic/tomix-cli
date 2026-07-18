@@ -13,14 +13,39 @@ tx bpa rules <subcommand>
 
 `bpa run` evaluates the model against a rule collection and reports findings
 by severity; `--fix` applies auto-fixes where the rule provides one
-(`FixExpression`). `bpa rules` manages rule collections, including ignoring
-individual findings.
+(`FixExpression`).
+
+| Option | Description |
+|--------|-------------|
+| `-r, --rules <file>` | Path(s) or URL(s) to BPA rule file(s) in JSON format. |
+| `--ruleset <name>` | Standard ruleset: `standard`, `microsoft`, `microsoft-it`, `microsoft-ja`, `microsoft-es`. |
+| `--rule <id>` | Run only specific rule(s) by ID. |
+| `--path <path>` | Limit analysis to matched objects (literal names, wildcards, or paths). |
+| `--errors` / `--warnings` / `--info` | Show only rules of that severity (combinable). |
+| `--fail-on <threshold>` | Failure threshold: `error` (default) or `warning`. |
+| `--fix` | Apply fix expressions to auto-fix violations where possible. |
+| `--save` / `--save-to <path>` | Persist the model after applying fixes. |
+| `--details` / `--full` | Show full guidance per rule / list every affected object. |
+| `--vpax <file>` / `--vpa-rules` | Load VertiPaq Analyzer stats from a `.vpax` / include built-in VPA-aware rules. |
+| `--no-model-rules` / `--no-defaults` | Exclude rules embedded in the model / the selected standard ruleset. |
+| `--ci <github\|vsts>` | Emit CI logging commands to stderr. |
+| `--trx <path>` | Write results as a VSTEST `.trx` file. |
 
 ```sh
 tx bpa run
-tx bpa run --fix
-tx bpa run --severity error
+tx bpa run --errors
+tx bpa run --fix --save
 ```
+
+`bpa rules` manages rule collections:
+
+| Subcommand | Description |
+|------------|-------------|
+| `bpa rules list` | List BPA rules from all sources with status. |
+| `bpa rules init` | Create an empty BPA rules file at the resolved path. |
+| `bpa rules add` / `bpa rules set` / `bpa rules rm` | Add, update, or remove a rule. |
+| `bpa rules enable` / `bpa rules disable` | Re-enable or disable a built-in rule for the current user. |
+| `bpa rules ignore` / `bpa rules unignore` | Add or remove a rule on the model's ignore list. |
 
 The BPA gate also runs automatically on `deploy` and `save` (configured via
 `.te-bpa.json`; `--skip-bpa` to bypass, `--fix-bpa` to auto-fix first,

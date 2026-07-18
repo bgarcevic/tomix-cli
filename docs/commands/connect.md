@@ -151,6 +151,13 @@ tx auth logout
 tx session [show|clear|list|prune]
 ```
 
+| Subcommand | Description |
+|------------|-------------|
+| `session show` | Show current session details (ID, file path, active state). |
+| `session clear` | Clear active state for the current session. |
+| `session list` | List all session files. |
+| `session prune` | Delete session files whose shell process is no longer running. |
+
 ```sh
 tx session            # current session details
 tx session clear      # clear active state for this session

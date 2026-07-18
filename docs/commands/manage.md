@@ -11,10 +11,10 @@ tx config <show|set|init|paths>
 
 | Subcommand | Description |
 |------------|-------------|
-| `show` | Show current CLI configuration. |
-| `set <key> <value>` | Set a configuration value. |
-| `init` | Create a default `config.json`. |
-| `paths` | Show resolved paths for local CLI files. |
+| `config show` | Show current CLI configuration. |
+| `config set <key> <value>` | Set a configuration value. |
+| `config init` | Create a default `config.json`. |
+| `config paths` | Show resolved paths for local CLI files. |
 
 ```sh
 tx config show
@@ -29,10 +29,10 @@ tx profile <list|show|set|remove>
 
 | Subcommand | Description |
 |------------|-------------|
-| `list` | List all saved connection profiles. |
-| `show <name>` | Show details of a profile. |
-| `set <name>` | Create or update a profile. |
-| `remove <name>` | Delete a profile. |
+| `profile list` | List all saved connection profiles. |
+| `profile show <name>` | Show details of a profile. |
+| `profile set <name>` | Create or update a profile. |
+| `profile remove <name>` | Delete a profile. |
 
 ```sh
 tx profile set dev -s DevWorkspace -d Sales
@@ -77,6 +77,13 @@ tx stage [status|list|commit|discard]
 
 Inspect and manage staged (uncommitted) model mutations — see
 [Editing & staging](../guides/editing.md) for the workflow.
+
+| Subcommand | Description |
+|------------|-------------|
+| `stage status` | Show staged mutations for the active model (the default). |
+| `stage list` | List all staged models in the current session. |
+| `stage commit` | Promote staged mutations onto the source (and workspace mirror). |
+| `stage discard` | Discard staged mutations without committing them. |
 
 ```sh
 tx stage             # staged mutations for the active model

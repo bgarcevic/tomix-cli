@@ -44,13 +44,38 @@ public sealed class CommandSurfaceSnapshotTests
             DescribeFirstDifferences(approved, Normalize(actual)));
     }
 
-    private static string RenderSurface()
+    /// <summary>
+    /// The snapshot alone can be regenerated without touching the docs, so this second
+    /// gate makes new commands impossible to ship undocumented: every command path must
+    /// appear verbatim somewhere in docs/commands/*.md. It cannot prove the surrounding
+    /// prose is accurate — option-level accuracy stays on the snapshot-diff review.
+    /// </summary>
+    [Fact]
+    public void EveryCommand_IsMentionedInCommandDocs()
     {
-        var root = Program.BuildRootCommand(
+        var docsDir = Path.Combine(RepoRoot(), "docs", "commands");
+        var haystack = string.Join('\n', Directory.GetFiles(docsDir, "*.md").Select(File.ReadAllText));
+
+        var missing = CommandPaths(BuildRoot(), "")
+            .Select(entry => entry.Path.TrimStart(' '))
+            .Where(path => !haystack.Contains(path, StringComparison.Ordinal))
+            .ToList();
+
+        Assert.True(missing.Count == 0,
+            "Commands not mentioned anywhere in docs/commands/*.md — document them on the appropriate page:" +
+            Environment.NewLine + string.Join(Environment.NewLine, missing));
+    }
+
+    private static RootCommand BuildRoot()
+        => Program.BuildRootCommand(
             providers: [],
             new CompositeExpressionFormatterClient([]),
             version: "0.0.0-test",
             TestServices.Create());
+
+    private static string RenderSurface()
+    {
+        var root = BuildRoot();
 
         var sb = new StringBuilder();
         WriteCommand(sb, root, "tx");
@@ -132,4 +157,7 @@ public sealed class CommandSurfaceSnapshotTests
 
     private static string SnapshotPath([CallerFilePath] string sourcePath = "")
         => Path.Combine(Path.GetDirectoryName(sourcePath)!, "CommandSurface.approved.txt");
+
+    private static string RepoRoot([CallerFilePath] string sourcePath = "")
+        => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourcePath)!, "..", ".."));
 }

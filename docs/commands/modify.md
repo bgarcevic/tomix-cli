@@ -174,10 +174,10 @@ tx incremental-refresh <show|set|rm|apply> <table> [options]
 
 | Subcommand | Description |
 |------------|-------------|
-| `show <table>` | Show the incremental refresh policy. |
-| `set <table>` | Create or edit the policy on a table. |
-| `rm <table>` | Remove the policy from a table. |
-| `apply <table>` | Apply the policy on a deployed model (generates partitions server-side). |
+| `incremental-refresh show <table>` | Show the incremental refresh policy. |
+| `incremental-refresh set <table>` | Create or edit the policy on a table. |
+| `incremental-refresh rm <table>` | Remove the policy from a table. |
+| `incremental-refresh apply <table>` | Apply the policy on a deployed model (generates partitions server-side). |
 
 ```sh
 tx incremental-refresh show Sales
