@@ -6,7 +6,9 @@ namespace Tomix.Cli.Tests;
 /// <summary>
 /// Outcome mapping for the <c>tx test</c> pipeline projections: TRX outcomes per
 /// <see cref="TestOutcome"/> and CI annotations for non-passing tests only.
+/// In the console-state collection because the EmitCi tests swap <c>Console.Error</c>.
 /// </summary>
+[Collection(ConsoleStateCollection.Name)]
 public sealed class TestRunRendererTests
 {
     private static TestCaseResult Case(
