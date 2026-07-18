@@ -284,6 +284,46 @@ internal static class BpaRunRenderer
             errors = Array.Empty<string>()
         };
 
+    /// <summary>
+    /// TRX projection: one Failed test per violated rule (message lists the violating objects),
+    /// one Error test per compilation/evaluation sentinel, or a single Passed test summarising
+    /// the run when no rule fired, so an all-green run still shows up in CI.
+    /// </summary>
+    public static IReadOnlyList<TrxWriter.TrxTest> ToTrxTests(BpaRunResult result)
+    {
+        var tests = new List<TrxWriter.TrxTest>();
+
+        foreach (var group in result.Violations.GroupBy(v => (v.RuleId, v.RuleName)))
+        {
+            var objects = group
+                .Select(v => $"{v.ObjectType} '{v.ObjectPath}'")
+                .ToList();
+            var description = CollapseDescription(group.First().Description);
+            var message = string.IsNullOrEmpty(description)
+                ? string.Join(Environment.NewLine, objects)
+                : $"{description}{Environment.NewLine}{string.Join(Environment.NewLine, objects)}";
+
+            tests.Add(new TrxWriter.TrxTest(
+                $"{group.Key.RuleName} [{group.Key.RuleId}]",
+                TrxWriter.TrxOutcome.Failed,
+                message));
+        }
+
+        foreach (var sentinel in result.Results.Where(r =>
+            r.Kind is BpaResultKind.CompilationError or BpaResultKind.EvaluationError))
+            tests.Add(new TrxWriter.TrxTest(
+                $"{sentinel.RuleName} [{sentinel.RuleId}]",
+                TrxWriter.TrxOutcome.Error,
+                sentinel.ErrorScope is null ? sentinel.ErrorMessage : $"{sentinel.ErrorScope}: {sentinel.ErrorMessage}"));
+
+        if (tests.Count == 0)
+            tests.Add(new TrxWriter.TrxTest(
+                $"Best Practice Analyzer ({result.RulesEvaluated} rules)",
+                TrxWriter.TrxOutcome.Passed));
+
+        return tests;
+    }
+
     public static void EmitCi(string? ci, IReadOnlyList<BpaViolation> violations)
     {
         var annotations = violations
