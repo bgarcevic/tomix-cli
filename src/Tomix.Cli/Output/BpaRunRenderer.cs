@@ -309,12 +309,21 @@ internal static class BpaRunRenderer
                 message));
         }
 
-        foreach (var sentinel in result.Results.Where(r =>
-            r.Kind is BpaResultKind.CompilationError or BpaResultKind.EvaluationError))
+        // The engine emits one sentinel per evaluated object scope, so a rule that fails in
+        // several scopes yields several sentinels — collapse them into one Error test per rule.
+        foreach (var group in result.Results
+            .Where(r => r.Kind is BpaResultKind.CompilationError or BpaResultKind.EvaluationError)
+            .GroupBy(r => (r.RuleId, r.RuleName)))
+        {
+            var messages = group
+                .Select(s => s.ErrorScope is null ? s.ErrorMessage : $"{s.ErrorScope}: {s.ErrorMessage}")
+                .Where(m => !string.IsNullOrEmpty(m));
+
             tests.Add(new TrxWriter.TrxTest(
-                $"{sentinel.RuleName} [{sentinel.RuleId}]",
+                $"{group.Key.RuleName} [{group.Key.RuleId}]",
                 TrxWriter.TrxOutcome.Error,
-                sentinel.ErrorScope is null ? sentinel.ErrorMessage : $"{sentinel.ErrorScope}: {sentinel.ErrorMessage}"));
+                string.Join(Environment.NewLine, messages)));
+        }
 
         if (tests.Count == 0)
             tests.Add(new TrxWriter.TrxTest(

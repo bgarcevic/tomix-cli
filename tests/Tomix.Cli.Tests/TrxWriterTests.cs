@@ -141,7 +141,9 @@ public sealed class TrxWriterTests : IDisposable
                 new BpaResult(BpaResultKind.Violation, "R1", "Avoid floats", "Performance", BpaSeverity.Warning,
                     Violation: v1 with { ObjectPath = "tables/Sales/columns/Ignored" }, IsIgnored: true),
                 new BpaResult(BpaResultKind.CompilationError, "R2", "Broken rule", "Meta", BpaSeverity.Error,
-                    ErrorMessage: "syntax error", ErrorScope: "Measure")
+                    ErrorMessage: "syntax error", ErrorScope: "Measure"),
+                new BpaResult(BpaResultKind.EvaluationError, "R2", "Broken rule", "Meta", BpaSeverity.Error,
+                    ErrorMessage: "cast failed", ErrorScope: "Column")
             ],
             ModelName: "m",
             RulesEvaluated: 5);
@@ -155,9 +157,11 @@ public sealed class TrxWriterTests : IDisposable
         Assert.Contains("tables/Sales/columns/Qty", failed.Message);
         Assert.DoesNotContain("Ignored", failed.Message); // object-level ignores stay suppressed
 
+        // Per-scope sentinels collapse into one Error test per rule.
         var error = Assert.Single(tests, t => t.Outcome == TrxWriter.TrxOutcome.Error);
         Assert.Equal("Broken rule [R2]", error.Name);
-        Assert.Equal("Measure: syntax error", error.Message);
+        Assert.Contains("Measure: syntax error", error.Message);
+        Assert.Contains("Column: cast failed", error.Message);
     }
 
     [Fact]

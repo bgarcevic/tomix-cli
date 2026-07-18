@@ -245,12 +245,6 @@ internal sealed class ConnectCommand : ICommandModule
             if (plan.ShowCurrent)
                 return CommandOutput.Render(handler.Show(), format, ConnectRenderer.RenderShow);
 
-            if (plan.InvalidTarget is { } invalidTarget)
-            {
-                ErrorOutput.Write(new[] { invalidTarget }, errorFormat);
-                return 1;
-            }
-
             var target = plan.Target!;
             var model = target.Model;
             var remoteServer = target.RemoteServer;
