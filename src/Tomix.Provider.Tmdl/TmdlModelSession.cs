@@ -5,7 +5,8 @@ using Tomix.Provider.Tom;
 
 namespace Tomix.Provider.Tmdl;
 
-public sealed class TmdlModelSession : IModelSession, IModelExportSession, IModelMutationSession, IModelDeploySession
+public sealed class TmdlModelSession : IModelSession, IModelExportSession, IModelMutationSession,
+    IExpressionRewriteSession, IRefreshPolicyMutationSession, IModelDeploySession
 {
     private readonly string _path;
     private readonly IAccessTokenProvider? _tokenProvider;

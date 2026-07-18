@@ -122,7 +122,8 @@ public sealed class TomServerModelProvider : IModelProvider, IServerCatalog
     }
 }
 
-internal sealed class TomServerModelSession : IModelSession, IModelExportSession, IModelMutationSession, IModelDeploySession, IModelRefreshSession, IModelQuerySession
+internal sealed class TomServerModelSession : IModelSession, IModelExportSession, IModelMutationSession,
+    IExpressionRewriteSession, IRefreshPolicyMutationSession, IModelDeploySession, IModelRefreshSession, IModelQuerySession
 {
     private readonly TabularServer _server;
     private readonly TabularDatabase _database;

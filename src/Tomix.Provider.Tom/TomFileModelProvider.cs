@@ -31,7 +31,8 @@ public sealed class TomFileModelProvider : IModelProvider
     }
 }
 
-internal sealed class TomFileModelSession : IModelSession, IModelExportSession, IModelMutationSession, IModelDeploySession
+internal sealed class TomFileModelSession : IModelSession, IModelExportSession, IModelMutationSession,
+    IExpressionRewriteSession, IRefreshPolicyMutationSession, IModelDeploySession
 {
     private readonly string _path;
     private readonly IAccessTokenProvider? _tokenProvider;
