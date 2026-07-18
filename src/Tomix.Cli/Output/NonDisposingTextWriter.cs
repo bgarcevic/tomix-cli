@@ -36,5 +36,6 @@ internal sealed class NonDisposingTextWriter : TextWriter
     protected override void Dispose(bool disposing)
     {
         // Intentionally do not dispose the shared inner writer (e.g. Console.Error).
+        base.Dispose(disposing);
     }
 }
