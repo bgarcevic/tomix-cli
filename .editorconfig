@@ -32,15 +32,28 @@ dotnet_diagnostic.CA1707.severity = none
 # Initial non-regressive baseline (analyzers enabled 2026-07): rules that fired on existing
 # code are parked at suggestion so the build stays warning-clean and CI can gate on
 # -warnaserror. Promote a rule to warning after cleaning up its remaining hits.
-dotnet_diagnostic.CA1000.severity = suggestion   # static members on generic types (TomixResult<T>)
-dotnet_diagnostic.CA1305.severity = suggestion   # IFormatProvider in human-facing renderers
-dotnet_diagnostic.CA1310.severity = suggestion   # StringComparison for StartsWith/EndsWith
-dotnet_diagnostic.CA1711.severity = suggestion   # identifier suffix naming
-dotnet_diagnostic.CA1716.severity = suggestion   # identifiers matching language keywords
-dotnet_diagnostic.CA1720.severity = suggestion   # identifiers containing type names
-dotnet_diagnostic.CA1822.severity = suggestion   # members that could be static
-dotnet_diagnostic.CA1826.severity = suggestion   # Enumerable methods on indexable collections
-dotnet_diagnostic.CA1859.severity = suggestion   # concrete types for perf
-dotnet_diagnostic.CA1861.severity = suggestion   # constant array arguments
-dotnet_diagnostic.CA1865.severity = suggestion   # char overloads for single-char strings
-dotnet_diagnostic.CA1869.severity = suggestion   # cached JsonSerializerOptions
+# (EditorConfig comments are line-only, so each explanation precedes its rule.)
+# CA1000: static members on generic types (TomixResult<T>)
+dotnet_diagnostic.CA1000.severity = suggestion
+# CA1305: IFormatProvider in human-facing renderers
+dotnet_diagnostic.CA1305.severity = suggestion
+# CA1310: StringComparison for StartsWith/EndsWith
+dotnet_diagnostic.CA1310.severity = suggestion
+# CA1711: identifier suffix naming
+dotnet_diagnostic.CA1711.severity = suggestion
+# CA1716: identifiers matching language keywords
+dotnet_diagnostic.CA1716.severity = suggestion
+# CA1720: identifiers containing type names
+dotnet_diagnostic.CA1720.severity = suggestion
+# CA1822: members that could be static
+dotnet_diagnostic.CA1822.severity = suggestion
+# CA1826: Enumerable methods on indexable collections
+dotnet_diagnostic.CA1826.severity = suggestion
+# CA1859: concrete types for perf
+dotnet_diagnostic.CA1859.severity = suggestion
+# CA1861: constant array arguments
+dotnet_diagnostic.CA1861.severity = suggestion
+# CA1865: char overloads for single-char strings
+dotnet_diagnostic.CA1865.severity = suggestion
+# CA1869: cached JsonSerializerOptions
+dotnet_diagnostic.CA1869.severity = suggestion
