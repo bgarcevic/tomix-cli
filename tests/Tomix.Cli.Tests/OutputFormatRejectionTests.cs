@@ -30,7 +30,6 @@ public sealed class OutputFormatRejectionTests
             "format" => new FormatCommand(NoProviders, new CompositeExpressionFormatterClient([]), TestServices.Create()),
             "get" => new GetCommand(NoProviders, TestServices.Create()),
             "init" => new InitCommand(),
-            "interactive" => new InteractiveCommand(TestServices.Create()),
             "load" => new LoadCommand(NoProviders, TestServices.Create()),
             "profile" => new ProfileCommand(TestServices.Create()),
             "refresh" => new RefreshCommand(NoProviders, TestServices.Create()),
@@ -41,6 +40,7 @@ public sealed class OutputFormatRejectionTests
             "session" => new SessionCommand(TestServices.Create()),
             "set" => new SetCommand(NoProviders, TestServices.Create()),
             "stage" => new StageCommand(NoProviders, TestServices.Create()),
+            "update" => new UpdateCommand("0.0.0-test", FakeReleaseSource.Empty, TestServices.Create()),
             "validate" => new ValidateCommand(NoProviders, TestServices.Create()),
             "vertipaq" => new VertipaqCommand(
                 NoProviders, new Tomix.Provider.Vpax.VpaxVertipaqAnalyzer(tokenProvider: null, "0.0.0-test"), TestServices.Create()),
@@ -82,7 +82,6 @@ public sealed class OutputFormatRejectionTests
     [InlineData("csv", "doctor")]
     [InlineData("csv", "format")]
     [InlineData("csv", "init")]
-    [InlineData("csv", "interactive")]
     [InlineData("csv", "load")]
     [InlineData("csv", "profile", "list")]
     [InlineData("csv", "replace", "old", "new")]
@@ -90,6 +89,7 @@ public sealed class OutputFormatRejectionTests
     [InlineData("csv", "session")]
     [InlineData("csv", "set", "tables/T/measures/M")]
     [InlineData("csv", "stage")]
+    [InlineData("csv", "update", "--check")]
     [InlineData("csv", "validate")]
     [InlineData("tmdl", "refresh")]
     [InlineData("tmdl", "save")]

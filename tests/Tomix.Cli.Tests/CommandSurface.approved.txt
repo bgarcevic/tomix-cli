@@ -344,10 +344,6 @@ Create a new empty semantic model
   opt --serialization <serialization>  Model serialization: tmdl, bim, pbip (default: tmdl)
   opt --force  Replace any existing file or directory at the target path
 
-# tx interactive
-Start an interactive REPL session for running multiple commands against a model
-  arg [model]  Path to semantic model, or omit to connect later inside the session
-
 # tx load
 Load a semantic model and display summary
   arg [model]  Path to model, Fabric path, or omit for active connection
@@ -547,6 +543,12 @@ Run DAX regression tests against a live model (--update records snapshots, --trx
   opt --max-rows <max-rows>  Per-query row cap; a query exceeding it fails as an error (default: 10000).
   opt --ci <ci>  Emit CI logging commands to stderr: vsts or github
   opt --trx <trx>  Write results as a VSTEST .trx file to the specified path
+
+# tx update
+Update tx to the latest release.
+  opt --check  Preview only: show the latest version and release notes without changing anything.
+  opt --version <version>  Update (or downgrade, with --yes) to a specific released version instead of the latest.
+  opt --output-format <output-format>  Stdout format: text (default), json, csv, tmsl (alias: bim), tmdl. Not all formats are supported by every command.
 
 # tx validate
 Validate DAX expressions and relationship integrity (--ci for CI output, --trx for VSTEST)

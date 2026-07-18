@@ -8,6 +8,7 @@ using Tomix.App.Auth;
 using Tomix.App.Config;
 using Tomix.App.Connect;
 using Tomix.App.Format;
+using Tomix.App.Update;
 using Tomix.Auth;
 using Tomix.Cli.Commands;
 using Tomix.Cli.Output;
@@ -68,11 +69,12 @@ internal static class Program
                 new PowerQueryFormatterApiClient(httpClient)
             ]);
         var workspaceCatalog = new PowerBiWorkspaceCatalog(httpClient, tokenProvider);
+        var releaseSource = new GitHubReleaseSource(httpClient);
 
         var version = ResolveVersion();
         var root = BuildRootCommand(
             providers, formatter, version, services, workspaceCatalog, tokenProvider.CachedUsername,
-            new VpaxVertipaqAnalyzer(tokenProvider, version));
+            new VpaxVertipaqAnalyzer(tokenProvider, version), releaseSource);
 
         if (args.Length == 0)
         {
@@ -105,7 +107,9 @@ internal static class Program
             return 2;
         }
 
-        return Invoke(parseResult);
+        var exitCode = Invoke(parseResult);
+        UpdateNotice.Run(parseResult, version, config, services.UpdateCheck, releaseSource);
+        return exitCode;
     }
 
     /// <summary>
@@ -169,7 +173,8 @@ internal static class Program
         AppServices services,
         IWorkspaceCatalog? workspaceCatalog = null,
         Func<string?>? cachedUsername = null,
-        IVertipaqAnalyzer? analyzer = null)
+        IVertipaqAnalyzer? analyzer = null,
+        IReleaseSource? releaseSource = null)
     {
         analyzer ??= new VpaxVertipaqAnalyzer(tokenProvider: null, version);
         var root = new RootCommand("tx - CLI for semantic models");
@@ -191,13 +196,12 @@ internal static class Program
             new DeployCommand(providers, services),
             new DepsCommand(providers, services),
             new DiffCommand(providers),
-            new DoctorCommand(version, services.ConfigDirectory),
+            new DoctorCommand(version, services.ConfigDirectory, releaseSource),
             new FindCommand(providers, services),
             new FormatCommand(providers, formatter, services),
             new GetCommand(providers, services),
             new IncrementalRefreshCommand(providers, services),
             new InitCommand(),
-            new InteractiveCommand(services),
             new LoadCommand(providers, services),
             new LsCommand(providers, services),
             new MvCommand(providers, services),
@@ -212,6 +216,7 @@ internal static class Program
             new SetCommand(providers, services),
             new StageCommand(providers, services),
             new TestCommand(providers, services),
+            new UpdateCommand(version, releaseSource ?? UnavailableReleaseSource.Instance, services),
             new ValidateCommand(providers, services),
             new VertipaqCommand(providers, analyzer, services)
         };
@@ -240,6 +245,24 @@ internal static class Program
 
         public Task<IReadOnlyList<WorkspaceInfo>> ListWorkspacesAsync(CancellationToken cancellationToken)
             => Task.FromResult<IReadOnlyList<WorkspaceInfo>>([]);
+    }
+
+    /// <summary>Release source for contexts without network wiring (e.g. help-only test roots).</summary>
+    private sealed class UnavailableReleaseSource : IReleaseSource
+    {
+        public static readonly UnavailableReleaseSource Instance = new();
+
+        public Task<Tomix.Core.Update.ReleaseInfo?> GetLatestAsync(CancellationToken cancellationToken)
+            => Task.FromResult<Tomix.Core.Update.ReleaseInfo?>(null);
+
+        public Task<IReadOnlyList<Tomix.Core.Update.ReleaseInfo>> ListReleasesAsync(CancellationToken cancellationToken)
+            => Task.FromResult<IReadOnlyList<Tomix.Core.Update.ReleaseInfo>>([]);
+
+        public Task<byte[]> DownloadAssetAsync(string version, string assetName, CancellationToken cancellationToken)
+            => throw new HttpRequestException("No release source is configured.");
+
+        public Task<string> DownloadChecksumsAsync(string version, CancellationToken cancellationToken)
+            => throw new HttpRequestException("No release source is configured.");
     }
 
     private static string ResolveVersion()

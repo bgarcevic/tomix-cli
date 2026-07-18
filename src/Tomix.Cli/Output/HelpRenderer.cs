@@ -20,12 +20,12 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ("Modify", ["add", "set", "mv", "rm", "replace", "format", "script", "incremental-refresh"]),
         ("Connect", ["connect", "deploy", "refresh", "load", "save", "auth", "session"]),
         ("Validate", ["bpa", "validate", "test", "vertipaq", "diff", "doctor"]),
-        ("Manage", ["config", "profile", "init", "completion", "stage", "interactive"]),
+        ("Manage", ["config", "profile", "init", "completion", "stage", "update"]),
     ];
 
     internal static readonly string[] NotImplementedCommands = [];
 
-    private static readonly Dictionary<string, string[]> CommandExamples = new(StringComparer.Ordinal)
+    internal static readonly Dictionary<string, string[]> CommandExamples = new(StringComparer.Ordinal)
     {
         ["ls"] = [
             "tx ls",
@@ -75,7 +75,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ],
         ["replace"] = [
             "tx replace \"[OrderDate]\" \"[ShipDate]\"",
-            "tx replace \"old_name\" \"new_name\" --type measure",
+            "tx replace \"old_name\" \"new_name\" --in expressions",
         ],
         ["format"] = [
             "tx format",
@@ -122,17 +122,19 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ],
         ["session"] = [
             "tx session",
-            "tx session --reset",
+            "tx session list",
+            "tx session clear",
         ],
         ["bpa"] = [
-            "tx bpa",
-            "tx bpa --format json",
-            "tx bpa --severity error",
+            "tx bpa run",
+            "tx bpa run --errors",
+            "tx bpa run --output-format json",
+            "tx bpa run --fix",
         ],
         ["validate"] = [
             "tx validate",
-            "tx validate --ci",
-            "tx validate --trx",
+            "tx validate --ci github",
+            "tx validate --trx results.trx",
         ],
         ["vertipaq"] = [
             "tx vertipaq",
@@ -149,13 +151,13 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx doctor",
         ],
         ["config"] = [
-            "tx config list",
+            "tx config show",
             "tx config set noColor true",
         ],
         ["profile"] = [
             "tx profile list",
-            "tx profile add dev -s MyWorkspace -d Sales",
-            "tx profile activate dev",
+            "tx profile set dev -s MyWorkspace -d Sales",
+            "tx connect --profile dev",
         ],
         ["init"] = [
             "tx init",
@@ -168,11 +170,12 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["stage"] = [
             "tx stage",
             "tx stage commit",
-            "tx stage revert",
+            "tx stage discard",
         ],
-        ["interactive"] = [
-            "tx interactive",
-            "tx interactive ./model.tmdl",
+        ["update"] = [
+            "tx update --check",
+            "tx update",
+            "tx update --version 0.2.0 --yes",
         ],
     };
 
