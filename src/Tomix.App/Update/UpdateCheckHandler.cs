@@ -113,13 +113,19 @@ public sealed class UpdateCheckHandler
             Releases: between);
 
         // An explicit check is at least as good as the throttled one: reset its 24h clock.
-        try
+        // Always cache the newest stable release, never the --version pin — caching an older
+        // pinned target would suppress the notice for the real latest release for a day.
+        var latestStable = parsed.FirstOrDefault(pair => !pair.release.Prerelease).version;
+        if (latestStable is not null)
         {
-            _store?.Save(result.LatestVersion!);
-        }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
-        {
-            // Cache refresh is best-effort; the check result stands on its own.
+            try
+            {
+                _store?.Save(latestStable.ToString());
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Cache refresh is best-effort; the check result stands on its own.
+            }
         }
 
         return TomixResult<UpdateCheckResult>.Ok(result);
