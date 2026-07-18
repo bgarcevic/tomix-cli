@@ -118,6 +118,48 @@ public sealed class TestSnapshotTests : IDisposable
         Assert.NotNull(error);
     }
 
+    [Fact]
+    public void Load_ReportsError_WhenRowHasWrongCellCount()
+    {
+        var path = SnapshotPath();
+        File.WriteAllText(path, """
+            { "version": 1, "querySha256": "abc",
+              "columns": [{ "name": "A", "type": "string" }, { "name": "B", "type": "int64" }],
+              "rows": [["ok", "1"], ["short"]] }
+            """, new UTF8Encoding(false));
+
+        Assert.Null(TestSnapshotFile.Load(path, out var error));
+        Assert.Contains("row 2 has 1 cell(s), expected 2", error);
+    }
+
+    [Fact]
+    public void Load_ReportsError_WhenRowIsNull()
+    {
+        var path = SnapshotPath();
+        File.WriteAllText(path, """
+            { "version": 1, "querySha256": "abc",
+              "columns": [{ "name": "A", "type": "string" }],
+              "rows": [null] }
+            """, new UTF8Encoding(false));
+
+        Assert.Null(TestSnapshotFile.Load(path, out var error));
+        Assert.Contains("row 1", error);
+    }
+
+    [Fact]
+    public void Load_ReportsError_WhenColumnIsIncomplete()
+    {
+        var path = SnapshotPath();
+        File.WriteAllText(path, """
+            { "version": 1, "querySha256": "abc",
+              "columns": [{ "name": "A" }],
+              "rows": [] }
+            """, new UTF8Encoding(false));
+
+        Assert.Null(TestSnapshotFile.Load(path, out var error));
+        Assert.Contains("column", error);
+    }
+
     [Theory]
     [InlineData("EVALUATE 'Sales'", "EVALUATE 'Sales'")]
     [InlineData("EVALUATE 'Sales'\r\n", "EVALUATE 'Sales'\n")]

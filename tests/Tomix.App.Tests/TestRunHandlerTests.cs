@@ -245,6 +245,25 @@ public sealed class TestRunHandlerTests : IDisposable
     }
 
     [Fact]
+    public async Task HandleAsync_ReportsError_WhenSnapshotRowsDoNotMatchColumns()
+    {
+        var daxPath = WriteDax("sales");
+        // Structurally incomplete snapshot: one column declared, but a row with no cells.
+        File.WriteAllText(Path.ChangeExtension(daxPath, ".expected.json"), """
+            { "version": 1, "querySha256": "abc",
+              "columns": [{ "name": "[Value]", "type": "int64" }],
+              "rows": [[]] }
+            """);
+
+        var result = await Handler(new StubQuerySession()).HandleAsync(Request(), CancellationToken.None);
+
+        Assert.Equal(1, result.ExitCode);
+        var test = Assert.Single(result.Data!.Tests);
+        Assert.Equal(TestOutcome.Error, test.Outcome);
+        Assert.Contains("row 1", test.Message);
+    }
+
+    [Fact]
     public async Task HandleAsync_ReportsError_ForNonQueryStatement()
     {
         WriteDax("bad", "SUMMARIZE(Sales)");

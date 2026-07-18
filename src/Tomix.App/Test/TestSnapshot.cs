@@ -72,6 +72,23 @@ public static class TestSnapshotFile
                 return null;
             }
 
+            // Guard the comparer's Rows[r][c] indexing: every row must be a real array
+            // with exactly one cell per declared column, and every column entry complete.
+            if (snapshot.Columns.Any(c => c?.Name is null || c.Type is null))
+            {
+                error = "Snapshot file is invalid: every column needs a name and a type.";
+                return null;
+            }
+
+            for (var r = 0; r < snapshot.Rows.Count; r++)
+            {
+                if (snapshot.Rows[r] is null || snapshot.Rows[r].Count != snapshot.Columns.Count)
+                {
+                    error = $"Snapshot file is invalid: row {r + 1} has {snapshot.Rows[r]?.Count.ToString() ?? "no"} cell(s), expected {snapshot.Columns.Count}.";
+                    return null;
+                }
+            }
+
             error = null;
             return snapshot;
         }
