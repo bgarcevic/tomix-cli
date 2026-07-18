@@ -211,6 +211,7 @@ internal static class Program
             new SessionCommand(services),
             new SetCommand(providers, services),
             new StageCommand(providers, services),
+            new TestCommand(providers, services),
             new ValidateCommand(providers, services),
             new VertipaqCommand(providers, analyzer, services)
         };
