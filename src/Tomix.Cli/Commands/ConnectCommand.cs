@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Spectre.Console;
 using Tomix.App.Connect;
 using Tomix.App.Info;
 using Tomix.App.State;
@@ -6,7 +7,6 @@ using Tomix.Cli.Output;
 using Tomix.Core.Authentication;
 using Tomix.Core.Diagnostics;
 using Tomix.Core.Models;
-using Spectre.Console;
 
 namespace Tomix.Cli.Commands;
 

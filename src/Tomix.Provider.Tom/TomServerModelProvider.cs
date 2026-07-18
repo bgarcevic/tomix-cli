@@ -145,7 +145,8 @@ internal sealed class TomServerModelSession : IModelSession, IModelExportSession
         cancellationToken.ThrowIfCancellationRequested();
         var name = ModelName();
         return Task.FromResult(TomModelSummarizer.Summarize(_database, name)
-            with { DatabaseName = string.IsNullOrWhiteSpace(_database.Name) ? null : _database.Name });
+            with
+        { DatabaseName = string.IsNullOrWhiteSpace(_database.Name) ? null : _database.Name });
     }
 
     public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken cancellationToken)

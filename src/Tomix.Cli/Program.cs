@@ -2,6 +2,7 @@ using System.CommandLine;
 using System.CommandLine.Help;
 using System.Reflection;
 using System.Text;
+using Spectre.Console;
 using Tomix.App.Auth;
 using Tomix.App.Config;
 using Tomix.App.Connect;
@@ -13,10 +14,9 @@ using Tomix.Core.Configuration;
 using Tomix.Core.Diagnostics;
 using Tomix.Core.Models;
 using Tomix.Core.Vertipaq;
-using Tomix.Provider.Tom;
 using Tomix.Provider.Tmdl;
+using Tomix.Provider.Tom;
 using Tomix.Provider.Vpax;
-using Spectre.Console;
 
 namespace Tomix.Cli;
 
