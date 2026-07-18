@@ -83,33 +83,6 @@ tx refresh --type full
 tx refresh --table Sales --table Customers
 ```
 
-## `query` — run DAX or DMV
-
-```
-tx query [options]
-```
-
-Executes against a live model (the active remote connection, or
-`-s`/`-d`/`--local`).
-
-| Option | Description |
-|--------|-------------|
-| `-q, --query <text>` | Inline query (`-` = stdin). |
-| `--file <file>` | Read the query from a file (`-` = stdin). |
-| `--param <name=value>` | Query parameter, referenced as `@name` in DAX. Repeatable. |
-| `--limit <n>` | Maximum rows to return. |
-| `-o, --output-file <file>` | Write results to a file as json or csv. |
-| `--trace [path]` | Server timings (formula vs storage engine); optional path dumps raw trace events. Needs admin rights. |
-| `--plan` | Show logical and physical DAX query plans. Needs admin rights. |
-| `--cold` | Clear the model cache before each run. Needs admin rights. |
-| `--runs <n>` | Execute N times and report Avg/Min/Max/StdDev. |
-| `--no-validate` | Skip the EVALUATE/DEFINE/SELECT keyword pre-check. |
-
-```sh
-tx query -q 'EVALUATE ROW("Sales", [Total Sales])' --trace --plan
-tx query --file heavy.dax --cold --runs 5
-```
-
 ## `load` — load and summarize
 
 ```
@@ -145,9 +118,29 @@ tx save ./model.tmdl --serialization bim -o ./model.bim  # convert formats
 tx auth <login|logout|status>
 ```
 
+`auth login` options:
+
+| Option | Description |
+|--------|-------------|
+| `-u, --username <id>` | Service-principal application (client) id. |
+| `-p, --password <source>` | Service-principal client secret source: pass `-` to read one line from stdin. Secret values on the command line are rejected. |
+| `--password-file <file>` | Path to a file containing the client secret (trailing newline ignored). |
+| `-t, --tenant <tenant>` | Tenant id or domain (required for service principal). |
+| `--certificate <file>` | Certificate file (PEM or PKCS12) for service-principal auth. |
+| `--certificate-password <source>` / `--certificate-password-file <file>` | Certificate password via stdin (`-`) or file; plain values on the command line are rejected. |
+| `-I, --identity` | Sign in with a managed identity (Azure-hosted; use `--username` for user-assigned). |
+| `--device-code` | Use the device-code flow instead of a local browser. |
+| `--client-id <id>` | Override the Azure AD client id used for interactive/device-code sign-in. |
+| `--save` | Persist service-principal credentials for silent reuse (default: true). `--save false` for one-shot login. |
+
 ```sh
-tx auth login
-tx auth login --auth spn --client-id $SPN_ID
+tx auth login                          # interactive browser login
+tx auth login --device-code            # no local browser (SSH, containers)
+
+# Service principal — secret from stdin (CI) or a file, never argv
+printf '%s' "$SECRET" | tx auth login -u $APP_ID -t $TENANT --password -
+tx auth login -u $APP_ID -t $TENANT --password-file ./secret.txt
+
 tx auth status
 tx auth logout
 ```

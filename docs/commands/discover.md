@@ -80,3 +80,31 @@ tx deps "Sales/Total Sales" --upstream
 tx deps "Sales/Amount" --downstream --deep
 tx deps --unused --hidden
 ```
+
+## `query` — run DAX or DMV
+
+```
+tx query [options]
+```
+
+Executes against a live model (the active remote connection, or
+`-s`/`-d`/`--local`). See [Output & scripting](../guides/scripting.md#querying-live-models)
+for the performance-analysis workflow.
+
+| Option | Description |
+|--------|-------------|
+| `-q, --query <text>` | Inline query (`-` = stdin). |
+| `--file <file>` | Read the query from a file (`-` = stdin). |
+| `--param <name=value>` | Query parameter, referenced as `@name` in DAX. Repeatable. |
+| `--limit <n>` | Maximum rows to return. |
+| `-o, --output-file <file>` | Write results to a file as json or csv. |
+| `--trace [path]` | Server timings (formula vs storage engine); optional path dumps raw trace events. Needs admin rights. |
+| `--plan` | Show logical and physical DAX query plans. Needs admin rights. |
+| `--cold` | Clear the model cache before each run. Needs admin rights. |
+| `--runs <n>` | Execute N times and report Avg/Min/Max/StdDev. |
+| `--no-validate` | Skip the EVALUATE/DEFINE/SELECT keyword pre-check. |
+
+```sh
+tx query -q 'EVALUATE ROW("Sales", [Total Sales])' --trace --plan
+tx query --file heavy.dax --cold --runs 5
+```

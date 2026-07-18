@@ -48,15 +48,28 @@ Remote targets authenticate via `tx auth`:
 
 ```sh
 tx auth login                              # interactive browser login
-tx auth login --auth spn --client-id $SPN_ID
+tx auth login --device-code                # no local browser (SSH, containers)
+tx auth login -u $APP_ID -t $TENANT --password-file ./secret.txt
 tx auth status
 tx auth logout
 ```
 
 The `--auth` global option selects the method per command: `auto` (default),
-`interactive`, `spn`, or `managed-identity`. Secrets are never accepted on the
-command line or from environment variables — `spn` credentials are prompted
-for and cached securely.
+`interactive`, `spn`, or `managed-identity`.
+
+Secrets never travel on the command line or in environment variables — plain
+secret values as arguments are rejected. `tx auth login` takes a
+service-principal secret from a masked prompt, a file (`--password-file`), or
+stdin (`--password -`); certificate auth (`--certificate`) follows the same
+pattern. In CI:
+
+```sh
+printf '%s' "$SECRET" | tx auth login -u $APP_ID -t $TENANT --password -
+```
+
+Saved credentials renew silently on Windows, macOS, and Linux. See the
+[`auth` reference](../commands/connect.md#auth-authentication) for all
+options, including managed identity (`--identity`).
 
 ## Profiles
 
