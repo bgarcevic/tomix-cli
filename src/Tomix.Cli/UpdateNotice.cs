@@ -34,7 +34,7 @@ internal static class UpdateNotice
                 && !enabled;
 
             if (!ShouldShow(
-                GlobalOptions.OutputFormatValue(parseResult),
+                ResolveOutputFormat(parseResult),
                 quiet: parseResult.GetValue(GlobalOptions.Quiet),
                 stderrRedirected: Console.IsErrorRedirected,
                 ciEnv: Environment.GetEnvironmentVariable("CI") is not null,
@@ -72,6 +72,22 @@ internal static class UpdateNotice
         {
             // Best-effort by contract: never let the update check surface as a failure.
         }
+    }
+
+    /// <summary>
+    /// Most commands define their own local <c>--output-format</c> (via
+    /// <see cref="OutputFormats.CreateOption"/>) which shadows the recursive global option,
+    /// so reading only <see cref="GlobalOptions.OutputFormat"/> would report <c>text</c> for
+    /// e.g. <c>tx doctor --output-format json</c>. Prefer the invoked command's own option.
+    /// </summary>
+    internal static string ResolveOutputFormat(ParseResult parseResult)
+    {
+        var localOption = parseResult.CommandResult.Command.Options
+            .FirstOrDefault(option => option.Name == "--output-format");
+        if (localOption is Option<string> local)
+            return parseResult.GetValue(local) ?? OutputFormats.Text;
+
+        return GlobalOptions.OutputFormatValue(parseResult);
     }
 
     internal static bool ShouldShow(

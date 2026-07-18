@@ -1,4 +1,7 @@
+using System.CommandLine;
 using Tomix.Cli;
+using Tomix.Cli.Commands;
+using Tomix.Cli.Output;
 using Tomix.Core.Update;
 
 namespace Tomix.Cli.Tests;
@@ -57,4 +60,49 @@ public sealed class UpdateNoticeGateTests
 
     [Fact]
     public void MissingVersionSuppresses() => Assert.False(ShouldShow(version: "0.0.0"));
+
+    // ── Output-format resolution ────────────────────────────────────────────
+    // Commands define their own local --output-format which shadows the recursive
+    // global option; the notice gate must see the value the command actually used
+    // (Codex review finding on PR #63: 'tx doctor --output-format json' still noticed).
+
+    private static ParseResult ParseWithLocalFormatCommand(params string[] args)
+    {
+        var root = new RootCommand("test");
+        foreach (var option in GlobalOptions.All())
+            root.Options.Add(option);
+        root.Subcommands.Add(new DoctorCommand("0.1.0", TestServices.Create().ConfigDirectory).Build());
+        return root.Parse(args);
+    }
+
+    [Theory]
+    [InlineData("json")]
+    [InlineData("text")]
+    public void ResolveOutputFormat_ReadsTheCommandsLocalOption(string format)
+    {
+        var parseResult = ParseWithLocalFormatCommand("doctor", "--output-format", format);
+
+        Assert.Equal(format, UpdateNotice.ResolveOutputFormat(parseResult));
+    }
+
+    [Fact]
+    public void ResolveOutputFormat_DefaultsToText_WhenTheOptionIsOmitted()
+    {
+        var parseResult = ParseWithLocalFormatCommand("doctor");
+
+        Assert.Equal(OutputFormats.Text, UpdateNotice.ResolveOutputFormat(parseResult));
+    }
+
+    [Fact]
+    public void ResolveOutputFormat_FallsBackToTheGlobalOption_ForCommandsWithoutALocalOne()
+    {
+        var root = new RootCommand("test");
+        foreach (var option in GlobalOptions.All())
+            root.Options.Add(option);
+        root.Subcommands.Add(new Command("bare"));
+
+        var parseResult = root.Parse(["bare", "--output-format", "json"]);
+
+        Assert.Equal("json", UpdateNotice.ResolveOutputFormat(parseResult));
+    }
 }
