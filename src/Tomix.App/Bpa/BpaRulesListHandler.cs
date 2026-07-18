@@ -111,7 +111,7 @@ public sealed class BpaRulesListHandler
         if (model is null)
             return disabled;
 
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(model));
+        var provider = _providers.ResolveSingle(model);
         if (provider is null)
             return disabled;
 

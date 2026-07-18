@@ -51,7 +51,7 @@ public sealed class BpaRunHandler
         }
 
         var context = begin.Context!;
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(context.EffectiveModel));
+        var provider = _providers.ResolveSingle(context.EffectiveModel);
         if (provider is null)
             return TomixResult<BpaRunResult>.Fail(
                 "TOMIX_NO_PROVIDER",

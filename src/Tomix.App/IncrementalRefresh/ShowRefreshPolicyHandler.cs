@@ -22,7 +22,7 @@ public sealed class ShowRefreshPolicyHandler
         ShowRefreshPolicyRequest request,
         CancellationToken cancellationToken)
     {
-        var provider = _providers.FirstOrDefault(p => p.CanOpen(request.Model));
+        var provider = _providers.ResolveSingle(request.Model);
         if (provider is null)
             return TomixResult<RefreshPolicyInfo>.Fail(
                 "TOMIX_NO_PROVIDER",
