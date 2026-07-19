@@ -1,3 +1,4 @@
+using Tomix.App.Diagnostics;
 using Tomix.App.ModelObjects;
 using Tomix.App.Models;
 using Tomix.Core.Models;
@@ -17,13 +18,24 @@ public sealed class DiffModelHandler
         DiffModelRequest request,
         CancellationToken cancellationToken)
     {
-        // Nested runners attribute provider and connection failures to the side that failed.
-        return await ModelSessionRunner.RunAsync(_providers, request.Left, async leftSession =>
+        // Resolve both sides before opening either one so invalid input never performs connection work.
+        var leftProvider = _providers.ResolveSingle(request.Left);
+        if (leftProvider is null)
+            return NoProvider(request.Left);
+
+        var rightProvider = _providers.ResolveSingle(request.Right);
+        if (rightProvider is null)
+            return NoProvider(request.Right);
+
+        // Nested guards attribute connection failures to the side that actually failed.
+        return await ProviderConnectionGuard.RunAsync(request.Left, async () =>
         {
+            await using var leftSession = await leftProvider.OpenAsync(request.Left, cancellationToken);
             var leftSnapshot = await leftSession.GetSnapshotAsync(cancellationToken);
 
-            return await ModelSessionRunner.RunAsync(_providers, request.Right, async rightSession =>
+            return await ProviderConnectionGuard.RunAsync(request.Right, async () =>
             {
+                await using var rightSession = await rightProvider.OpenAsync(request.Right, cancellationToken);
                 var rightSnapshot = await rightSession.GetSnapshotAsync(cancellationToken);
 
                 var changes = Compare(leftSnapshot, rightSnapshot);
@@ -34,9 +46,16 @@ public sealed class DiffModelHandler
                 var result = new DiffModelResult(changes.Count > 0, summary, changes);
 
                 return TomixResult<DiffModelResult>.Ok(result, result.HasChanges ? 1 : 0);
-            }, cancellationToken);
-        }, cancellationToken);
+            });
+        });
     }
+
+    private static TomixResult<DiffModelResult> NoProvider(ModelReference model)
+        => TomixResult<DiffModelResult>.Fail(
+            "TOMIX_NO_PROVIDER",
+            $"No provider can open model: {model.Value}",
+            exitCode: 2,
+            hint: ModelSessionRunner.DefaultNoProviderHint);
 
     private static IReadOnlyList<DiffChange> Compare(ModelSnapshot left, ModelSnapshot right)
     {

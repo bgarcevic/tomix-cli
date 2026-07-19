@@ -9,7 +9,6 @@
     <PackageReference Include="Dax.ViewModel" />
     <PackageReference Include="Dax.Vpax" />
     <PackageReference Include="Dax.Vpax.Obfuscator" />
-    <!-- Keep ADOMD in lockstep with the Microsoft.AnalysisServices version pinned in Tomix.Provider.Tom. -->
     <PackageReference Include="Microsoft.AnalysisServices.AdomdClient" />
   </ItemGroup>
 

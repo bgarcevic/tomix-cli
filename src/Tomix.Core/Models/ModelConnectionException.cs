@@ -4,16 +4,7 @@ namespace Tomix.Core.Models;
 public enum ModelConnectionFailureKind
 {
     /// <summary>The requested database does not exist on the endpoint.</summary>
-    DatabaseNotFound,
-
-    /// <summary>The endpoint could not be reached.</summary>
-    EndpointUnavailable,
-
-    /// <summary>The endpoint rejected the connection.</summary>
-    ConnectionRejected,
-
-    /// <summary>The provider could not classify the connection failure more precisely.</summary>
-    Unknown
+    DatabaseNotFound
 }
 
 /// <summary>
