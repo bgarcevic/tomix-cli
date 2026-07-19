@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using Tomix.Core.Configuration;
+using Tomix.Platform.Configuration;
 using Tomix.Core.Models;
 
 namespace Tomix.App.State;
