@@ -339,8 +339,8 @@ Move or rename a model object
   opt --save  Persist this command's mutation to the source location
   opt --save-to <save-to>  Save to a different path (implies --save)
   opt --serialization <serialization>  Model serialization: tmdl, bim (tmsl and auto also accepted)
-  opt --strict-refs  Fail when a rename leaves DAX references broken (with fixup on, only unfixable references fail).
-  opt --no-fix-refs  Do not rewrite DAX references to the renamed object; warn instead.
+  opt --strict-refs  Fail when a rename or move leaves DAX references broken (with fixup on, only unfixable references fail).
+  opt --no-fix-refs  Do not rewrite DAX references to the renamed or moved object; warn instead.
 
 # tx profile
 Manage named connection profiles for quick environment switching

@@ -62,6 +62,78 @@ public sealed class TomModelMutator
         return new ModelExpressionRewriteResult(edits.Count);
     }
 
+    public ModelObjectMutationResult MoveObject(ModelObjectMoveRequest request)
+    {
+        var resolved = _resolver.TryResolveForMutation(request.Path, request.Type)
+                       ?? throw TomMutationTargetResolver.NotFound(request.Path);
+
+        if (resolved.Target is not Measure measure || resolved.Parent is not Table sourceTable)
+            throw new NotSupportedException(
+                "Only measures can move between tables; columns, hierarchies, partitions, and "
+                + "other table children are bound to their table's data.");
+
+        var targetTable = _database.Model.Tables.FirstOrDefault(
+                              t => string.Equals(t.Name, request.NewParent, StringComparison.OrdinalIgnoreCase))
+                          ?? throw new InvalidOperationException($"Destination table not found: {request.NewParent}");
+
+        // Measure names resolve unqualified in DAX, so they are unique model-wide, not per-table.
+        var newName = request.NewName ?? measure.Name;
+        if (_database.Model.Tables.SelectMany(t => t.Measures)
+                .FirstOrDefault(m => m != measure && string.Equals(m.Name, newName, StringComparison.OrdinalIgnoreCase))
+            is { } collision)
+            throw new InvalidOperationException(
+                $"A measure named '{newName}' already exists in table '{collision.Table.Name}'.");
+
+        // TOM refuses to re-attach a removed object, so the move is clone → detach original →
+        // attach clone. Clone() deep-copies children (KPI, annotations, detail rows), but
+        // object-identity references — perspective membership and translations — point at the
+        // original and must be captured first and re-created against the clone.
+        var clone = measure.Clone();
+        clone.Name = newName;
+
+        var memberships = new List<Perspective>();
+        foreach (var perspective in _database.Model.Perspectives)
+        {
+            var oldEntry = perspective.PerspectiveTables.FirstOrDefault(pt => pt.Table == sourceTable);
+            if (oldEntry?.PerspectiveMeasures.FirstOrDefault(pm => pm.Measure == measure) is { } membership)
+            {
+                oldEntry.PerspectiveMeasures.Remove(membership);
+                memberships.Add(perspective);
+            }
+        }
+
+        var translations = new List<(Culture Culture, TranslatedProperty Property, string Value)>();
+        foreach (var culture in _database.Model.Cultures)
+        {
+            foreach (var translation in culture.ObjectTranslations
+                         .Where(t => ReferenceEquals(t.Object, measure)).ToList())
+            {
+                culture.ObjectTranslations.Remove(translation);
+                translations.Add((culture, translation.Property, translation.Value));
+            }
+        }
+
+        sourceTable.Measures.Remove(measure);
+        targetTable.Measures.Add(clone);
+
+        foreach (var perspective in memberships)
+        {
+            var entry = perspective.PerspectiveTables.FirstOrDefault(pt => pt.Table == targetTable);
+            if (entry is null)
+            {
+                entry = new PerspectiveTable { Table = targetTable };
+                perspective.PerspectiveTables.Add(entry);
+            }
+
+            entry.PerspectiveMeasures.Add(new PerspectiveMeasure { Measure = clone });
+        }
+
+        foreach (var (culture, property, value) in translations)
+            culture.ObjectTranslations.Add(new ObjectTranslation { Object = clone, Property = property, Value = value });
+
+        return new ModelObjectMutationResult($"{targetTable.Name}/{clone.Name}", Changed: true);
+    }
+
     public ModelObjectMutationResult RemoveObject(ModelObjectRemoveRequest request)
     {
         var target = _resolver.TryResolveForMutation(request.Path, request.Type);
