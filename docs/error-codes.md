@@ -260,7 +260,7 @@ offline DAX reference scan; `TOMIX_*` codes come from structural integrity check
 | `TOMIX_DEPS_PATH_REQUIRED` | 2 | `deps` called without an object path. |
 | `TOMIX_FIND_INVALID_REGEX` | 2 | `find --regex` called with an invalid regular expression pattern. |
 | `TOMIX_UNKNOWN_OPTION` | 2 | An unrecognized `--option` would have been bound to a positional argument (e.g. a typo'd flag). Put `--` before positional values that must start with `-`. |
-| `TOMIX_MOVE_UNSUPPORTED` | 1 | `mv` called for an unsupported object type or operation (e.g. moving between parents). |
+| `TOMIX_MOVE_UNSUPPORTED` | 1 | `mv` across tables called with an unsupported path shape; a cross-table move needs a `Table/Measure` source and destination. Moving a non-measure across tables surfaces as `TOMIX_MUTATION_UNSUPPORTED` from the provider. |
 | `TOMIX_MOVE_INVALID_PATH` | 2 | `mv` source or destination is missing an object name (empty path, trailing `/`). |
 | `TOMIX_MOVE_NOOP` | 1 | `mv` source and destination are identical; nothing to rename. |
 | `TOMIX_REPLACE_PATTERN_REQUIRED` | 2 | `replace` called without a search pattern. |
