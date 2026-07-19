@@ -126,8 +126,77 @@ public sealed class TomModelMutator
                 _database.Model.Roles.Remove(role);
                 return [];
 
+            case SingleColumnRelationship relationship:
+                {
+                    var cascade = TomRemoveCascade.ForRelationship(relationship);
+                    _database.Model.Relationships.Remove(relationship);
+                    return cascade;
+                }
+
+            case Level level when resolved.Parent is Hierarchy hierarchy:
+                {
+                    var cascade = new List<string>();
+                    cascade.AddRange(TomRemoveCascade.ForLevel(level));
+                    hierarchy.Levels.Remove(level);
+                    if (hierarchy.Levels.Count == 0)
+                    {
+                        var table = hierarchy.Table;
+                        cascade.AddRange(TomRemoveCascade.ForHierarchy(hierarchy));
+                        table.Hierarchies.Remove(hierarchy);
+                        cascade.Add($"hierarchy '{table.Name}'[{hierarchy.Name}] (no levels left)");
+                    }
+
+                    return cascade;
+                }
+
+            case CalculationItem item when resolved.Parent is Table calcGroupTable:
+                {
+                    var cascade = TomRemoveCascade.ForCalculationItem(item);
+                    calcGroupTable.CalculationGroup.CalculationItems.Remove(item);
+                    return cascade;
+                }
+
+            case ModelRoleMember member when resolved.Parent is ModelRole memberRole:
+                memberRole.Members.Remove(member);
+                return [];
+
+            case Perspective perspective:
+                _database.Model.Perspectives.Remove(perspective);
+                return [];
+
+            case Culture culture:
+                _database.Model.Cultures.Remove(culture);
+                return [];
+
+            case NamedExpression expression:
+                _database.Model.Expressions.Remove(expression);
+                return [];
+
+            case Function function:
+                _database.Model.Functions.Remove(function);
+                return [];
+
+            case DataSource dataSource:
+                {
+                    // M partitions can reference a data source by name inside their query text,
+                    // which no structural sweep can see — but a QueryPartitionSource binding is
+                    // explicit and would fail validation the moment the source disappears.
+                    var referencing = _database.Model.Tables
+                        .SelectMany(t => t.Partitions
+                            .Where(p => p.Source is QueryPartitionSource query && query.DataSource == dataSource)
+                            .Select(p => $"{t.Name}/{p.Name}"))
+                        .ToList();
+                    if (referencing.Count > 0)
+                        throw new InvalidOperationException(
+                            $"Cannot remove data source '{dataSource.Name}'; it is used by partition(s): "
+                            + $"{string.Join(", ", referencing)}. Repoint or remove those partitions first.");
+
+                    _database.Model.DataSources.Remove(dataSource);
+                    return [];
+                }
+
             default:
-                throw new NotSupportedException("Removing this object type is not supported yet.");
+                throw new NotSupportedException("Removing this object type is not supported.");
         }
     }
 }
