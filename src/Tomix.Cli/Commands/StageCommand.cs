@@ -109,8 +109,8 @@ internal sealed class StageCommand : ICommandModule
             if (!ConfirmationHelper.ConfirmOrAbort(
                 "Discard staged changes",
                 all ? "for every model in this session" : "for the active model",
-                parseResult.GetValue(GlobalOptions.Yes),
-                parseResult.GetValue(GlobalOptions.NonInteractive)))
+                parseResult,
+                format))
                 return 1;
 
             if (!TryResolveModel(parseResult, out var reference, out var recentExit))

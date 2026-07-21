@@ -59,6 +59,23 @@ public sealed class DestructiveConfirmationTests
         Assert.Contains("Pass --yes to confirm", stderr);
     }
 
+    // Confirmation goes through InteractionGate, so every non-promptable context —
+    // not just --non-interactive — must fail fast instead of blocking on a prompt.
+    [Theory]
+    [InlineData("session", "clear", "--quiet")]
+    [InlineData("session", "prune", "--quiet")]
+    [InlineData("stage", "discard", "--quiet")]
+    [InlineData("session", "clear", "--output-format", "json")]
+    [InlineData("session", "prune", "--output-format", "json")]
+    [InlineData("stage", "discard", "--output-format", "json")]
+    public void WithoutYes_NonPromptableContext_AbortsWithGuidance(params string[] args)
+    {
+        var (exitCode, _, stderr) = Invoke(args);
+
+        Assert.Equal(1, exitCode);
+        Assert.Contains("Pass --yes to confirm", stderr);
+    }
+
     // Success paths assert JSON output on purpose: AnsiConsole-backed text output caches
     // the console writer from the first invoke, so captured text is unreliable across invokes.
     [Fact]

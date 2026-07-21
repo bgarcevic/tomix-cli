@@ -55,8 +55,8 @@ internal sealed class SessionCommand : ICommandModule
 
             if (!ConfirmationHelper.ConfirmOrAbort(
                 "Clear", "active state for the current session",
-                parseResult.GetValue(GlobalOptions.Yes),
-                parseResult.GetValue(GlobalOptions.NonInteractive)))
+                parseResult,
+                format))
                 return 1;
 
             return CommandOutput.Render(
@@ -94,8 +94,8 @@ internal sealed class SessionCommand : ICommandModule
             if (!dryRun && !ConfirmationHelper.ConfirmOrAbort(
                 "Prune",
                 all ? "all sessions except the current one" : "sessions whose shell is no longer running",
-                parseResult.GetValue(GlobalOptions.Yes),
-                parseResult.GetValue(GlobalOptions.NonInteractive)))
+                parseResult,
+                format))
                 return 1;
 
             return CommandOutput.Render(
