@@ -124,7 +124,8 @@ internal sealed class ProfileCommand : ICommandModule
                 ParseNullableBool(parseResult.GetValue(bpaMutationOption)),
                 ParseNullableBool(parseResult.GetValue(bpaDeployOption)),
                 ParseNullableBool(parseResult.GetValue(vertipaqOption)),
-                ParseNullableBool(parseResult.GetValue(spinnerOption))));
+                ParseNullableBool(parseResult.GetValue(spinnerOption)),
+                parseResult.GetValue(fromActiveOption)));
 
             return CommandOutput.Render(
                 result,
