@@ -74,7 +74,6 @@ Best Practice Analyzer: run rules and manage rule collections
 # tx bpa rules
 Manage BPA rule collections
   opt --rules-file <rules-file>  Path to a BPA rules JSON file
-  opt --model-rules  Operate on rules embedded in the model annotation instead of a file
 
 # tx bpa rules disable
 Disable a built-in BPA rule for the current user
@@ -102,7 +101,6 @@ List BPA rules from all sources with status
   opt --no-defaults  Suppress built-in rules from output
   opt --ignored  Show only ignored rules
   opt --disabled  Show only disabled rules
-  opt --no-multiline  Collapse multi-line cell content in text output
   opt --all  Show all rules including disabled and ignored
 
 # tx bpa rules unignore

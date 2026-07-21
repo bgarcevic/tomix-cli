@@ -299,11 +299,6 @@ internal sealed class BpaCommand : ICommandModule
             Description = "Path to a BPA rules JSON file"
         };
 
-        var modelRulesOption = new Option<bool>("--model-rules")
-        {
-            Description = "Operate on rules embedded in the model annotation instead of a file"
-        };
-
         var rulesetOption = new Option<string?>("--ruleset")
         {
             Description = $"Standard BPA ruleset to use ({string.Join(", ", BpaRuleLoader.KnownRulesets)})"
@@ -329,11 +324,6 @@ internal sealed class BpaCommand : ICommandModule
             Description = "Show all rules including disabled and ignored"
         };
 
-        var noMultilineOption = new Option<bool>("--no-multiline")
-        {
-            Description = "Collapse multi-line cell content in text output"
-        };
-
         var modelArgument = new Argument<string>("model")
         {
             Description = "Path to model",
@@ -342,8 +332,7 @@ internal sealed class BpaCommand : ICommandModule
 
         var rulesCommand = new Command("rules", "Manage BPA rule collections")
         {
-            rulesFileOption,
-            modelRulesOption
+            rulesFileOption
         };
 
         var listCommand = new Command("list", "List BPA rules from all sources with status")
@@ -353,7 +342,6 @@ internal sealed class BpaCommand : ICommandModule
             noDefaultsOption,
             ignoredOption,
             disabledOption,
-            noMultilineOption,
             allOption
         };
 
