@@ -101,6 +101,16 @@ public static class ModelPropertyCatalog
         new("members", "Members", o => Count(o, ModelObjectKind.RoleMember))
     ];
 
+    private static readonly IReadOnlyList<PropertyDescriptor> Kpi =
+    [
+        Name(writable: false),
+        Description(writable: false),
+        // KPI expressions are diffed via the parent measure's kpi* properties — not diffable here.
+        new("targetExpression", "TargetExpression", o => Bag(o, PropertyBagKeys.KpiTargetExpression)),
+        new("statusExpression", "StatusExpression", o => Bag(o, PropertyBagKeys.KpiStatusExpression)),
+        new("trendExpression", "TrendExpression", o => Bag(o, PropertyBagKeys.KpiTrendExpression))
+    ];
+
     private static readonly IReadOnlyList<PropertyDescriptor> Generic =
     [
         Name(writable: false),
@@ -121,6 +131,7 @@ public static class ModelPropertyCatalog
         ModelObjectKind.Partition => Partition,
         ModelObjectKind.Relationship => Relationship,
         ModelObjectKind.Role => Role,
+        ModelObjectKind.Kpi => Kpi,
         _ => Generic
     };
 

@@ -108,9 +108,13 @@ references (relationships, sort-by, hierarchy levels, perspectives, role
 permissions) cascade-remove instead. Every object kind a mutation path can
 address is removable: tables, measures, columns, hierarchies, levels,
 partitions, calculation items, relationships, roles, role members,
-perspectives, cultures, shared expressions, functions, and data sources.
+perspectives, cultures, shared expressions, functions, data sources,
+KPIs, table permissions, and calendars.
 A data source still bound to a partition cannot be removed until the
-partition is repointed or removed.
+partition is repointed or removed. A KPI shares its measure's path, so
+address it explicitly: `tx rm "Sales/Total/KPI"` or
+`tx rm "Sales/Total" -t kpi` (the measure survives; removing the measure
+takes its KPI with it).
 
 ```sh
 tx rm "Sales/Obsolete" --dry-run
