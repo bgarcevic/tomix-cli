@@ -37,7 +37,6 @@ the `bpa rules` commands for explicit customization.
 | `--save` / `--save-to <path>` | Persist the model after applying fixes. |
 | `--details` / `--full` | Show full guidance per rule / list every affected object. |
 | `--no-multiline` | Collapse each rule's guidance to a single line. Text output only. |
-| `--vpax <file>` / `--vpa-rules` | Load VertiPaq Analyzer stats from a `.vpax` / include built-in VPA-aware rules. |
 | `--no-model-rules` / `--no-defaults` | Exclude rules embedded in the model / the selected standard ruleset. |
 | `--allow-external-rules` | Also load remote (URL) rule files referenced by the model's rule annotations. Skipped by default so a model file cannot make `tx` fetch arbitrary URLs. |
 | `--ci <github\|vsts>` | Emit CI logging commands to stderr. |
@@ -67,9 +66,9 @@ file. `bpa rules list` narrows what is listed:
 | `--ignored` / `--disabled` | Show only ignored / only disabled rules. |
 | `--all` | Show all rules including disabled and ignored. |
 
-The BPA gate also runs automatically on `deploy` and `save` (configured via
-`.te-bpa.json`; `--skip-bpa` to bypass, `--fix-bpa` to auto-fix first,
-`--bpa-rules` to point at specific rule files). The gate never applies
+The BPA gate also runs automatically on `deploy` (`--skip-bpa` to bypass,
+`--fix-bpa` to auto-fix first, `--bpa-rules` to point at specific rule files).
+On `save`, BPA runs only when `--fix-bpa` is passed. The gate never applies
 destructive `Delete()` fixes — those are only available via
 `bpa run --fix --allow-delete`.
 

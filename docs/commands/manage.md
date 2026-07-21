@@ -31,7 +31,7 @@ tx profile <list|show|set|remove>
 |------------|-------------|
 | `profile list` | List all saved connection profiles. |
 | `profile show <name>` | Show details of a profile. |
-| `profile set <name>` | Create or update a profile. |
+| `profile set <name>` | Create or update a profile. `--from-active` seeds it from the active connection (explicit `-s`/`-d`/`--model`/`--auth` still win). |
 | `profile remove <name>` | Delete a profile. |
 
 `profile set` options:

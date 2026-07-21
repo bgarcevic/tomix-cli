@@ -76,16 +76,6 @@ internal sealed class BpaCommand : ICommandModule
             Description = "Failure threshold: error (default) or warning"
         };
 
-        var vpaxOption = new Option<string?>("--vpax")
-        {
-            Description = "Load VertiPaq Analyzer stats from a .vpax file to enable VPA-aware rules"
-        };
-
-        var vpaRulesOption = new Option<bool>("--vpa-rules")
-        {
-            Description = "Include built-in VPA-aware rules"
-        };
-
         var fixOption = new Option<bool>("--fix")
         {
             Description = "Apply fix expressions to auto-fix violations where possible"
@@ -190,8 +180,6 @@ internal sealed class BpaCommand : ICommandModule
             rulesetOption,
             noModelRulesOption,
             noDefaultsOption,
-            vpaxOption,
-            vpaRulesOption,
             failOnOption,
             fixOption,
             allowDeleteOption,
