@@ -93,6 +93,35 @@ public sealed class ProfileHandlerTests
     }
 
     [Fact]
+    public void Set_FromActive_PreservesWorkspaceState_AndConnectRestoresIt()
+    {
+        WithStore(store =>
+        {
+            store.SaveCurrentSession(new CliConnectionState(
+                Server: null, Database: null, Model: "/models/sales", Auth: null, Local: true, Profile: null,
+                Workspace: "/workspace/sales", WorkspaceFormat: "tmdl", WorkspaceAuth: "interactive"));
+
+            var result = new ProfileHandler(store).Set(Request(fromActive: true));
+
+            Assert.True(result.Success);
+            var saved = store.LoadProfiles()["dev"];
+            Assert.Equal("/workspace/sales", saved.Workspace);
+            Assert.Equal("tmdl", saved.WorkspaceFormat);
+            Assert.Equal("interactive", saved.WorkspaceAuth);
+
+            var connect = new Connect.ConnectHandler(store).Set(new Connect.ConnectSetRequest(
+                Server: null, Database: null, Model: null, Auth: null, Local: false, Profile: "dev",
+                Workspace: null, WorkspaceFormat: null, WorkspaceAuth: null));
+
+            Assert.True(connect.Success);
+            var session = store.LoadCurrentSession();
+            Assert.Equal("/workspace/sales", session!.Workspace);
+            Assert.Equal("tmdl", session.WorkspaceFormat);
+            Assert.Equal("interactive", session.WorkspaceAuth);
+        });
+    }
+
+    [Fact]
     public void Set_FromActive_FailsWithoutActiveConnection()
     {
         WithStore(store =>

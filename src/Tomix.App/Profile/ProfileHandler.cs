@@ -57,7 +57,10 @@ public sealed class ProfileHandler
             request.BpaOnMutation,
             request.BpaOnDeploy,
             request.VertipaqOnRefresh,
-            request.Spinner);
+            request.Spinner,
+            session?.Workspace,
+            session?.WorkspaceFormat,
+            session?.WorkspaceAuth);
 
         profiles[request.Name] = profile;
         _store.SaveProfiles(profiles);
