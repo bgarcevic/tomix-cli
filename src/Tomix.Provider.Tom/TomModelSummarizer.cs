@@ -39,6 +39,7 @@ public static class TomModelSummarizer
     private const string PropKpiTargetExpression = PropertyBagKeys.KpiTargetExpression;
     private const string PropKpiStatusExpression = PropertyBagKeys.KpiStatusExpression;
     private const string PropKpiTrendExpression = PropertyBagKeys.KpiTrendExpression;
+    private const string PropKpiTargetFormatString = PropertyBagKeys.KpiTargetFormatString;
     private const string PropObjectType = "ObjectType";
     private const string PropUsedInHierarchies = "UsedInHierarchies";
     private const string PropUsedInVariations = "UsedInVariations";
@@ -256,6 +257,7 @@ public static class TomModelSummarizer
                 [PropKpiTargetExpression] = kpi.TargetExpression ?? "",
                 [PropKpiStatusExpression] = kpi.StatusExpression ?? "",
                 [PropKpiTrendExpression] = kpi.TrendExpression ?? "",
+                [PropKpiTargetFormatString] = kpi.TargetFormatString ?? "",
                 [PropObjectType] = "KPI"
             });
 

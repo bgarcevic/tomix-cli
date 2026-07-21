@@ -271,6 +271,26 @@ public sealed class TomSetResolutionTests
     }
 
     [Fact]
+    public void SetProperty_Kpi_SetsTargetFormatString()
+    {
+        var db = NewDatabase();
+        var table = AddTable(db, "Sales");
+        var measure = new Measure
+        {
+            Name = "Total",
+            Expression = "1",
+            KPI = new KPI { TargetExpression = "0", StatusExpression = "0" }
+        };
+        table.Measures.Add(measure);
+
+        var mutator = new TomModelMutator(db);
+        mutator.SetProperty(new ModelObjectSetRequest(
+            "Sales/Total/KPI", [new ModelPropertyAssignment("targetformatstring", "#,0")], null));
+
+        Assert.Equal("#,0", measure.KPI.TargetFormatString);
+    }
+
+    [Fact]
     public void SetProperty_TablePermission_SetsFilterExpression()
     {
         var db = NewDatabase();
