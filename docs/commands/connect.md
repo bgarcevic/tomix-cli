@@ -162,9 +162,6 @@ tx session [show|clear|list|prune]
 | `--all` | Also remove named and live process sessions. The current session is kept. |
 | `--dry-run` | Show what would be removed without doing it. |
 
-`session clear` and `session prune` ask for confirmation before deleting
-anything (`--dry-run` never does); pass `--yes` to skip the prompt in scripts.
-
 ```sh
 tx session            # current session details
 tx session clear      # clear active state for this session
