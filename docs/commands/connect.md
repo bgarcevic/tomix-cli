@@ -45,9 +45,6 @@ Runs the BPA gate before deploying (configured via `.te-bpa.json`).
 | `--dry-run` | Preview what would change on the remote target. |
 | `--xmla <file>` | Generate the XMLA/TMSL script to a file instead of deploying (`-` for stdout). |
 | `--create-only` | Only create a new model; fail if it already exists. |
-| `--deploy-full` | Full deploy: overwrite + connections + partitions + shared expressions + roles + role members. |
-| `--deploy-connections` / `--deploy-partitions` / `--deploy-shared-expressions` / `--deploy-roles` / `--deploy-role-members` | Deploy individual aspects. |
-| `--skip-refresh-policy` | Don't overwrite partitions governed by incremental refresh policies (with `--deploy-partitions`). |
 | `--skip-bpa` / `--fix-bpa` | Skip the BPA gate, or auto-fix violations before deploying. |
 | `--bpa-rules <file>` | BPA rule file(s) for this deploy. |
 | `-p, --profile <name>` | Use a saved profile for this deploy only. |
@@ -71,7 +68,7 @@ tx refresh [options]
 | `--type <type>` | `full`, `dataonly`, `automatic` (default), `calculate`, `clearvalues`, `defragment`, `add`. |
 | `--table <name>` | Refresh specific table(s). Repeatable. |
 | `--partition <Table.Partition>` | Refresh specific partition(s). Repeatable. |
-| `--skip-refresh-policy` | Skip policy-based partitioning. |
+| `--apply-refresh-policy [true\|false]` / `--skip-refresh-policy` | Apply incremental refresh policy (default: `true`); `--skip-refresh-policy` is shorthand for `--apply-refresh-policy false`. |
 | `--effective-date <yyyy-MM-dd>` | Override the current date for refresh-policy evaluation. |
 | `--max-parallelism <n>` | Maximum parallel refresh operations. |
 | `--dry-run` | Output the TMSL script without executing it. |
@@ -103,8 +100,7 @@ tx save [model] [options]
 | `-o, --output-path <path>` | Where to write. Omit to save back to the source. |
 | `--serialization <tmdl\|bim>` | Output format (defaults to the loaded model's). |
 | `--supporting-files` | Wrap output in a `{modelName}.SemanticModel/` folder with `.platform` and `definition.pbism`. |
-| `--skip-validation` | Skip DAX validation — faster for pure download-and-save. |
-| `--skip-bpa` / `--fix-bpa` / `--bpa-rules <file>` | Control the BPA gate. |
+| `--fix-bpa` / `--bpa-rules <file>` | Auto-fix BPA violations before saving, optionally with specific rule files. |
 | `--force` | Skip validation and overwrite existing output. |
 
 ```sh
@@ -158,8 +154,16 @@ tx session [show|clear|list|prune]
 | `session list` | List all session files. |
 | `session prune` | Delete session files whose shell process is no longer running. |
 
+`session prune` options:
+
+| Option | Description |
+|--------|-------------|
+| `--all` | Also remove named and live process sessions. The current session is kept. |
+| `--dry-run` | Show what would be removed without doing it. |
+
 ```sh
 tx session            # current session details
 tx session clear      # clear active state for this session
 tx session prune      # delete session files for dead shells
+tx session prune --all --dry-run
 ```
