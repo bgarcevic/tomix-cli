@@ -200,6 +200,11 @@ Compares two models (TMDL folders or `.bim` files) and shows structural
 differences. Exit codes are CI-friendly: `0` = identical, `1` = differences
 found, `2` = error.
 
+Engine-computed state is ignored so that comparing source files against a
+processed database reports only authored changes: inferred measure data types
+(absent until the engine evaluates the expression) and calculated-table columns
+present on only one side (materialized on process) are not differences.
+
 ```sh
 tx diff ./v1.tmdl ./v2.tmdl
 tx diff ./v1.bim ./v2.bim --output-format json

@@ -167,7 +167,7 @@ public sealed class MutationLifecycleSyncTests
             throw new InvalidOperationException("Deploy failed for test purposes.");
         }
 
-        public string GenerateScript(ModelDeployRequest request) => "";
+        public Task<string> GenerateScriptAsync(ModelDeployRequest request, CancellationToken cancellationToken) => Task.FromResult("");
     }
 
     private sealed class CancellingDeploySession : IModelDeploySession
@@ -175,7 +175,7 @@ public sealed class MutationLifecycleSyncTests
         public Task<ModelDeployResult> DeployAsync(ModelDeployRequest request, CancellationToken ct)
             => throw new OperationCanceledException();
 
-        public string GenerateScript(ModelDeployRequest request) => "";
+        public Task<string> GenerateScriptAsync(ModelDeployRequest request, CancellationToken cancellationToken) => Task.FromResult("");
     }
 
     private sealed class StubNonDeployMutationSession : IModelMutationSession

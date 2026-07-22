@@ -59,18 +59,17 @@ public sealed class DiffModelHandler
 
     private static IReadOnlyList<DiffChange> Compare(ModelSnapshot left, ModelSnapshot right)
     {
-        var leftObjects = ModelObjectProjection
-            .Flatten(left)
-            .ToDictionary(o => o.Path, StringComparer.OrdinalIgnoreCase);
-        var rightObjects = ModelObjectProjection
-            .Flatten(right)
-            .ToDictionary(o => o.Path, StringComparer.OrdinalIgnoreCase);
+        var leftObjects = ByKindAndPath(left);
+        var rightObjects = ByKindAndPath(right);
 
         var changes = new List<DiffChange>();
 
         foreach (var path in leftObjects.Keys.Except(rightObjects.Keys, StringComparer.OrdinalIgnoreCase).Order())
         {
             var obj = leftObjects[path];
+            if (IsEngineMaterialized(obj))
+                continue;
+
             changes.Add(new DiffChange(
                 "removed",
                 ModelObjectProjection.KindLabel(obj.Kind),
@@ -80,6 +79,9 @@ public sealed class DiffModelHandler
         foreach (var path in rightObjects.Keys.Except(leftObjects.Keys, StringComparer.OrdinalIgnoreCase).Order())
         {
             var obj = rightObjects[path];
+            if (IsEngineMaterialized(obj))
+                continue;
+
             changes.Add(new DiffChange(
                 "added",
                 ModelObjectProjection.KindLabel(obj.Kind),
@@ -93,6 +95,32 @@ public sealed class DiffModelHandler
 
         return changes;
     }
+
+    /// <summary>
+    /// Snapshot paths are not globally unique: a table's column, partition, and hierarchy can
+    /// all share "Table/Name" (a default partition is named after its table, and a column often
+    /// matches). Keying by kind keeps same-named siblings distinct and compares like with like.
+    /// The indexer (last-wins) is deliberate so an unforeseen collision degrades to a slightly
+    /// incomplete diff instead of failing the whole command.
+    /// </summary>
+    private static Dictionary<string, ModelObject> ByKindAndPath(ModelSnapshot snapshot)
+    {
+        var objects = new Dictionary<string, ModelObject>(StringComparer.OrdinalIgnoreCase);
+        foreach (var obj in ModelObjectProjection.Flatten(snapshot))
+            objects[$"{ModelObjectProjection.KindLabel(obj.Kind)}:{obj.Path}"] = obj;
+        return objects;
+    }
+
+    /// <summary>
+    /// A calculated table's columns are materialized by the engine when the table's expression
+    /// is evaluated; source files only carry the expression. One being absent therefore means
+    /// "not processed yet", not "will be added/removed" — an authored change to the columns
+    /// surfaces through the table's partition expression instead. Columns present on both
+    /// sides still have their properties compared.
+    /// </summary>
+    private static bool IsEngineMaterialized(ModelObject obj)
+        => obj.Kind == ModelObjectKind.Column
+           && obj.Property(PropertyBagKeys.ColumnType) == "CalculatedTableColumn";
 
     private static IEnumerable<DiffChange> CompareProperties(ModelObject left, ModelObject right)
     {
@@ -126,8 +154,20 @@ public sealed class DiffModelHandler
 
         foreach (var descriptor in ModelPropertyCatalog.For(left.Kind))
         {
-            if (descriptor.Diffable)
-                yield return (descriptor.Header, descriptor.Value(left), descriptor.Value(right));
+            if (!descriptor.Diffable)
+                continue;
+
+            var oldValue = descriptor.Value(left);
+            var newValue = descriptor.Value(right);
+
+            // A measure's data type is computed by the engine when the model is processed;
+            // an unprocessed source (a TMDL folder or .bim file) reports it as absent.
+            // Absent-vs-present is processing state, not an authored change, so the type
+            // only diffs when both sides carry a computed value.
+            if (descriptor.JsonKey == "dataType" && (oldValue is null or "" || newValue is null or ""))
+                continue;
+
+            yield return (descriptor.Header, oldValue, newValue);
         }
     }
 
