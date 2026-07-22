@@ -158,6 +158,9 @@ jobs:
             artifacts/packages/checksums.txt
           generate_release_notes: true
           draft: false
+          # Hyphenated tags (v0.1.0-rc.1) are prereleases: excluded from
+          # /releases/latest, so install.sh and `tx update` never see them.
+          prerelease: ${{ contains(github.ref_name, '-') }}
 
       # NuGet publishing runs after the GitHub Release so a nuget.org outage can
       # never block the binary channel. Both steps no-op when the secret is unset

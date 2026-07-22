@@ -3,9 +3,10 @@
 #   curl -LsSf https://raw.githubusercontent.com/bgarcevic/tomix-cli/main/install/install.sh | sh
 # Pin a version:    TOMIX_VERSION=0.2.0 curl -LsSf ... | sh
 # Custom location:  TOMIX_INSTALL=~/bin  curl -LsSf ... | sh
+# Other repo (forks/CI): TOMIX_REPO=you/tomix-cli curl -LsSf ... | sh
 set -eu
 
-REPO="bgarcevic/tomix-cli"
+REPO="${TOMIX_REPO:-bgarcevic/tomix-cli}"
 VERSION="${TOMIX_VERSION:-latest}"
 INSTALL_DIR="${TOMIX_INSTALL:-$HOME/.local/bin}"
 
