@@ -220,7 +220,12 @@ public static class TomModelSummarizer
                 : null,
             Description: Desc(column.Description),
             Hidden: column.IsHidden,
-            SourceColumn: column is DataColumn dc ? dc.SourceColumn : null,
+            SourceColumn: column switch
+            {
+                DataColumn dataColumn => dataColumn.SourceColumn,
+                CalculatedTableColumn tableColumn => tableColumn.SourceColumn,
+                _ => null
+            },
             Children: [],
             Properties: props);
     }

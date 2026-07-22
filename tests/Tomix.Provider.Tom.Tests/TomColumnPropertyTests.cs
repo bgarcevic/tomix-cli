@@ -120,6 +120,19 @@ public sealed class TomColumnPropertyTests
     }
 
     [Fact]
+    public void SetProperty_SourceColumn_OnCalculatedTableColumn_ReadsBackFromSnapshot()
+    {
+        var (mutator, table) = NewModel();
+        table.Columns.Add(new CalculatedTableColumn { Name = "CTC", SourceColumn = "Orig", DataType = DataType.String });
+
+        mutator.SetProperty(Set("T/CTC", "sourceColumn", "Renamed"));
+
+        var snapshot = TomModelSummarizer.Snapshot((Database)table.Model.Database, "M");
+        var column = snapshot.Objects.Single(o => o.Name == "T").Children.Single(c => c.Name == "CTC");
+        Assert.Equal("Renamed", column.SourceColumn);
+    }
+
+    [Fact]
     public void SetProperty_SourceColumn_OnCalculatedColumn_PointsToExpression()
     {
         var (mutator, table) = NewModel();
