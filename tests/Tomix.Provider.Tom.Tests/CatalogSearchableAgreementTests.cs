@@ -55,11 +55,11 @@ public sealed class CatalogSearchableAgreementTests
     }
 
     /// <summary>Mirrors FindModelHandler's field enumeration: catalog searchable descriptors per
-    /// kind, annotations explicit-only, relationships excluded.</summary>
+    /// kind, annotations explicit-only.</summary>
     private static IEnumerable<(string Path, string Property, string Value)> SearchableSites(
         ModelSnapshot snapshot, string scope)
     {
-        foreach (var obj in Flatten(snapshot.Objects).Where(o => o.Kind is not ModelObjectKind.Relationship))
+        foreach (var obj in Flatten(snapshot.Objects))
         {
             foreach (var descriptor in ModelPropertyCatalog.For(obj.Kind))
             {
@@ -183,6 +183,21 @@ public sealed class CatalogSearchableAgreementTests
         partition.Annotations.Add(new Annotation { Name = "PartTag", Value = "drift partition annotation" });
         sales.Partitions.Add(partition);
         db.Model.Tables.Add(sales);
+
+        var customers = new Table { Name = "driftCustomers" };
+        var customerKey = new DataColumn { Name = "driftKey", DataType = DataType.Int64 };
+        customers.Columns.Add(customerKey);
+        db.Model.Tables.Add(customers);
+
+        var salesKey = new DataColumn { Name = "driftCustomerKey", DataType = DataType.Int64 };
+        sales.Columns.Add(salesKey);
+        var relationship = new SingleColumnRelationship
+        {
+            FromColumn = salesKey,
+            ToColumn = customerKey
+        };
+        relationship.Annotations.Add(new Annotation { Name = "RelTag", Value = "drift relationship annotation" });
+        db.Model.Relationships.Add(relationship);
 
         var calcTable = new Table { Name = "driftCalcTable" };
         calcTable.Partitions.Add(new Partition

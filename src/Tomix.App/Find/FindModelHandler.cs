@@ -39,7 +39,7 @@ public sealed class FindModelHandler
             var snapshot = await session.GetSnapshotAsync(cancellationToken);
 
             var matches = new List<FindMatch>();
-            foreach (var obj in ModelObjectProjection.Flatten(snapshot).Where(IsSearchableByDefault))
+            foreach (var obj in ModelObjectProjection.Flatten(snapshot))
             {
                 foreach (var (field, value) in SearchFields(obj, request.Scope))
                 {
@@ -68,12 +68,6 @@ public sealed class FindModelHandler
             return TomixResult<FindModelResult>.Ok(new FindModelResult(request.Pattern, matches));
         }, cancellationToken);
     }
-
-    // Relationships stay out of search: their names are synthesized endpoint strings, not
-    // authored text, and replace never rewrites them. Partitions ARE searched — replace
-    // rewrites their names and M/DAX source expressions, and find must preview those sites.
-    private static bool IsSearchableByDefault(ModelObject obj)
-        => obj.Kind is not ModelObjectKind.Relationship;
 
     private static IEnumerable<(string Field, string? Value)> SearchFields(ModelObject obj, string scope)
     {

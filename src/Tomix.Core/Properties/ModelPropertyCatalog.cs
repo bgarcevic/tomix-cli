@@ -84,7 +84,9 @@ public static class ModelPropertyCatalog
 
     private static readonly IReadOnlyList<PropertyDescriptor> Relationship =
     [
-        Name(writable: false),
+        // Not searchable: the name is synthesized from the endpoint columns, not authored
+        // text, and replace never rewrites it. Relationship annotations remain searchable.
+        new("name", "Name", o => o.Name),
         // Endpoints, cardinality, and active state are also encoded in the relationship's Detail
         // string, which diff already compares in its fixed identity set — only properties absent
         // from Detail are diffable here, so an edit is never reported twice.

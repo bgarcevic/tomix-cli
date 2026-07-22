@@ -66,8 +66,9 @@ tx find <pattern> [model] [options]
 Searches every scope site `tx replace` can rewrite — including partition
 expressions, KPI expressions, detail-rows and format-string definitions,
 refresh-policy M, calculation-group selection expressions, and RLS filter
-expressions — so a find preview is also a replace preview. Relationships are
-skipped (their names are synthesized from endpoints, not authored text).
+expressions — so a find preview is also a replace preview. Relationship
+names are skipped (synthesized from endpoints, not authored text), but
+relationship annotations are searched under `--in annotations`.
 
 ```sh
 tx find "SUM" --in expressions
