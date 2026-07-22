@@ -69,8 +69,11 @@ public sealed class FindModelHandler
         }, cancellationToken);
     }
 
+    // Relationships stay out of search: their names are synthesized endpoint strings, not
+    // authored text, and replace never rewrites them. Partitions ARE searched — replace
+    // rewrites their names and M/DAX source expressions, and find must preview those sites.
     private static bool IsSearchableByDefault(ModelObject obj)
-        => obj.Kind is not ModelObjectKind.Partition and not ModelObjectKind.Relationship;
+        => obj.Kind is not ModelObjectKind.Relationship;
 
     private static IEnumerable<(string Field, string? Value)> SearchFields(ModelObject obj, string scope)
     {
