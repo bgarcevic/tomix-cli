@@ -99,8 +99,10 @@ public sealed class DeployModelHandler
             {
                 var remoteRef = ModelReference.Remote(server, database);
                 var diffHandler = new DiffModelHandler(_providers);
+                // Target first: the dry run answers "what will this deploy change on the
+                // target", so added/removed/old→new must read in the deploy's direction.
                 var diffResult = await diffHandler.HandleAsync(
-                    new DiffModelRequest(request.Model, remoteRef),
+                    new DiffModelRequest(remoteRef, request.Model),
                     cancellationToken);
 
                 if (diffResult.Success)

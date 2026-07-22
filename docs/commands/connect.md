@@ -47,7 +47,7 @@ mirror.
 
 | Option | Description |
 |--------|-------------|
-| `--dry-run` | Preview what would change on the remote target. |
+| `--dry-run` | Preview what the deploy would change on the target (`+` = added to the target, `-` = removed from it). |
 | `--xmla <file>` | Generate the XMLA/TMSL script to a file instead of deploying (`-` for stdout). |
 | `--create-only` | Only create a new model; fail if it already exists. |
 | `--skip-bpa` / `--fix-bpa` | Skip the BPA gate, or auto-fix violations before deploying. |

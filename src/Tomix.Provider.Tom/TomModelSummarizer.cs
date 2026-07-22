@@ -7,7 +7,7 @@ namespace Tomix.Provider.Tom;
 public static class TomModelSummarizer
 {
     private const string PropDataType = "DataType";
-    private const string PropColumnType = "ColumnType";
+    private const string PropColumnType = PropertyBagKeys.ColumnType;
     private const string PropIsKey = "IsKey";
     private const string PropIsAvailableInMdx = "IsAvailableInMdx";
     private const string PropSummarizeBy = "SummarizeBy";

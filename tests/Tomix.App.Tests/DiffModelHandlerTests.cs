@@ -106,6 +106,79 @@ public sealed class DiffModelHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_IgnoresMeasureDataType_WhenOneSideIsUnprocessed()
+    {
+        // A measure's data type is engine-computed at process time; source files carry none.
+        // Absent-vs-present is processing state, not an authored change (both-present changes
+        // are still reported — see HandleAsync_ReportsCatalogDiffableChanges).
+        var unprocessed = Snapshot(measureBag: new Dictionary<string, string>
+        {
+            [PropertyBagKeys.FormatString] = "#,0"
+        });
+        var processed = Snapshot(measureBag: new Dictionary<string, string>
+        {
+            [PropertyBagKeys.FormatString] = "#,0",
+            [PropertyBagKeys.DataType] = "Decimal"
+        });
+
+        Assert.Empty(await Diff(unprocessed, processed));
+        Assert.Empty(await Diff(processed, unprocessed));
+    }
+
+    [Fact]
+    public async Task HandleAsync_IgnoresCalculatedTableColumns_PresentOnOneSideOnly()
+    {
+        // Calculated-table columns are materialized by the engine when the table's expression
+        // is evaluated, so a processed database has them while the source files don't. Only
+        // the authored (regular) column counts as a real addition.
+        var changes = await Diff(
+            CalcTableSnapshot(withEngineColumns: false),
+            CalcTableSnapshot(withEngineColumns: true));
+
+        var change = Assert.Single(changes);
+        Assert.Equal("added", change.Action);
+        Assert.Equal("PnL/Authored", change.Path);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ComparesCalculatedTableColumns_PresentOnBothSides()
+    {
+        var changes = await Diff(
+            CalcTableSnapshot(withEngineColumns: true, engineColumnHidden: false),
+            CalcTableSnapshot(withEngineColumns: true, engineColumnHidden: true));
+
+        var change = Assert.Single(changes, c => c.ObjectType == "Column/PnL/Group");
+        Assert.Equal("IsHidden", change.Path);
+    }
+
+    private static ModelSnapshot CalcTableSnapshot(bool withEngineColumns, bool engineColumnHidden = false)
+    {
+        var children = new List<ModelObject>();
+        if (withEngineColumns)
+        {
+            children.Add(new ModelObject(
+                "Group", ModelObjectKind.Column, "PnL/Group",
+                Detail: "string", Expression: null, Description: null, Hidden: engineColumnHidden,
+                SourceColumn: null, Children: [],
+                Properties: new Dictionary<string, string>
+                {
+                    [PropertyBagKeys.ColumnType] = "CalculatedTableColumn"
+                }));
+            children.Add(new ModelObject(
+                "Authored", ModelObjectKind.Column, "PnL/Authored",
+                Detail: "string", Expression: null, Description: null, Hidden: false,
+                SourceColumn: "Authored", Children: []));
+        }
+
+        var table = new ModelObject(
+            "PnL", ModelObjectKind.Table, "PnL",
+            Detail: "regular", Expression: null, Description: null, Hidden: false,
+            SourceColumn: null, Children: children);
+
+        return new ModelSnapshot("stub", 1601, [table]);
+    }
+
+    [Fact]
     public async Task HandleAsync_ReportsNoChanges_WhenBagsMatch()
     {
         var bag = new Dictionary<string, string> { [PropertyBagKeys.FormatString] = "#,0" };
