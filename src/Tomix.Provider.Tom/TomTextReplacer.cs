@@ -264,13 +264,22 @@ internal sealed class TomTextReplacer
                     yield return op;
             }
 
-            // Role member names are deliberately absent: TOM's ModelRoleMember.MemberName is
-            // immutable once set, so the identity cannot be text-rewritten in place.
             foreach (var member in role.Members)
             {
+                var memberPath = $"{path}/{Segment(member.MemberName)}";
+                if (In("names"))
+                {
+                    // TOM freezes MemberName, so the rename replaces the member (safe here:
+                    // annotation ops only exist under the explicit annotations scope, never
+                    // alongside name ops, so no op can point at the discarded member).
+                    var target = member;
+                    yield return Op(memberPath, "Name", member.MemberName,
+                        v => TomPropertyApplier.RenameMember(target, v));
+                }
+
                 if (In("annotations"))
                 {
-                    foreach (var op in AnnotationOps($"{path}/{Segment(member.MemberName)}", member.Annotations))
+                    foreach (var op in AnnotationOps(memberPath, member.Annotations))
                         yield return op;
                 }
             }

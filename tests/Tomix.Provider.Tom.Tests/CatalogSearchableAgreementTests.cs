@@ -59,11 +59,7 @@ public sealed class CatalogSearchableAgreementTests
     private static IEnumerable<(string Path, string Property, string Value)> SearchableSites(
         ModelSnapshot snapshot, string scope)
     {
-        // Relationships mirror find's own exclusion. Role members are excluded here only:
-        // find shows their names, but TOM's MemberName is immutable once set, so replace
-        // cannot rewrite them — the one deliberate find/replace asymmetry.
-        foreach (var obj in Flatten(snapshot.Objects)
-                     .Where(o => o.Kind is not ModelObjectKind.Relationship and not ModelObjectKind.RoleMember))
+        foreach (var obj in Flatten(snapshot.Objects).Where(o => o.Kind is not ModelObjectKind.Relationship))
         {
             foreach (var descriptor in ModelPropertyCatalog.For(obj.Kind))
             {
@@ -218,7 +214,9 @@ public sealed class CatalogSearchableAgreementTests
 
         var role = new ModelRole { Name = "driftRole", Description = "drift role description" };
         role.Annotations.Add(new Annotation { Name = "RoleTag", Value = "drift role annotation" });
-        role.Members.Add(new WindowsModelRoleMember { MemberName = "drift@example.com" });
+        var roleMember = new WindowsModelRoleMember { MemberName = "drift@example.com", MemberID = "S-1-5-21-42" };
+        roleMember.Annotations.Add(new Annotation { Name = "MemberTag", Value = "drift member annotation" });
+        role.Members.Add(roleMember);
         role.TablePermissions.Add(new TablePermission
         {
             Table = sales,

@@ -81,8 +81,11 @@ public sealed class TomReplaceCoverageTests
         Assert.Equal("liftedPartition", sales.Partitions[0].Name);
         Assert.Equal("liftedYtd", db.Model.Tables["liftedTimeCalcs"].CalculationGroup.CalculationItems[0].Name);
         Assert.Equal("liftedRole", db.Model.Roles[0].Name);
-        // Role member names stay untouched: TOM's MemberName is immutable once set.
-        Assert.Equal("drift@example.com", db.Model.Roles[0].Members[0].MemberName);
+        // TOM freezes MemberName, so this rename replaces the member; id and annotations survive.
+        var member = Assert.Single(db.Model.Roles[0].Members);
+        Assert.Equal("lifted@example.com", member.MemberName);
+        Assert.Equal("S-1-5-21-42", member.MemberID);
+        Assert.Equal("drift member annotation", member.Annotations["MemberTag"].Value);
         Assert.Equal("liftedPerspective", db.Model.Perspectives[0].Name);
         Assert.Equal("liftedWarehouse", db.Model.DataSources[0].Name);
         Assert.Equal("liftedParameter", db.Model.Expressions[0].Name);
