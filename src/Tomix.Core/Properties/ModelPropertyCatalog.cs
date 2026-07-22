@@ -67,12 +67,15 @@ public static class ModelPropertyCatalog
         new("lineageTag", "LineageTag", o => Bag(o, PropertyBagKeys.LineageTag))
     ];
 
+    // The generic keys (including the always-empty expression) stay in place so existing
+    // JSON/CSV consumers keep their schema; displayFolder is appended, not substituted.
     private static readonly IReadOnlyList<PropertyDescriptor> Hierarchy =
     [
         Name(writable: true),
         Description(writable: true),
         IsHidden(writable: true),
         new("detail", "Detail", o => o.Detail ?? ""),
+        Expression(writable: false),
         DisplayFolder()
     ];
 
