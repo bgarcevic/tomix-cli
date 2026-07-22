@@ -76,7 +76,7 @@ public sealed class TmslDeployScriptBuilderTests
         var source = SourceDb(roles: Roles(("Reader", "source@x.com")));
         var target = TargetDb(roles: Roles(("Reader", "prod-group@x.com")));
 
-        var model = Model(Build(source, target, options:            new ModelDeployOptions(DeployRoles: true, DeployRoleMembers: true)));
+        var model = Model(Build(source, target, options: new ModelDeployOptions(DeployRoles: true, DeployRoleMembers: true)));
 
         Assert.Equal("source@x.com", FirstMemberName(model, "Reader"));
     }
@@ -176,7 +176,7 @@ public sealed class TmslDeployScriptBuilderTests
             WithPolicy(QueryTable("Fact", "2023Q1", "2023Q2", "2024")),
             QueryTable("Dim", "prod-dim")));
 
-        var model = Model(Build(source, target, options:            new ModelDeployOptions(DeployPartitions: true, DeployPolicyPartitions: false)));
+        var model = Model(Build(source, target, options: new ModelDeployOptions(DeployPartitions: true, DeployPolicyPartitions: false)));
 
         // The incremental-refresh table keeps its processed partitions AND the policy that
         // generated them; the plain table takes the source's partitions.
@@ -191,7 +191,7 @@ public sealed class TmslDeployScriptBuilderTests
         var source = SourceDb(tables: new JsonArray(WithPolicy(QueryTable("Fact", "source-template"))));
         var target = TargetDb(tables: new JsonArray(WithPolicy(QueryTable("Fact", "2023Q1", "2024"))));
 
-        var model = Model(Build(source, target, options:            new ModelDeployOptions(DeployPartitions: true, DeployPolicyPartitions: true)));
+        var model = Model(Build(source, target, options: new ModelDeployOptions(DeployPartitions: true, DeployPolicyPartitions: true)));
 
         Assert.Equal(["source-template"], PartitionNames(model, "Fact"));
     }
