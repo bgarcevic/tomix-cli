@@ -33,6 +33,79 @@ public sealed class DeployModelHandlerTests
     }
 
     [Fact]
+    public async Task HandleAsync_ReturnsFail_WhenRoleMembersWithoutRoles()
+    {
+        var handler = new DeployModelHandler([new StubDeployProvider()], TestState);
+        var result = await handler.HandleAsync(
+            new DeployModelRequest(
+                new ModelReference("samples/basic-tmdl"),
+                Server: "my-workspace",
+                Database: "my-model",
+                Profile: null,
+                CreateOnly: false,
+                SkipBpa: true,
+                FixBpa: false,
+                BpaRules: null,
+                XmlaOutput: null,
+                Force: false,
+                Ci: null,
+                DeployOptions: new ModelDeployOptions(DeployRoleMembers: true)),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("TOMIX_DEPLOY_INVALID_FLAGS", result.Diagnostics[0].Code);
+        Assert.Equal(2, result.ExitCode);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ReturnsFail_WhenPolicyPartitionsWithoutPartitions()
+    {
+        var handler = new DeployModelHandler([new StubDeployProvider()], TestState);
+        var result = await handler.HandleAsync(
+            new DeployModelRequest(
+                new ModelReference("samples/basic-tmdl"),
+                Server: "my-workspace",
+                Database: "my-model",
+                Profile: null,
+                CreateOnly: false,
+                SkipBpa: true,
+                FixBpa: false,
+                BpaRules: null,
+                XmlaOutput: null,
+                Force: false,
+                Ci: null,
+                DeployOptions: new ModelDeployOptions(DeployPolicyPartitions: true)),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.Equal("TOMIX_DEPLOY_INVALID_FLAGS", result.Diagnostics[0].Code);
+        Assert.Equal(2, result.ExitCode);
+    }
+
+    [Fact]
+    public async Task HandleAsync_FullOptions_PassValidation()
+    {
+        var handler = new DeployModelHandler([new StubDeployProvider()], TestState);
+        var result = await handler.HandleAsync(
+            new DeployModelRequest(
+                new ModelReference("samples/basic-tmdl"),
+                Server: "my-workspace",
+                Database: "my-model",
+                Profile: null,
+                CreateOnly: false,
+                SkipBpa: true,
+                FixBpa: false,
+                BpaRules: null,
+                XmlaOutput: null,
+                Force: false,
+                Ci: null,
+                DeployOptions: ModelDeployOptions.Full),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+    }
+
+    [Fact]
     public async Task HandleAsync_ReturnsFail_WhenNoProviderMatches()
     {
         var handler = new DeployModelHandler([], TestState);
@@ -216,7 +289,7 @@ public sealed class DeployModelHandlerTests
         public Task<ModelDeployResult> DeployAsync(ModelDeployRequest request, CancellationToken ct)
             => throw Load();
 
-        public string GenerateScript(ModelDeployRequest request)
+        public Task<string> GenerateScriptAsync(ModelDeployRequest request, CancellationToken ct)
             => throw Load();
 
         private static ModelLoadException Load()
@@ -246,8 +319,8 @@ public sealed class DeployModelHandlerTests
         public Task<ModelDeployResult> DeployAsync(ModelDeployRequest request, CancellationToken ct)
             => Task.FromResult(new ModelDeployResult(request.Server, request.Database ?? "stub", "created", 42));
 
-        public string GenerateScript(ModelDeployRequest request)
-            => $"{{\"createOrReplace\":{{\"object\":{{\"database\":\"{request.Database ?? "stub"}\"}},\"database\":{{\"name\":\"{request.Database ?? "stub"}\",\"compatibilityLevel\":1601}}}}}}";
+        public Task<string> GenerateScriptAsync(ModelDeployRequest request, CancellationToken ct)
+            => Task.FromResult($"{{\"createOrReplace\":{{\"object\":{{\"database\":\"{request.Database ?? "stub"}\"}},\"database\":{{\"name\":\"{request.Database ?? "stub"}\",\"compatibilityLevel\":1601}}}}}}");
     }
 
     private sealed class StubDeployOnlyProvider : IModelProvider
@@ -287,8 +360,8 @@ public sealed class DeployModelHandlerTests
             return Task.FromResult(new ModelDeployResult(request.Server, request.Database ?? "stub", "created", 42));
         }
 
-        public string GenerateScript(ModelDeployRequest request)
-            => $"{{\"createOrReplace\":{{\"object\":{{\"database\":\"{request.Database ?? "stub"}\"}},\"database\":{{\"name\":\"{request.Database ?? "stub"}\",\"compatibilityLevel\":1601}}}}}}";
+        public Task<string> GenerateScriptAsync(ModelDeployRequest request, CancellationToken ct)
+            => Task.FromResult($"{{\"createOrReplace\":{{\"object\":{{\"database\":\"{request.Database ?? "stub"}\"}},\"database\":{{\"name\":\"{request.Database ?? "stub"}\",\"compatibilityLevel\":1601}}}}}}");
 
         private static ModelObject EmptyRole()
             => new("Empty", ModelObjectKind.Role, "Roles/Empty",

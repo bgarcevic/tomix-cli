@@ -31,6 +31,19 @@ public sealed class DeployModelHandler
         DeployModelRequest request,
         CancellationToken cancellationToken)
     {
+        var deployOptions = request.DeployOptions ?? ModelDeployOptions.Preserve;
+        if (deployOptions.DeployRoleMembers && !deployOptions.DeployRoles)
+            return TomixResult<DeployModelResult>.Fail(
+                "TOMIX_DEPLOY_INVALID_FLAGS",
+                "--deploy-role-members requires --deploy-roles: members cannot be overwritten while the target's role definitions are preserved.",
+                exitCode: 2);
+
+        if (deployOptions.DeployPolicyPartitions && !deployOptions.DeployPartitions)
+            return TomixResult<DeployModelResult>.Fail(
+                "TOMIX_DEPLOY_INVALID_FLAGS",
+                "--deploy-policy-partitions requires --deploy-partitions.",
+                exitCode: 2);
+
         if (request.Model.Value.Length == 0)
             return TomixResult<DeployModelResult>.Fail(
                 "TOMIX_NO_MODEL",
@@ -74,7 +87,8 @@ public sealed class DeployModelHandler
             server,
             database,
             request.CreateOnly,
-            request.Force);
+            request.Force,
+            deployOptions);
 
         if (request.DryRun)
         {
@@ -98,7 +112,27 @@ public sealed class DeployModelHandler
 
         if (!string.IsNullOrWhiteSpace(request.XmlaOutput))
         {
-            var script = deployer.GenerateScript(deployRequest);
+            string script;
+            try
+            {
+                // Preservation options require reading the target so the script matches what a
+                // real deploy would execute; a full deploy is scripted offline.
+                script = await deployer.GenerateScriptAsync(deployRequest, cancellationToken);
+            }
+            catch (AuthenticationRequiredException ex)
+            {
+                return TomixResult<DeployModelResult>.Fail("TOMIX_AUTH_REQUIRED", ex.Message, exitCode: 1,
+                    hint: "Run 'tx auth login' to authenticate, or use --deploy-full to script without reading the target.");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException and not ModelLoadException)
+            {
+                return TomixResult<DeployModelResult>.Fail(
+                    "TOMIX_DEPLOY_FAILED",
+                    $"Cannot read target '{server}' to build the script: {ex.InnerException?.Message ?? ex.Message}",
+                    exitCode: 1,
+                    hint: "The script must reflect preserved target objects. Use --deploy-full to script without reading the target.");
+            }
+
             var scriptPath = request.XmlaOutput;
 
             if (scriptPath == "-")
