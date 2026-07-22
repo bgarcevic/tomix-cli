@@ -80,14 +80,45 @@ public sealed class BpaModelRuleLoaderTests
     }
 
     [Fact]
-    public async Task LoadAsync_MissingExternalFile_ReportsDiagnostic()
+    public async Task LoadAsync_WindowsStylePath_ResolvesOnEveryPlatform()
+    {
+        // Community tooling writes external-file paths with Windows separators
+        // (e.g. "..\\.devops\\bpa-rules.json"); they must resolve on Unix too.
+        var root = Path.Combine(Path.GetTempPath(), "tomix-bpa-" + Guid.NewGuid().ToString("N"));
+        var modelDir = Path.Combine(root, "model");
+        Directory.CreateDirectory(modelDir);
+        Directory.CreateDirectory(Path.Combine(root, ".devops"));
+        try
+        {
+            await File.WriteAllTextAsync(Path.Combine(root, ".devops", "bpa-rules.json"), OneRuleJson);
+            var props = Annotations((BpaModelRuleLoader.ExternalFilesKey, "[\"..\\\\.devops\\\\bpa-rules.json\"]"));
+
+            var outcome = await BpaModelRuleLoader.LoadAsync(props, modelDir, allowExternal: false, CancellationToken.None);
+
+            var collection = Assert.Single(outcome.Collections);
+            Assert.Equal(BpaRuleSourceKind.External, collection.Kind);
+            // The display name stays as-written so precedence identity and diagnostics match the annotation.
+            Assert.Equal("..\\.devops\\bpa-rules.json", collection.DisplayName);
+            Assert.Empty(outcome.Diagnostics);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task LoadAsync_MissingExternalFile_ReportsDiagnosticWithRemedies()
     {
         var props = Annotations((BpaModelRuleLoader.ExternalFilesKey, "[\"does-not-exist.json\"]"));
 
         var outcome = await BpaModelRuleLoader.LoadAsync(props, Path.GetTempPath(), false, CancellationToken.None);
 
         Assert.Empty(outcome.Collections);
-        Assert.Contains(outcome.Diagnostics, d => d.Contains("does-not-exist.json"));
+        var diagnostic = Assert.Single(outcome.Diagnostics);
+        Assert.Contains("does-not-exist.json", diagnostic);
+        Assert.Contains("--no-model-rules", diagnostic);
+        Assert.Contains(BpaModelRuleLoader.ExternalFilesKey, diagnostic);
     }
 
     [Fact]

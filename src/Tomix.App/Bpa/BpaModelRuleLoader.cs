@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Tomix.Core.Bpa;
+using Tomix.Core.Models;
 
 namespace Tomix.App.Bpa;
 
@@ -23,6 +24,27 @@ public static class BpaModelRuleLoader
     public sealed record Outcome(
         IReadOnlyList<BpaRuleCollection> Collections,
         IReadOnlyList<string> Diagnostics);
+
+    /// <summary>
+    /// The directory relative external-file entries resolve against: the model's own folder for a
+    /// local model, null otherwise (a connected session has no directory to be relative to).
+    /// </summary>
+    public static string? ResolveBaseDirectory(ModelReference model)
+    {
+        if (!model.IsLocalPath)
+            return null;
+
+        try
+        {
+            return Directory.Exists(model.Value)
+                ? model.Value
+                : Path.GetDirectoryName(Path.GetFullPath(model.Value));
+        }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            return null;
+        }
+    }
 
     public static async Task<Outcome> LoadAsync(
         IReadOnlyDictionary<string, string>? modelProperties,
@@ -123,13 +145,19 @@ public static class BpaModelRuleLoader
                     continue;
                 }
 
-                var path = Path.IsPathRooted(entry)
-                    ? entry
-                    : Path.Combine(baseDirectory ?? Directory.GetCurrentDirectory(), entry);
+                // Community tooling writes these paths with Windows separators; normalize so a
+                // "..\..\rules.json" entry resolves on every platform.
+                var normalized = entry.Replace('\\', Path.DirectorySeparatorChar);
+                var path = Path.IsPathRooted(normalized)
+                    ? normalized
+                    : Path.Combine(baseDirectory ?? Directory.GetCurrentDirectory(), normalized);
 
                 if (!File.Exists(path))
                 {
-                    diagnostics.Add($"External rule file not found: {entry}");
+                    diagnostics.Add(
+                        $"External rule file not found: {entry} (resolved: {Path.GetFullPath(path)}). "
+                        + "Skip with --no-model-rules, or remove the reference: "
+                        + "tx set . -q annotation:BestPracticeAnalyzer_ExternalRuleFiles -i \"\" --save");
                     continue;
                 }
 

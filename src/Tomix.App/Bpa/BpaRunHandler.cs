@@ -194,7 +194,7 @@ public sealed class BpaRunHandler
         {
             var model = await BpaModelRuleLoader.LoadAsync(
                 snapshot.Properties,
-                ModelBaseDirectory(request.Model),
+                BpaModelRuleLoader.ResolveBaseDirectory(request.Model),
                 request.AllowExternalRules,
                 _httpClient,
                 cancellationToken).ConfigureAwait(false);
@@ -204,23 +204,6 @@ public sealed class BpaRunHandler
         }
 
         return (BpaRuleResolver.Resolve(collections), diagnostics);
-    }
-
-    private static string? ModelBaseDirectory(ModelReference model)
-    {
-        if (!model.IsLocalPath)
-            return null;
-
-        try
-        {
-            return Directory.Exists(model.Value)
-                ? model.Value
-                : Path.GetDirectoryName(Path.GetFullPath(model.Value));
-        }
-        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
-        {
-            return null;
-        }
     }
 
     private static bool TryParseFailOn(
