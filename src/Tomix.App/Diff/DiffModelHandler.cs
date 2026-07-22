@@ -59,12 +59,8 @@ public sealed class DiffModelHandler
 
     private static IReadOnlyList<DiffChange> Compare(ModelSnapshot left, ModelSnapshot right)
     {
-        var leftObjects = ModelObjectProjection
-            .Flatten(left)
-            .ToDictionary(o => o.Path, StringComparer.OrdinalIgnoreCase);
-        var rightObjects = ModelObjectProjection
-            .Flatten(right)
-            .ToDictionary(o => o.Path, StringComparer.OrdinalIgnoreCase);
+        var leftObjects = ByKindAndPath(left);
+        var rightObjects = ByKindAndPath(right);
 
         var changes = new List<DiffChange>();
 
@@ -92,6 +88,21 @@ public sealed class DiffModelHandler
         }
 
         return changes;
+    }
+
+    /// <summary>
+    /// Snapshot paths are not globally unique: a table's column, partition, and hierarchy can
+    /// all share "Table/Name" (a default partition is named after its table, and a column often
+    /// matches). Keying by kind keeps same-named siblings distinct and compares like with like.
+    /// The indexer (last-wins) is deliberate so an unforeseen collision degrades to a slightly
+    /// incomplete diff instead of failing the whole command.
+    /// </summary>
+    private static Dictionary<string, ModelObject> ByKindAndPath(ModelSnapshot snapshot)
+    {
+        var objects = new Dictionary<string, ModelObject>(StringComparer.OrdinalIgnoreCase);
+        foreach (var obj in ModelObjectProjection.Flatten(snapshot))
+            objects[$"{ModelObjectProjection.KindLabel(obj.Kind)}:{obj.Path}"] = obj;
+        return objects;
     }
 
     private static IEnumerable<DiffChange> CompareProperties(ModelObject left, ModelObject right)

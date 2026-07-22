@@ -68,6 +68,43 @@ public sealed class DiffModelHandlerTests
         return new ModelSnapshot("stub", 1601, [sales]);
     }
 
+    /// <summary>
+    /// Snapshot paths are not globally unique: a table named "Alder" with a column "Alder" and
+    /// the default partition "Alder" produces three distinct objects sharing the path
+    /// "Alder/Alder". Diff must key by kind+path instead of crashing on the duplicate
+    /// ("An item with the same key has already been added").
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_ToleratesSameNamedSiblings_AndComparesLikeWithLike()
+    {
+        var changes = await Diff(
+            SelfNamedTableSnapshot(columnHidden: false),
+            SelfNamedTableSnapshot(columnHidden: true));
+
+        var change = Assert.Single(changes);
+        Assert.Equal("modified", change.Action);
+        Assert.Equal("IsHidden", change.Path);
+        Assert.Equal("Column/Alder/Alder", change.ObjectType);
+    }
+
+    private static ModelSnapshot SelfNamedTableSnapshot(bool columnHidden)
+    {
+        var column = new ModelObject(
+            "Alder", ModelObjectKind.Column, "Alder/Alder",
+            Detail: "int64", Expression: null, Description: null, Hidden: columnHidden,
+            SourceColumn: "Alder", Children: []);
+        var partition = new ModelObject(
+            "Alder", ModelObjectKind.Partition, "Alder/Alder",
+            Detail: "m", Expression: "let Source = Sql in Source", Description: null, Hidden: false,
+            SourceColumn: null, Children: []);
+        var table = new ModelObject(
+            "Alder", ModelObjectKind.Table, "Alder",
+            Detail: "regular", Expression: null, Description: null, Hidden: false,
+            SourceColumn: null, Children: [column, partition]);
+
+        return new ModelSnapshot("stub", 1601, [table]);
+    }
+
     [Fact]
     public async Task HandleAsync_ReportsNoChanges_WhenBagsMatch()
     {
