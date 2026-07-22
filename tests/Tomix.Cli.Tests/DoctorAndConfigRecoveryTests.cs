@@ -75,6 +75,15 @@ public sealed class DoctorAndConfigRecoveryTests : IDisposable
         Assert.DoesNotContain("TOMIX_CONFIG_CORRUPT", invocation.Stderr);
     }
 
+    [Fact]
+    public void SubcommandVersion_DoesNotBypassCorruptConfigFailure()
+    {
+        var invocation = Invoke("update", "--version", "1.2.3", "--yes", "--error-format", "json");
+
+        Assert.Equal(2, invocation.ExitCode);
+        Assert.Contains("\"code\": \"TOMIX_CONFIG_CORRUPT\"", invocation.Stderr);
+    }
+
     private static Invocation Invoke(params string[] args)
     {
         var stdout = new StringWriter();

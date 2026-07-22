@@ -263,7 +263,10 @@ internal static class Program
 
     internal static bool CanRunWithCorruptConfig(ParseResult parseResult, IReadOnlyList<string> args)
     {
-        if (args.Any(argument => argument is "--help" or "-h" or "-?" or "--version"))
+        if (args.Any(argument => argument is "--help" or "-h" or "-?"))
+            return true;
+
+        if (args.Contains("--version") && parseResult.CommandResult.Command is RootCommand)
             return true;
 
         var leaf = parseResult.CommandResult.Command.Name;
