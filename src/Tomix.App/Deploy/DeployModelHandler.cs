@@ -287,7 +287,16 @@ public sealed class DeployModelHandler
 
         var session = resolveSession();
         if (session is not null)
-            return (session.Server, session.Database ?? request.Database);
+        {
+            if (!string.IsNullOrWhiteSpace(session.Server))
+                return (session.Server, session.Database ?? request.Database);
+
+            // Local primary with a remote workspace-mode mirror: deploy targets the mirror,
+            // matching refresh's primary-if-remote-else-secondary resolution.
+            var mirror = ActiveModelResolver.ResolveSyncTarget(session);
+            if (mirror is not null && mirror.IsRemote)
+                return (mirror.Value, mirror.Database ?? request.Database);
+        }
 
         return (null, request.Database);
     }

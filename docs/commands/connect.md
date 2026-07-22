@@ -41,6 +41,10 @@ tx deploy [model] [options]
 
 Runs the BPA gate before deploying (configured via `.te-bpa.json`).
 
+Without `-s/--server`, the target comes from the active connection: a remote connection
+deploys to itself, and a local connection with a workspace-mode mirror deploys to the
+mirror.
+
 | Option | Description |
 |--------|-------------|
 | `--dry-run` | Preview what would change on the remote target. |

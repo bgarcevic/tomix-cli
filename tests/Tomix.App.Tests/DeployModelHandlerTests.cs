@@ -32,6 +32,44 @@ public sealed class DeployModelHandlerTests
         Assert.Equal(2, result.ExitCode);
     }
 
+    /// <summary>
+    /// A local active connection with a remote workspace-mode mirror (the edit-locally,
+    /// deploy-to-workspace workflow) must resolve the mirror as the deploy target instead of
+    /// failing with TOMIX_DEPLOY_NO_TARGET, matching refresh's target resolution.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_LocalSessionWithRemoteMirror_TargetsMirror()
+    {
+        var session = new Tomix.App.State.CliConnectionState(
+            Server: null,
+            Database: "Bosteder",
+            Model: "samples/basic-tmdl",
+            Auth: null,
+            Local: true,
+            Profile: null,
+            Workspace: "powerbi://api.powerbi.com/v1.0/myorg/sandbox");
+
+        var handler = new DeployModelHandler([new StubDeployProvider()], TestState, () => session);
+        var result = await handler.HandleAsync(
+            new DeployModelRequest(
+                new ModelReference("samples/basic-tmdl"),
+                Server: null,
+                Database: null,
+                Profile: null,
+                CreateOnly: false,
+                SkipBpa: true,
+                FixBpa: false,
+                BpaRules: null,
+                XmlaOutput: null,
+                Force: false,
+                Ci: null),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("powerbi://api.powerbi.com/v1.0/myorg/sandbox", result.Data!.Server);
+        Assert.Equal("Bosteder", result.Data.Database);
+    }
+
     [Fact]
     public async Task HandleAsync_ReturnsFail_WhenRoleMembersWithoutRoles()
     {
