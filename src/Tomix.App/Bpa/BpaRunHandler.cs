@@ -79,11 +79,17 @@ public sealed class BpaRunHandler
             await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
             var snapshot = await session.GetSnapshotAsync(cancellationToken);
 
+            // A staged run analyzes a working copy, but the annotation's relative external-rule
+            // paths point at files next to the original model — resolve from the request then.
+            var ruleBaseDirectory = context.Staging is null
+                ? BpaModelRuleLoader.ResolveBaseDirectory(session, request.Model)
+                : BpaModelRuleLoader.ResolveBaseDirectory(request.Model);
+
             IReadOnlyList<BpaRule> rules;
             IReadOnlyList<string> loadDiagnostics;
             try
             {
-                (rules, loadDiagnostics) = await LoadRulesAsync(request, snapshot, cancellationToken).ConfigureAwait(false);
+                (rules, loadDiagnostics) = await LoadRulesAsync(request, snapshot, ruleBaseDirectory, cancellationToken).ConfigureAwait(false);
             }
             catch (Exception ex) when (ex is ArgumentException or FileNotFoundException or HttpRequestException or JsonException)
             {
@@ -154,6 +160,7 @@ public sealed class BpaRunHandler
     private async Task<(IReadOnlyList<BpaRule> Rules, IReadOnlyList<string> Diagnostics)> LoadRulesAsync(
         BpaRunRequest request,
         ModelSnapshot snapshot,
+        string? modelRuleBaseDirectory,
         CancellationToken cancellationToken)
     {
         var collections = new List<BpaRuleCollection>();
@@ -194,8 +201,9 @@ public sealed class BpaRunHandler
         {
             var model = await BpaModelRuleLoader.LoadAsync(
                 snapshot.Properties,
-                ModelBaseDirectory(request.Model),
+                modelRuleBaseDirectory,
                 request.AllowExternalRules,
+                BpaRuleHintContext.Run,
                 _httpClient,
                 cancellationToken).ConfigureAwait(false);
 
@@ -204,23 +212,6 @@ public sealed class BpaRunHandler
         }
 
         return (BpaRuleResolver.Resolve(collections), diagnostics);
-    }
-
-    private static string? ModelBaseDirectory(ModelReference model)
-    {
-        if (!model.IsLocalPath)
-            return null;
-
-        try
-        {
-            return Directory.Exists(model.Value)
-                ? model.Value
-                : Path.GetDirectoryName(Path.GetFullPath(model.Value));
-        }
-        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
-        {
-            return null;
-        }
     }
 
     private static bool TryParseFailOn(
