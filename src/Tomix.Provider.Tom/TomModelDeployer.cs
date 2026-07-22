@@ -37,7 +37,7 @@ public static class TomModelDeployer
             }
 
             var status = existing is not null ? "updated" : "created";
-            var script = BuildScript(sourceDatabase, existing, targetName, request, splitMultilineStrings: false);
+            var script = BuildScript(sourceDatabase, existing, targetName, request, forExecution: true);
             var results = server.Execute(script);
 
             // AMO's Execute returns a result collection that may contain errors/warnings even
@@ -80,14 +80,14 @@ public static class TomModelDeployer
             : request.Database;
 
         if (!request.EffectiveOptions.RequiresTargetRead)
-            return BuildScript(sourceDatabase, existing: null, targetName, request, splitMultilineStrings: true);
+            return BuildScript(sourceDatabase, existing: null, targetName, request, forExecution: false);
 
         var server = new TabularServer();
         try
         {
             await ConnectAsync(server, request.Server, tokenProvider, cancellationToken).ConfigureAwait(false);
             var existing = server.Databases.FindByName(targetName);
-            return BuildScript(sourceDatabase, existing, targetName, request, splitMultilineStrings: true);
+            return BuildScript(sourceDatabase, existing, targetName, request, forExecution: false);
         }
         finally
         {
@@ -97,12 +97,16 @@ public static class TomModelDeployer
         }
     }
 
+    /// <param name="forExecution">True when the script goes straight to the server, false when
+    /// it is written to a file or stdout. Only executed scripts include the target's restricted
+    /// information: preserved connection strings must survive a real deploy, but credentials
+    /// must never leak into script output (CI artifacts, logs, working directories).</param>
     private static string BuildScript(
         Database sourceDatabase,
         TabularDatabase? existing,
         string targetName,
         ModelDeployRequest request,
-        bool splitMultilineStrings)
+        bool forExecution)
     {
         var options = request.EffectiveOptions;
 
@@ -117,7 +121,7 @@ public static class TomModelDeployer
 
         var sourceJson = TabularJsonSerializer.SerializeDatabase(
             clone,
-            new SerializeOptions { SplitMultilineStrings = splitMultilineStrings });
+            new SerializeOptions { SplitMultilineStrings = !forExecution });
 
         string? targetJson = null;
         if (existing is not null && options.RequiresTargetRead)
@@ -126,11 +130,9 @@ public static class TomModelDeployer
             // preserved objects reflect the target's actual current state.
             existing.Refresh(true);
 
-            // Restricted information keeps the target's credential-bearing connection strings
-            // intact when data sources are preserved.
             targetJson = TabularJsonSerializer.SerializeDatabase(
                 existing,
-                new SerializeOptions { IncludeRestrictedInformation = true });
+                new SerializeOptions { IncludeRestrictedInformation = forExecution });
         }
 
         return TmslDeployScriptBuilder.Build(

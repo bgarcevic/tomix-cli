@@ -79,7 +79,9 @@ opted into deployment individually:
 Preservation only applies to an existing target; the first deploy of a model always ships
 the full source. `--xmla` reads the target when any aspect is preserved so the generated
 script matches what a real deploy would execute — use `--deploy-full` to generate a script
-offline.
+offline. Generated scripts never contain credentials: only a direct deploy carries the
+target's restricted connection-string information, so a preserved data source in an
+`--xmla` script may need its credentials re-bound after the script is executed.
 
 ```sh
 tx deploy ./model.tmdl                                   # promote structure, keep target data and config
