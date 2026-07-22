@@ -4,6 +4,7 @@ using Tomix.App.Deploy;
 using Tomix.App.State;
 using Tomix.Cli.Output;
 using Tomix.Core.Models;
+using Tomix.Core.Results;
 
 namespace Tomix.Cli.Commands;
 
@@ -167,9 +168,15 @@ internal sealed class DeployCommand : ICommandModule
             };
             if (deployFull && granularFlags.Any(o => parseResult.GetResult(o) is { Implicit: false }))
             {
-                var err = AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
-                err.MarkupLine(Styling.Error("--deploy-full cannot be combined with other --deploy-* flags."));
-                return 2;
+                // Same rendering pipeline as the handler's flag-dependency errors so all
+                // deploy flag failures look alike (and stay structured under JSON output).
+                return CommandOutput.Render(
+                    TomixResult<DeployModelResult>.Fail(
+                        "TOMIX_DEPLOY_INVALID_FLAGS",
+                        "--deploy-full cannot be combined with other --deploy-* flags.",
+                        exitCode: 2),
+                    format,
+                    data => DeployRenderer.Render(data, reference.Value));
             }
 
             var deployOptions = deployFull

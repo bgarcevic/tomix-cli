@@ -93,6 +93,7 @@ public sealed class DeployModelHandler
         if (request.DryRun)
         {
             DiffModelResult? diff = null;
+            string? diffError = null;
 
             if (!string.IsNullOrWhiteSpace(server) && !string.IsNullOrWhiteSpace(database))
             {
@@ -104,10 +105,14 @@ public sealed class DeployModelHandler
 
                 if (diffResult.Success)
                     diff = diffResult.Data;
+                else
+                    // Keep the reason: "target unreachable" and "diff failed" are different
+                    // situations and the dry-run output should not conflate them.
+                    diffError = diffResult.Diagnostics.Count > 0 ? diffResult.Diagnostics[0].Message : null;
             }
 
             return TomixResult<DeployModelResult>.Ok(new DeployModelResult(
-                server, database ?? request.Model.Value, "dry-run", null, null, null, diff));
+                server, database ?? request.Model.Value, "dry-run", null, null, null, diff, diffError));
         }
 
         if (!string.IsNullOrWhiteSpace(request.XmlaOutput))
