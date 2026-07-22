@@ -32,10 +32,46 @@ public sealed class BpaRulesListHandlerTests
             Assert.Equal("model-embedded", rule.Source);
             var diagnostic = Assert.Single(result.Data.Diagnostics!);
             Assert.Contains("missing-rules.json", diagnostic);
+            // "rules list" has no --no-model-rules option; the hint must not suggest it.
+            Assert.DoesNotContain("--no-model-rules", diagnostic);
         }
         finally
         {
             Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task List_ExternalFiles_ResolveAgainstOpenedSourcePath()
+    {
+        // A .pbip/.pbism/project-root entry point opens the nested definition folder; relative
+        // external-file entries are anchored there, not at the entry point the user typed.
+        var root = Path.Combine(Path.GetTempPath(), "tomix-bpa-list-" + Guid.NewGuid().ToString("N"));
+        var definition = Path.Combine(root, "Sales.SemanticModel", "definition");
+        Directory.CreateDirectory(definition);
+        try
+        {
+            await File.WriteAllTextAsync(
+                Path.Combine(root, "rules.json"),
+                OneRuleJson.Replace("MODEL_RULE", "EXTERNAL_RULE"));
+            var session = new SnapshotSession(new Dictionary<string, string>
+            {
+                [$"Annotation:{BpaModelRuleLoader.ExternalFilesKey}"] = "[\"..\\\\..\\\\rules.json\"]"
+            }, sourcePath: definition);
+            var handler = new BpaRulesListHandler([new Provider(session)], new BpaUserRuleState(root));
+
+            var result = await handler.HandleAsync(
+                new BpaRulesListRequest(Model: new ModelReference(root), NoDefaults: true),
+                CancellationToken.None);
+
+            Assert.True(result.Success);
+            var rule = Assert.Single(result.Data!.Rules);
+            Assert.Equal("EXTERNAL_RULE", rule.Id);
+            Assert.Null(result.Data.Diagnostics);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
         }
     }
 
@@ -66,9 +102,11 @@ public sealed class BpaRulesListHandlerTests
         public Task<IModelSession> OpenAsync(ModelReference reference, CancellationToken ct) => Task.FromResult(session);
     }
 
-    private sealed class SnapshotSession(IReadOnlyDictionary<string, string> modelProperties) : IModelSession
+    private sealed class SnapshotSession(
+        IReadOnlyDictionary<string, string> modelProperties,
+        string sourcePath = "") : IModelSession
     {
-        public string SourcePath => "";
+        public string SourcePath => sourcePath;
 
         public Task<ModelSummary> GetSummaryAsync(CancellationToken ct)
             => Task.FromResult(new ModelSummary("M", 1601, 0, 0, 0, 0, 0));

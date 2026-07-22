@@ -131,4 +131,25 @@ public sealed class BpaModelRuleLoaderTests
         Assert.Empty(outcome.Collections);
         Assert.Contains(outcome.Diagnostics, d => d.Contains("--allow-external-rules"));
     }
+
+    [Fact]
+    public async Task LoadAsync_ListContext_HintsOnlySuggestOptionsListAccepts()
+    {
+        // "bpa rules list" accepts neither --no-model-rules nor --allow-external-rules, so
+        // its diagnostics must not tell the user to pass them to the current command.
+        var props = Annotations((BpaModelRuleLoader.ExternalFilesKey,
+            "[\"does-not-exist.json\", \"https://example.org/rules.json\"]"));
+
+        var outcome = await BpaModelRuleLoader.LoadAsync(
+            props, Path.GetTempPath(), allowExternal: false, BpaRuleHintContext.List,
+            httpClient: null, CancellationToken.None);
+
+        Assert.Equal(2, outcome.Diagnostics.Count);
+        var notFound = outcome.Diagnostics[0];
+        Assert.Contains("does-not-exist.json", notFound);
+        Assert.DoesNotContain("--no-model-rules", notFound);
+        Assert.Contains(BpaModelRuleLoader.ExternalFilesKey, notFound);
+        var remoteSkipped = outcome.Diagnostics[1];
+        Assert.Contains("bpa run --allow-external-rules", remoteSkipped);
+    }
 }

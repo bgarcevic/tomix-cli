@@ -5,6 +5,16 @@ using Tomix.Core.Models;
 namespace Tomix.App.Bpa;
 
 /// <summary>
+/// Which command surfaces the loader's diagnostics. Remedy hints reference command options,
+/// so they must only suggest options the invoked command actually accepts.
+/// </summary>
+public enum BpaRuleHintContext
+{
+    Run,
+    List
+}
+
+/// <summary>
 /// Loads BPA rule collections referenced by the model itself: rules embedded in the
 /// <c>BestPracticeAnalyzer</c> annotation, and external collections listed in the
 /// <c>BestPracticeAnalyzer_ExternalRuleFiles</c> annotation. Loading is best-effort — a malformed
@@ -24,6 +34,32 @@ public static class BpaModelRuleLoader
     public sealed record Outcome(
         IReadOnlyList<BpaRuleCollection> Collections,
         IReadOnlyList<string> Diagnostics);
+
+    /// <summary>
+    /// The directory relative external-file entries resolve against, preferring the folder the
+    /// session actually opened — a .pbip/.pbism/project-root entry point opens the nested TMDL
+    /// definition folder, which is where community tooling anchors these paths — and falling back
+    /// to the model reference for sessions without a local source path.
+    /// </summary>
+    public static string? ResolveBaseDirectory(IModelSession session, ModelReference model)
+    {
+        var source = session.SourcePath;
+        if (!string.IsNullOrWhiteSpace(source))
+        {
+            try
+            {
+                return Directory.Exists(source)
+                    ? source
+                    : Path.GetDirectoryName(Path.GetFullPath(source));
+            }
+            catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+            {
+                // Fall back to the model reference below.
+            }
+        }
+
+        return ResolveBaseDirectory(model);
+    }
 
     /// <summary>
     /// The directory relative external-file entries resolve against: the model's own folder for a
@@ -52,12 +88,13 @@ public static class BpaModelRuleLoader
         bool allowExternal,
         CancellationToken cancellationToken)
         => await LoadAsync(
-            modelProperties, baseDirectory, allowExternal, httpClient: null, cancellationToken);
+            modelProperties, baseDirectory, allowExternal, BpaRuleHintContext.Run, httpClient: null, cancellationToken);
 
     public static async Task<Outcome> LoadAsync(
         IReadOnlyDictionary<string, string>? modelProperties,
         string? baseDirectory,
         bool allowExternal,
+        BpaRuleHintContext hints,
         HttpClient? httpClient,
         CancellationToken cancellationToken)
     {
@@ -66,7 +103,7 @@ public static class BpaModelRuleLoader
 
         LoadEmbedded(modelProperties, collections, diagnostics);
         await LoadExternalAsync(
-                modelProperties, baseDirectory, allowExternal, collections, diagnostics, httpClient, cancellationToken)
+                modelProperties, baseDirectory, allowExternal, hints, collections, diagnostics, httpClient, cancellationToken)
             .ConfigureAwait(false);
 
         return new Outcome(collections, diagnostics);
@@ -97,6 +134,7 @@ public static class BpaModelRuleLoader
         IReadOnlyDictionary<string, string>? properties,
         string? baseDirectory,
         bool allowExternal,
+        BpaRuleHintContext hints,
         List<BpaRuleCollection> collections,
         List<string> diagnostics,
         HttpClient? httpClient,
@@ -133,7 +171,9 @@ public static class BpaModelRuleLoader
                 {
                     if (!allowExternal)
                     {
-                        diagnostics.Add($"Skipped remote rule file (pass --allow-external-rules to enable): {entry}");
+                        diagnostics.Add(hints == BpaRuleHintContext.Run
+                            ? $"Skipped remote rule file (pass --allow-external-rules to enable): {entry}"
+                            : $"Skipped remote rule file (never fetched when listing; 'bpa run --allow-external-rules' loads it): {entry}");
                         continue;
                     }
 
@@ -156,8 +196,8 @@ public static class BpaModelRuleLoader
                 {
                     diagnostics.Add(
                         $"External rule file not found: {entry} (resolved: {Path.GetFullPath(path)}). "
-                        + "Skip with --no-model-rules, or remove the reference: "
-                        + "tx set . -q annotation:BestPracticeAnalyzer_ExternalRuleFiles -i \"\" --save");
+                        + (hints == BpaRuleHintContext.Run ? "Skip with --no-model-rules, or remove" : "Remove")
+                        + " the reference: tx set . -q annotation:BestPracticeAnalyzer_ExternalRuleFiles -i \"\" --save");
                     continue;
                 }
 

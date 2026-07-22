@@ -90,8 +90,9 @@ public sealed class BpaRulesListHandler
 
                 var model = await BpaModelRuleLoader.LoadAsync(
                     snapshot.Properties,
-                    BpaModelRuleLoader.ResolveBaseDirectory(request.Model),
+                    BpaModelRuleLoader.ResolveBaseDirectory(session, request.Model),
                     allowExternal: false,
+                    BpaRuleHintContext.List,
                     _httpClient,
                     cancellationToken).ConfigureAwait(false);
                 loaded.AddRange(model.Collections.SelectMany(
