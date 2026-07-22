@@ -67,6 +67,15 @@ public static class ModelPropertyCatalog
         new("lineageTag", "LineageTag", o => Bag(o, PropertyBagKeys.LineageTag))
     ];
 
+    private static readonly IReadOnlyList<PropertyDescriptor> Hierarchy =
+    [
+        Name(writable: true),
+        Description(writable: true),
+        IsHidden(writable: true),
+        new("detail", "Detail", o => o.Detail ?? ""),
+        DisplayFolder()
+    ];
+
     private static readonly IReadOnlyList<PropertyDescriptor> Partition =
     [
         Name(writable: true),
@@ -139,6 +148,7 @@ public static class ModelPropertyCatalog
         ModelObjectKind.Table => Table,
         ModelObjectKind.Measure => Measure,
         ModelObjectKind.Column => Column,
+        ModelObjectKind.Hierarchy => Hierarchy,
         ModelObjectKind.Partition => Partition,
         ModelObjectKind.Relationship => Relationship,
         ModelObjectKind.Role => Role,
@@ -180,7 +190,8 @@ public static class ModelPropertyCatalog
     /// </summary>
     public static IReadOnlyList<string> WritableTokens(ModelObjectKind kind) => kind switch
     {
-        ModelObjectKind.Table or ModelObjectKind.Measure or ModelObjectKind.Column or ModelObjectKind.Partition
+        ModelObjectKind.Table or ModelObjectKind.Measure or ModelObjectKind.Column
+            or ModelObjectKind.Hierarchy or ModelObjectKind.Partition
             => For(kind).Where(d => d.Writable).Select(d => d.JsonKey).ToList(),
         _ => []
     };
