@@ -9,7 +9,8 @@
 #   deploy-script-matrix.sh --model <path> --server <endpoint> --database <name> [options]
 #
 #   --out <dir>     Where to write scripts and logs (default: ./deploy-qa).
-#   --tx <cmd>      tx executable to use (default: tx). Use ./tx to run from source.
+#   --tx <cmd>      tx executable to use (default: the repo's ./tx, which always reflects
+#                   current source). Pass --tx tx to QA the installed global tool instead.
 #   --cloud|--no-cloud
 #                   Override cloud-endpoint detection (affects the memberId check).
 #   --             Everything after -- is passed through to tx (e.g. --profile prod).
@@ -22,7 +23,10 @@ MODEL=""
 SERVER=""
 DATABASE=""
 OUT="./deploy-qa"
-TX="tx"
+# Set once HERE is known (below) so the default is the repo's ./tx: an installed global tool
+# is whatever was last packed, so defaulting to it silently QAs a different build than the
+# working tree — the one bug a QA harness must never have.
+TX=""
 CLOUD=""
 PASSTHRU=()
 
@@ -48,6 +52,7 @@ command -v jq >/dev/null || { echo "jq is required (brew install jq)" >&2; exit 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 CHECK="$HERE/check-deploy-script.sh"
 [[ -x $CHECK ]] || chmod +x "$CHECK"
+: "${TX:="$(cd "$HERE/../.." && pwd)/tx"}"
 
 if [[ -z $CLOUD ]]; then
   case "$(printf '%s' "$SERVER" | tr '[:upper:]' '[:lower:]')" in
@@ -78,17 +83,19 @@ REJECT=(
   "members-without-roles|--deploy-role-members"
 )
 
-printf 'model    %s\nserver   %s\ndatabase %s\nout      %s\ncloud    %s\n\n' \
-  "$MODEL" "$SERVER" "$DATABASE" "$OUT" "$((CLOUD))"
+# tx is echoed because which build is under test is the first thing to doubt when a result
+# looks wrong.
+printf 'model    %s\nserver   %s\ndatabase %s\nout      %s\ncloud    %s\ntx       %s\n\n' \
+  "$MODEL" "$SERVER" "$DATABASE" "$OUT" "$((CLOUD))" "$TX"
 
-generate() { # $1 = cell name, $2 = flags
-  local name="$1" flags="$2"
+generate() { # $1 = cell name, $2 = flags, $3.. = extra tx args
+  local name="$1" flags="$2"; shift 2
   # shellcheck disable=SC2086  # flags are intentionally word-split
   "$TX" deploy "$MODEL" \
     --server "$SERVER" --database "$DATABASE" \
     --xmla "$OUT/$name.xmla" \
     --skip-bpa --yes --quiet --non-interactive \
-    ${flags} "${PASSTHRU[@]+"${PASSTHRU[@]}"}" >"$OUT/$name.log" 2>&1
+    ${flags} "$@" "${PASSTHRU[@]+"${PASSTHRU[@]}"}" >"$OUT/$name.log" 2>&1
 }
 
 results=()
@@ -133,8 +140,10 @@ done
 echo "== rejected flag combinations =="
 for cell in "${REJECT[@]}"; do
   IFS='|' read -r name flags <<<"$cell"
+  # --error-format json because the code is the scripting contract: a pipeline branches on
+  # it, not on the prose. Text output deliberately prints only the message.
   set +e
-  generate "$name" "$flags"
+  generate "$name" "$flags" --error-format json
   code=$?
   set -e
   if [[ $code -eq 0 ]]; then
@@ -143,13 +152,21 @@ for cell in "${REJECT[@]}"; do
     failed=1
     continue
   fi
-  if grep -q "TOMIX_DEPLOY_INVALID_FLAGS" "$OUT/$name.log" 2>/dev/null; then
-    echo "  ok    $name rejected (exit $code, TOMIX_DEPLOY_INVALID_FLAGS)"
+  if [[ $code -ne 2 ]]; then
+    echo "  FAIL  $name rejected with exit $code; a usage error must exit 2"
+    sed 's/^/          /' "$OUT/$name.log" | head -5
+    results+=("$name|wrong exit code")
+    failed=1
+    continue
+  fi
+  if jq -e '.code == "TOMIX_DEPLOY_INVALID_FLAGS"' "$OUT/$name.log" >/dev/null 2>&1; then
+    echo "  ok    $name rejected (exit 2, TOMIX_DEPLOY_INVALID_FLAGS)"
     results+=("$name|rejected")
   else
-    echo "  WARN  $name rejected (exit $code) but without TOMIX_DEPLOY_INVALID_FLAGS:"
+    echo "  FAIL  $name rejected but not as a TOMIX_DEPLOY_INVALID_FLAGS JSON envelope:"
     sed 's/^/          /' "$OUT/$name.log" | head -5
-    results+=("$name|rejected, wrong code")
+    results+=("$name|wrong code")
+    failed=1
   fi
 done
 

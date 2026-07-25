@@ -24,13 +24,16 @@ scripts/qa/deploy-script-matrix.sh \
 Cells generated: `full` (the pure-source reference), `default`, `connections`, `partitions`,
 `partitions-policy`, `expressions`, `roles`, `roles-members`. Rejected combinations checked:
 `--deploy-full` with a granular flag, `--deploy-policy-partitions` alone,
-`--deploy-role-members` alone.
+`--deploy-role-members` alone — each must exit 2 with a `TOMIX_DEPLOY_INVALID_FLAGS` JSON
+envelope, since that code is what a pipeline branches on.
 
 The 6 granular flags are 64 combinations; the matrix covers each flag alone, both dependent
 pairs, plus default and full. The rest are independent — a cross-product buys nothing.
 
-Use `--tx ./tx` to run from source instead of the installed tool, and `-- --profile prod` to
-pass anything else through to `tx`.
+The run defaults to the repo's `./tx`, which rebuilds from source on every call, and echoes
+which executable it used. Pass `--tx tx` to QA the installed global tool instead — but note
+that it is whatever was last packed, so it may not be the code you are trying to test. Use
+`-- --profile prod` to pass anything else through to `tx`.
 
 Diffing two cells shows exactly what a flag changes:
 

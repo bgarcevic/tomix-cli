@@ -125,6 +125,7 @@ internal sealed class DeployCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var format = GlobalOptions.OutputFormatValue(parseResult);
+            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
             var quiet = parseResult.GetValue(GlobalOptions.Quiet);
             if (!CommandOutput.TryValidateFormat(parseResult, format, "deploy", OutputFormats.Text, OutputFormats.Json))
                 return 2;
@@ -176,6 +177,7 @@ internal sealed class DeployCommand : ICommandModule
                         "--deploy-full cannot be combined with other --deploy-* flags.",
                         exitCode: 2),
                     format,
+                    errorFormat,
                     data => DeployRenderer.Render(data, reference.Value));
             }
 
@@ -228,6 +230,7 @@ internal sealed class DeployCommand : ICommandModule
             return CommandOutput.Render(
                 result,
                 format,
+                errorFormat,
                 data => DeployRenderer.Render(data, reference.Value));
         });
 
