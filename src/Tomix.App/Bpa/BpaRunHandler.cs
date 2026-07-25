@@ -168,16 +168,24 @@ public sealed class BpaRunHandler
         ModelReference model,
         CancellationToken cancellationToken)
     {
-        if (model.IsLocalPath && _providers.ResolveSingle(model) is { } provider)
+        if (model.IsLocalPath)
         {
             try
             {
-                await using var probe = await provider.OpenAsync(model, cancellationToken);
-                return BpaModelRuleLoader.ResolveBaseDirectory(probe, model);
+                // Provider matching itself touches the filesystem — resolving a .pbip reference
+                // reads the file and enumerates sibling folders — so it stays inside the guard:
+                // this is a best-effort probe and an unreadable original must not fail the run.
+                if (_providers.ResolveSingle(model) is { } provider)
+                {
+                    await using var probe = await provider.OpenAsync(model, cancellationToken);
+                    return BpaModelRuleLoader.ResolveBaseDirectory(probe, model);
+                }
             }
-            catch (Exception ex) when (ex is IOException or NotSupportedException or UnauthorizedAccessException)
+            catch (Exception ex) when (ex
+                is IOException or NotSupportedException or UnauthorizedAccessException
+                or AmbiguousModelProviderException)
             {
-                // The original may be gone or unreadable; fall back to the reference below.
+                // The original may be gone, unreadable, or ambiguously claimed; fall back below.
             }
         }
 
