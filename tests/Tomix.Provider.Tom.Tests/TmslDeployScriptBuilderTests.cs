@@ -96,6 +96,25 @@ public sealed class TmslDeployScriptBuilderTests
         Assert.Equal("source@x.com", member["memberName"]!.GetValue<string>());
     }
 
+    /// <summary>
+    /// The common cloud case: roles are preserved (the default), so the members in the script
+    /// come from the target and carry service-assigned ids. Stripping must therefore happen
+    /// after the merge — this pins that ordering, which the source-side test cannot.
+    /// </summary>
+    [Fact]
+    public void CloudTarget_StripsRoleMemberIds_OnPreservedTargetMembers()
+    {
+        var source = SourceDb(roles: Roles(("Reader", "source@x.com")));
+        var target = TargetDb(roles: Roles(("Reader", "prod-group@x.com")));
+        AddMemberId(target, "Reader", "service-assigned-guid");
+
+        var model = Model(Build(source, target, stripRoleMemberIds: true));
+
+        var member = Role(model, "Reader")["members"]!.AsArray()[0]!.AsObject();
+        Assert.False(member.ContainsKey("memberId"));
+        Assert.Equal("prod-group@x.com", member["memberName"]!.GetValue<string>());
+    }
+
     // -- Data sources ------------------------------------------------------------------------
 
     [Fact]
@@ -122,6 +141,23 @@ public sealed class TmslDeployScriptBuilderTests
         var model = Model(Build(source, target, options: new ModelDeployOptions(DeployConnections: true)));
 
         Assert.Equal("Server=dev", model["dataSources"]!.AsArray()[0]!["connectionString"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// Analysis Services object names are case-insensitive, so a casing difference between
+    /// source and target is the same object. Matching case-sensitively here would not just skip
+    /// the merge — it would emit both entries and produce a duplicate-name TMSL the engine rejects.
+    /// </summary>
+    [Fact]
+    public void PreserveConnections_MatchesNameIgnoringCase_WithoutDuplicating()
+    {
+        var source = SourceDb(dataSources: DataSources(("warehouse", "Server=dev")));
+        var target = TargetDb(dataSources: DataSources(("Warehouse", "Server=prod")));
+
+        var model = Model(Build(source, target));
+
+        var dataSource = Assert.Single(model["dataSources"]!.AsArray())!.AsObject();
+        Assert.Equal("Server=prod", dataSource["connectionString"]!.GetValue<string>());
     }
 
     // -- Shared expressions ------------------------------------------------------------------
@@ -151,6 +187,23 @@ public sealed class TmslDeployScriptBuilderTests
         var model = Model(Build(source, target));
 
         Assert.Equal("\"dev\"", model["expressions"]!.AsArray()[0]!["expression"]!.GetValue<string>());
+    }
+
+    /// <summary>
+    /// A database without an explicit compatibilityLevel must still preserve expressions: the
+    /// assumed default is 1400+ (shared expressions supported), because guessing "too old" would
+    /// silently overwrite environment-specific M parameters.
+    /// </summary>
+    [Fact]
+    public void PreserveExpressions_MissingCompatibilityLevel_StillPreserves()
+    {
+        var source = SourceDb(expressions: Expressions(("Environment", "\"dev\"")));
+        source.Remove("compatibilityLevel");
+        var target = TargetDb(expressions: Expressions(("Environment", "\"prod\"")));
+
+        var model = Model(Build(source, target));
+
+        Assert.Equal("\"prod\"", model["expressions"]!.AsArray()[0]!["expression"]!.GetValue<string>());
     }
 
     // -- Partitions --------------------------------------------------------------------------
@@ -194,6 +247,36 @@ public sealed class TmslDeployScriptBuilderTests
         var model = Model(Build(source, target, options: new ModelDeployOptions(DeployPartitions: true, DeployPolicyPartitions: true)));
 
         Assert.Equal(["source-template"], PartitionNames(model, "Fact"));
+    }
+
+    /// <summary>
+    /// Policy-partition protection keys off the policy's sourceExpression, since that is what
+    /// generates the dated partitions holding processed data. A refreshPolicy without one cannot
+    /// have generated any, so it gets no special treatment and --deploy-partitions applies.
+    /// </summary>
+    [Fact]
+    public void DeployPartitions_PolicyWithoutSourceExpression_PartitionsOverwritten()
+    {
+        var source = SourceDb(tables: new JsonArray(QueryTable("Fact", "source-template")));
+        var target = TargetDb(tables: new JsonArray(
+            WithPolicy(QueryTable("Fact", "2023Q1"), sourceExpression: null)));
+
+        var model = Model(Build(source, target, options: new ModelDeployOptions(DeployPartitions: true)));
+
+        Assert.Equal(["source-template"], PartitionNames(model, "Fact"));
+    }
+
+    /// <summary>Table names are case-insensitive in Analysis Services; a casing difference
+    /// between source and target must not silently skip partition preservation.</summary>
+    [Fact]
+    public void PreservePartitions_MatchesTableNameIgnoringCase()
+    {
+        var source = SourceDb(tables: new JsonArray(QueryTable("fact", "source-partition")));
+        var target = TargetDb(tables: new JsonArray(QueryTable("Fact", "prod-2024")));
+
+        var model = Model(Build(source, target));
+
+        Assert.Equal(["prod-2024"], PartitionNames(model, "fact"));
     }
 
     [Fact]
@@ -324,17 +407,21 @@ public sealed class TmslDeployScriptBuilderTests
             })
         };
 
-    private static JsonObject WithPolicy(JsonObject table)
+    private static JsonObject WithPolicy(
+        JsonObject table, string? sourceExpression = "let Source = Sql in Source")
     {
-        table["refreshPolicy"] = new JsonObject
+        var policy = new JsonObject
         {
             ["policyType"] = "basic",
             ["rollingWindowGranularity"] = "year",
             ["rollingWindowPeriods"] = 5,
             ["incrementalGranularity"] = "month",
-            ["incrementalPeriods"] = 3,
-            ["sourceExpression"] = "let Source = Sql in Source"
+            ["incrementalPeriods"] = 3
         };
+        if (sourceExpression is not null)
+            policy["sourceExpression"] = sourceExpression;
+
+        table["refreshPolicy"] = policy;
         return table;
     }
 
