@@ -1,4 +1,5 @@
 using Tomix.App.Bpa;
+using Tomix.Core.Models;
 
 namespace Tomix.App.Tests;
 
@@ -133,6 +134,75 @@ public sealed class BpaModelRuleLoaderTests
     }
 
     [Fact]
+    public void ResolveBaseDirectory_SessionFolder_WinsOverEntryPoint()
+    {
+        // The entry point may be a project root or .pbip; the session opens the nested
+        // definition folder, and that is what relative rule paths are anchored to.
+        var root = Path.Combine(Path.GetTempPath(), "tomix-bpa-" + Guid.NewGuid().ToString("N"));
+        var definition = Path.Combine(root, "Sales.SemanticModel", "definition");
+        Directory.CreateDirectory(definition);
+        try
+        {
+            var resolved = BpaModelRuleLoader.ResolveBaseDirectory(
+                new StubSession(definition), new ModelReference(root));
+
+            Assert.Equal(definition, resolved);
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ResolveBaseDirectory_SessionFile_UsesContainingFolder()
+    {
+        // A .bim session reports the file itself as its source path.
+        var dir = Path.Combine(Path.GetTempPath(), "tomix-bpa-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            var bim = Path.Combine(dir, "model.bim");
+            File.WriteAllText(bim, "{}");
+
+            var resolved = BpaModelRuleLoader.ResolveBaseDirectory(
+                new StubSession(bim), new ModelReference(bim));
+
+            Assert.Equal(dir, resolved);
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ResolveBaseDirectory_NullSession_FallsBackToLocalReference()
+    {
+        // A staged run passes no session so the original model's folder is used, not the working copy.
+        var dir = Path.Combine(Path.GetTempPath(), "tomix-bpa-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(dir);
+        try
+        {
+            Assert.Equal(dir, BpaModelRuleLoader.ResolveBaseDirectory(session: null, new ModelReference(dir)));
+        }
+        finally
+        {
+            Directory.Delete(dir, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void ResolveBaseDirectory_ConnectedSession_HasNoBaseDirectory()
+    {
+        // A connected model reports no source path and is not a local path: entries stay cwd-relative.
+        var resolved = BpaModelRuleLoader.ResolveBaseDirectory(
+            new StubSession(""), new ModelReference("powerbi://api.powerbi.com/v1.0/myorg/WS", "Sales"));
+
+        Assert.Null(resolved);
+    }
+
+    [Fact]
     public async Task LoadAsync_ListContext_HintsOnlySuggestOptionsListAccepts()
     {
         // "bpa rules list" accepts neither --no-model-rules nor --allow-external-rules, so
@@ -151,5 +221,16 @@ public sealed class BpaModelRuleLoaderTests
         Assert.Contains(BpaModelRuleLoader.ExternalFilesKey, notFound);
         var remoteSkipped = outcome.Diagnostics[1];
         Assert.Contains("bpa run --allow-external-rules", remoteSkipped);
+    }
+
+    private sealed class StubSession(string sourcePath) : IModelSession
+    {
+        public string SourcePath => sourcePath;
+
+        public Task<ModelSummary> GetSummaryAsync(CancellationToken ct)
+            => Task.FromResult(new ModelSummary("M", 1601, 0, 0, 0, 0, 0));
+        public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken ct)
+            => Task.FromResult(new ModelSnapshot("M", 1601, [], new Dictionary<string, string>()));
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
     }
 }

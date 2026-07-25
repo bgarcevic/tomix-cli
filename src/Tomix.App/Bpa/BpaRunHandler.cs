@@ -79,11 +79,12 @@ public sealed class BpaRunHandler
             await using var session = await provider.OpenAsync(context.EffectiveModel, cancellationToken);
             var snapshot = await session.GetSnapshotAsync(cancellationToken);
 
-            // A staged run analyzes a working copy, but the annotation's relative external-rule
-            // paths point at files next to the original model — resolve from the request then.
+            // A staged run analyzes a working copy under the config directory, but the annotation's
+            // relative external-rule paths are anchored at the original model, so resolve from that
+            // instead of the copy.
             var ruleBaseDirectory = context.Staging is null
                 ? BpaModelRuleLoader.ResolveBaseDirectory(session, request.Model)
-                : BpaModelRuleLoader.ResolveBaseDirectory(request.Model);
+                : await ResolveStagedRuleBaseDirectoryAsync(request.Model, cancellationToken);
 
             IReadOnlyList<BpaRule> rules;
             IReadOnlyList<string> loadDiagnostics;
@@ -155,6 +156,32 @@ public sealed class BpaRunHandler
 
             return TomixResult<BpaRunResult>.Ok(runResult, exitCode: ShouldFail(runResult, failOnSeverity) ? 1 : 0);
         });
+    }
+
+    /// <summary>
+    /// The folder a staged run's relative external-rule paths resolve against: the original model's
+    /// own source folder, which for a .pbip/.pbism/project-root reference is the nested definition
+    /// folder rather than the reference itself. Opening a local model only resolves paths (the
+    /// database is deserialized lazily), so probing it here stays cheap.
+    /// </summary>
+    private async Task<string?> ResolveStagedRuleBaseDirectoryAsync(
+        ModelReference model,
+        CancellationToken cancellationToken)
+    {
+        if (model.IsLocalPath && _providers.ResolveSingle(model) is { } provider)
+        {
+            try
+            {
+                await using var probe = await provider.OpenAsync(model, cancellationToken);
+                return BpaModelRuleLoader.ResolveBaseDirectory(probe, model);
+            }
+            catch (Exception ex) when (ex is IOException or NotSupportedException or UnauthorizedAccessException)
+            {
+                // The original may be gone or unreadable; fall back to the reference below.
+            }
+        }
+
+        return BpaModelRuleLoader.ResolveBaseDirectory(session: null, model);
     }
 
     private async Task<(IReadOnlyList<BpaRule> Rules, IReadOnlyList<string> Diagnostics)> LoadRulesAsync(

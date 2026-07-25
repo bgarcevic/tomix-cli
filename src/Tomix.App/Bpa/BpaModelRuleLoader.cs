@@ -36,45 +36,28 @@ public static class BpaModelRuleLoader
         IReadOnlyList<string> Diagnostics);
 
     /// <summary>
-    /// The directory relative external-file entries resolve against, preferring the folder the
-    /// session actually opened — a .pbip/.pbism/project-root entry point opens the nested TMDL
-    /// definition folder, which is where community tooling anchors these paths — and falling back
-    /// to the model reference for sessions without a local source path.
+    /// The directory relative external-file entries resolve against. The opened session's source
+    /// path wins when there is one: a .pbip/.pbism/project-root entry point opens the nested TMDL
+    /// definition folder, which is where community tooling anchors these paths. Falls back to the
+    /// model reference for a session with no local source path (a connected model), and yields null
+    /// when neither is a local path — the caller then treats entries as relative to the cwd.
+    /// Pass <paramref name="session"/> as null to resolve from the reference alone, which is what a
+    /// staged run needs: it opens a working copy, but the annotation's paths point at the original.
     /// </summary>
-    public static string? ResolveBaseDirectory(IModelSession session, ModelReference model)
-    {
-        var source = session.SourcePath;
-        if (!string.IsNullOrWhiteSpace(source))
-        {
-            try
-            {
-                return Directory.Exists(source)
-                    ? source
-                    : Path.GetDirectoryName(Path.GetFullPath(source));
-            }
-            catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
-            {
-                // Fall back to the model reference below.
-            }
-        }
+    public static string? ResolveBaseDirectory(IModelSession? session, ModelReference model)
+        => FolderOf(session?.SourcePath) ?? (model.IsLocalPath ? FolderOf(model.Value) : null);
 
-        return ResolveBaseDirectory(model);
-    }
-
-    /// <summary>
-    /// The directory relative external-file entries resolve against: the model's own folder for a
-    /// local model, null otherwise (a connected session has no directory to be relative to).
-    /// </summary>
-    public static string? ResolveBaseDirectory(ModelReference model)
+    /// <summary>The path itself when it is a folder, its containing folder when it is a file.</summary>
+    private static string? FolderOf(string? path)
     {
-        if (!model.IsLocalPath)
+        if (string.IsNullOrWhiteSpace(path))
             return null;
 
         try
         {
-            return Directory.Exists(model.Value)
-                ? model.Value
-                : Path.GetDirectoryName(Path.GetFullPath(model.Value));
+            return Directory.Exists(path)
+                ? path
+                : Path.GetDirectoryName(Path.GetFullPath(path));
         }
         catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
         {
