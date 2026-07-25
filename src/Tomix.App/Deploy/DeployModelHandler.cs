@@ -97,7 +97,11 @@ public sealed class DeployModelHandler
 
             if (!string.IsNullOrWhiteSpace(server) && !string.IsNullOrWhiteSpace(database))
             {
-                var remoteRef = ModelReference.Remote(server, database);
+                // Normalize so a bare workspace name (-s MyWorkspace) becomes a real endpoint,
+                // matching what the deployer does internally. The reference has to read as
+                // remote for the diff to treat the target as a processed database.
+                var remoteRef = ModelReference.Remote(
+                    ModelReference.NormalizeEndpoint(server), database);
                 var diffHandler = new DiffModelHandler(_providers);
                 // Target first: the dry run answers "what will this deploy change on the
                 // target", so added/removed/old→new must read in the deploy's direction.

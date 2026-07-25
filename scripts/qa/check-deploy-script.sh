@@ -258,10 +258,57 @@ else
   }
 
   M='.createOrReplace.database.model'
-  aspect "data sources"       "$M.dataSources // []"                  "$(deploys connections && echo 1 || echo 0)"
-  aspect "shared expressions" "$M.expressions // []"                  "$(deploys expressions && echo 1 || echo 0)"
-  aspect "roles"              "$M.roles // []"                        "$(deploys roles && echo 1 || echo 0)"
-  aspect "partitions"         "[$M.tables[]? | {(.name): .partitions}]" "$(deploys policy-partitions && echo 1 || echo 0)"
+  aspect "data sources"       "$M.dataSources // []" "$(deploys connections && echo 1 || echo 0)"
+  aspect "shared expressions" "$M.expressions // []" "$(deploys expressions && echo 1 || echo 0)"
+
+  # Role definitions and role membership deploy independently, so they are compared
+  # independently: --deploy-roles takes the definitions from the source while the members
+  # still come from the target, and comparing the whole roles array would fail on exactly the
+  # fixture this harness asks you to set up.
+  if deploys roles; then
+    aspect "role definitions" "$M.roles // [] | map(del(.members))" 1
+    aspect "role members" "[$M.roles[]? | {(.name): (.members // [])}]" \
+      "$(deploys role-members && echo 1 || echo 0)"
+  else
+    aspect "roles" "$M.roles // []" 0
+  fi
+
+  # Partitions split into two populations with different contracts: --deploy-partitions
+  # overwrites ordinary tables, while a table whose refresh policy carries a sourceExpression
+  # keeps the target's partitions until --deploy-policy-partitions is passed too. Comparing
+  # them as one blob lets a regression that preserves everything pass as success.
+  partition_groups=$(jq -n --slurpfile s "$SCRIPT" --slurpfile r "$REFERENCE" '
+    def tables(m): [m[0].createOrReplace.database.model.tables[]?
+      | {name: (.name | ascii_downcase),
+         parts: (.partitions // []),
+         policy: ((.refreshPolicy.sourceExpression // null) != null)}];
+    tables($s) as $S | tables($r) as $R
+    | [ $S[] as $st | ($R[] | select(.name == $st.name)) as $rt
+        # Either side claiming a policy is treated as protected: a table the target has under
+        # policy but the source does not must not be reported as a preservation failure.
+        | {name: $st.name, policy: ($st.policy or $rt.policy), same: ($st.parts == $rt.parts)} ]')
+
+  group() { # $1 = label, $2 = policy true/false, $3 = deployed 0/1
+    local label="$1" policy="$2" deployed="$3" total differing
+    total=$(jq -r --argjson p "$policy" '[.[] | select(.policy == $p)] | length' <<<"$partition_groups")
+    differing=$(jq -r --argjson p "$policy" \
+      '[.[] | select(.policy == $p and (.same | not)) | .name] | join(", ")' <<<"$partition_groups")
+
+    if [[ $total == 0 ]]; then
+      info "$label: none in this model — that contract is untested here"
+    elif [[ $deployed == 1 ]]; then
+      [[ -z $differing ]] \
+        && ok "$label deployed from source ($total table(s))" \
+        || fail "$label was asked to deploy but kept non-source partitions: $differing"
+    elif [[ -z $differing ]]; then
+      warn "$label preserved, but every table matches the source — inconclusive; make the target differ to test this"
+    else
+      ok "$label preserved from the target ($differing)"
+    fi
+  }
+
+  group "ordinary table partitions" false "$(deploys partitions && echo 1 || echo 0)"
+  group "policy table partitions" true "$(deploys policy-partitions && echo 1 || echo 0)"
 
   # Preserving shared expressions still deploys expressions that are new in the source, so no
   # source-side name may go missing. Same contract for data sources.
@@ -278,23 +325,6 @@ else
     while IFS= read -r line; do fail "$line"; done <<<"$missing"
   fi
 
-  # Deploying role definitions while preserving members: the role set comes from the source,
-  # the membership from the target.
-  if deploys roles && ! deploys role-members; then
-    sn=$(jq -S '[.createOrReplace.database.model.roles[]?.name] | sort' "$SCRIPT")
-    rn=$(jq -S '[.createOrReplace.database.model.roles[]?.name] | sort' "$REFERENCE")
-    [[ $sn == "$rn" ]] \
-      && ok "role definitions came from the source" \
-      || fail "roles were asked to deploy but the role set does not match the source"
-  fi
-
-  # Partitions deployed without --deploy-policy-partitions: policy tables keep the target's.
-  if deploys partitions && ! deploys policy-partitions; then
-    policy=$(jq -r '[.createOrReplace.database.model.tables[]? | select(.refreshPolicy) | .name] | join(", ")' "$SCRIPT")
-    [[ -n $policy ]] \
-      && info "policy tables expected to keep target partitions: $policy" \
-      || info "no refresh-policy tables in this model — the policy-partition gate is untested here"
-  fi
 fi
 
 # --------------------------------------------------------------------------- verdict

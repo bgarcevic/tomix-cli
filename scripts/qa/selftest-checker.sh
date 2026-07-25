@@ -61,6 +61,34 @@ expect_caught() {
   fi
 }
 
+# Differential cases need their own reference, and some assert the ABSENCE of a failure.
+# $1 = case name, $2 = reference/base, $3 = jq mutation, $4 = expected substring or "-" for
+# "must report no failure at all", $5.. = extra check args.
+expect_pair() {
+  local name="$1" base="$2" mutation="$3" expect="$4"; shift 4
+  local file="$OUT/$name.xmla" out
+  jq "$mutation" "$base" >"$file"
+
+  out=$("$CHECK" "$file" --database "$DB" --quiet --reference "$base" "$@" 2>&1) || true
+  if [[ $expect == "-" ]]; then
+    if grep -q "FAIL" <<<"$out"; then
+      printf '  MISSED  %-22s expected no failure, got:\n' "$name"
+      printf '%s\n' "$out" | sed 's/^/            /'
+      fail=$((fail + 1))
+    else
+      printf '  ok      %-22s correctly reports no failure\n' "$name"
+      pass=$((pass + 1))
+    fi
+  elif grep -qF -- "$expect" <<<"$out"; then
+    printf '  ok      %-22s caught: %s\n' "$name" "$expect"
+    pass=$((pass + 1))
+  else
+    printf '  MISSED  %-22s expected to report: %s\n' "$name" "$expect"
+    printf '%s\n' "$out" | sed 's/^/            /'
+    fail=$((fail + 1))
+  fi
+}
+
 expect_clean() {
   local name="$1"; shift
   local out
@@ -117,9 +145,34 @@ expect_caught aspect-not-deployed \
 expect_caught source-entry-dropped \
   'del(.createOrReplace.database.model.expressions[0])' \
   "is missing from the script" --reference "$FIXTURE"
-expect_caught role-set-not-from-source \
-  '.createOrReplace.database.model.roles = [{"name":"FromTarget","modelPermission":"read"}]' \
-  "the role set does not match the source" --reference "$FIXTURE" --deployed roles
+echo "== aspects that deploy independently =="
+# A base with roles, so definitions can be held equal while membership differs — the fixture
+# the README asks you to set up, which must not read as a failure.
+ROLES_BASE="$OUT/base-roles.xmla"
+jq '.createOrReplace.database.model.roles =
+      [{"name":"Reader","modelPermission":"read","members":[{"memberName":"source@x.com"}]}]' \
+  "$FIXTURE" >"$ROLES_BASE"
+
+expect_pair members-from-target "$ROLES_BASE" \
+  '.createOrReplace.database.model.roles[0].members = [{"memberName":"target@x.com"}]' \
+  - --deployed roles
+expect_pair role-definition-not-deployed "$ROLES_BASE" \
+  '.createOrReplace.database.model.roles[0].modelPermission = "readRefresh"' \
+  "role definitions was asked to deploy but does not match the source" --deployed roles
+expect_pair ordinary-partitions-not-deployed "$FIXTURE" \
+  '.createOrReplace.database.model.tables[0].partitions[0].name = "kept-from-target"' \
+  "was asked to deploy but kept non-source partitions" --deployed partitions
+expect_pair policy-partitions-exempt "$FIXTURE" \
+  '.createOrReplace.database.model.tables[0] |= (
+     .refreshPolicy = {"policyType":"basic","sourceExpression":"let S = Sql in S"}
+     | .partitions[0].name = "target-2024")' \
+  - --deployed partitions
+expect_pair policy-partitions-not-deployed "$FIXTURE" \
+  '.createOrReplace.database.model.tables[0] |= (
+     .refreshPolicy = {"policyType":"basic","sourceExpression":"let S = Sql in S"}
+     | .partitions[0].name = "target-2024")' \
+  "policy table partitions was asked to deploy but kept non-source partitions" \
+  --deployed partitions,policy-partitions
 
 printf '\n  %d passed, %d missed\n' "$pass" "$fail"
 ((fail == 0))

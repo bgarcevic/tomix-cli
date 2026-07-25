@@ -106,11 +106,11 @@ public sealed class DiffModelHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_IgnoresMeasureDataType_WhenOneSideIsUnprocessed()
+    public async Task HandleAsync_IgnoresMeasureDataType_WhenLiveTargetIsUnprocessed()
     {
         // A measure's data type is engine-computed at process time; source files carry none.
-        // Absent-vs-present is processing state, not an authored change (both-present changes
-        // are still reported — see HandleAsync_ReportsCatalogDiffableChanges).
+        // Against a live database, absent-vs-present is processing state, not an authored change
+        // (both-present changes are still reported — see HandleAsync_ReportsCatalogDiffableChanges).
         var unprocessed = Snapshot(measureBag: new Dictionary<string, string>
         {
             [PropertyBagKeys.FormatString] = "#,0"
@@ -121,23 +121,53 @@ public sealed class DiffModelHandlerTests
             [PropertyBagKeys.DataType] = "Decimal"
         });
 
-        Assert.Empty(await Diff(unprocessed, processed));
-        Assert.Empty(await Diff(processed, unprocessed));
+        Assert.Empty(await DiffAgainstLiveTarget(unprocessed, processed));
+        Assert.Empty(await DiffAgainstLiveTarget(processed, unprocessed));
+    }
+
+    /// <summary>
+    /// The suppression is scoped to live targets: between two authored sources, a data type on
+    /// only one side is an authored difference, and hiding it would report unequal models as
+    /// identical.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_ReportsMeasureDataType_BetweenTwoAuthoredSources()
+    {
+        var without = Snapshot(measureBag: new Dictionary<string, string>());
+        var with = Snapshot(measureBag: new Dictionary<string, string>
+        {
+            [PropertyBagKeys.DataType] = "Decimal"
+        });
+
+        var change = Assert.Single(await Diff(without, with));
+        Assert.Equal("DataType", change.Path);
+        Assert.Equal("Decimal", change.NewValue);
     }
 
     [Fact]
-    public async Task HandleAsync_IgnoresCalculatedTableColumns_PresentOnOneSideOnly()
+    public async Task HandleAsync_IgnoresCalculatedTableColumns_PresentOnLiveTargetOnly()
     {
         // Calculated-table columns are materialized by the engine when the table's expression
         // is evaluated, so a processed database has them while the source files don't. Only
         // the authored (regular) column counts as a real addition.
-        var changes = await Diff(
+        var changes = await DiffAgainstLiveTarget(
             CalcTableSnapshot(withEngineColumns: false),
             CalcTableSnapshot(withEngineColumns: true));
 
         var change = Assert.Single(changes);
         Assert.Equal("added", change.Action);
         Assert.Equal("PnL/Authored", change.Path);
+    }
+
+    [Fact]
+    public async Task HandleAsync_ReportsCalculatedTableColumns_BetweenTwoAuthoredSources()
+    {
+        var changes = await Diff(
+            CalcTableSnapshot(withEngineColumns: false),
+            CalcTableSnapshot(withEngineColumns: true));
+
+        Assert.Contains(changes, c => c.Action == "added" && c.Path == "PnL/Group");
+        Assert.Contains(changes, c => c.Action == "added" && c.Path == "PnL/Authored");
     }
 
     [Fact]
@@ -202,11 +232,20 @@ public sealed class DiffModelHandlerTests
         Assert.Equal(0, provider.OpenCount);
     }
 
-    private static async Task<IReadOnlyList<DiffChange>> Diff(ModelSnapshot left, ModelSnapshot right)
+    private static Task<IReadOnlyList<DiffChange>> Diff(ModelSnapshot left, ModelSnapshot right)
+        => Diff(left, right, new ModelReference("right"));
+
+    /// <summary>Right side is a processed database, which is what enables engine-state suppression.</summary>
+    private static Task<IReadOnlyList<DiffChange>> DiffAgainstLiveTarget(
+        ModelSnapshot left, ModelSnapshot right)
+        => Diff(left, right, ModelReference.Remote("powerbi://api.powerbi.com/v1.0/myorg/ws", "db"));
+
+    private static async Task<IReadOnlyList<DiffChange>> Diff(
+        ModelSnapshot left, ModelSnapshot right, ModelReference rightReference)
     {
         var handler = new DiffModelHandler([new SnapshotProvider(left, right)]);
         var result = await handler.HandleAsync(
-            new DiffModelRequest(new ModelReference("left"), new ModelReference("right")),
+            new DiffModelRequest(new ModelReference("left"), rightReference),
             CancellationToken.None);
 
         Assert.True(result.Success);

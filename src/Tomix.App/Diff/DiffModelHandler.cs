@@ -38,7 +38,13 @@ public sealed class DiffModelHandler
                 await using var rightSession = await rightProvider.OpenAsync(request.Right, cancellationToken);
                 var rightSnapshot = await rightSession.GetSnapshotAsync(cancellationToken);
 
-                var changes = Compare(leftSnapshot, rightSnapshot);
+                // Engine-computed state only exists once a database has been processed, so it is
+                // only meaningful to ignore it when one side IS a live database. Comparing two
+                // authored sources keeps reporting these differences: there, a data type present
+                // on one side and absent on the other is an authored difference, not processing
+                // state, and hiding it would report two unequal models as identical.
+                var liveTargetInvolved = request.Left.IsRemote || request.Right.IsRemote;
+                var changes = Compare(leftSnapshot, rightSnapshot, liveTargetInvolved);
                 var summary = new DiffSummary(
                     Added: changes.Count(c => c.Action == "added"),
                     Removed: changes.Count(c => c.Action == "removed"),
@@ -57,7 +63,8 @@ public sealed class DiffModelHandler
             exitCode: 2,
             hint: ModelSessionRunner.DefaultNoProviderHint);
 
-    private static IReadOnlyList<DiffChange> Compare(ModelSnapshot left, ModelSnapshot right)
+    private static IReadOnlyList<DiffChange> Compare(
+        ModelSnapshot left, ModelSnapshot right, bool ignoreEngineComputedState)
     {
         var leftObjects = ByKindAndPath(left);
         var rightObjects = ByKindAndPath(right);
@@ -67,7 +74,7 @@ public sealed class DiffModelHandler
         foreach (var path in leftObjects.Keys.Except(rightObjects.Keys, StringComparer.OrdinalIgnoreCase).Order())
         {
             var obj = leftObjects[path];
-            if (IsEngineMaterialized(obj))
+            if (ignoreEngineComputedState && IsEngineMaterialized(obj))
                 continue;
 
             changes.Add(new DiffChange(
@@ -79,7 +86,7 @@ public sealed class DiffModelHandler
         foreach (var path in rightObjects.Keys.Except(leftObjects.Keys, StringComparer.OrdinalIgnoreCase).Order())
         {
             var obj = rightObjects[path];
-            if (IsEngineMaterialized(obj))
+            if (ignoreEngineComputedState && IsEngineMaterialized(obj))
                 continue;
 
             changes.Add(new DiffChange(
@@ -90,7 +97,8 @@ public sealed class DiffModelHandler
 
         foreach (var path in leftObjects.Keys.Intersect(rightObjects.Keys, StringComparer.OrdinalIgnoreCase).Order())
         {
-            changes.AddRange(CompareProperties(leftObjects[path], rightObjects[path]));
+            changes.AddRange(CompareProperties(
+                leftObjects[path], rightObjects[path], ignoreEngineComputedState));
         }
 
         return changes;
@@ -113,18 +121,19 @@ public sealed class DiffModelHandler
 
     /// <summary>
     /// A calculated table's columns are materialized by the engine when the table's expression
-    /// is evaluated; source files only carry the expression. One being absent therefore means
-    /// "not processed yet", not "will be added/removed" — an authored change to the columns
-    /// surfaces through the table's partition expression instead. Columns present on both
-    /// sides still have their properties compared.
+    /// is evaluated; source files only carry the expression. Against a live database, one being
+    /// absent therefore means "not processed yet", not "will be added/removed" — an authored
+    /// change to the columns surfaces through the table's partition expression instead. Columns
+    /// present on both sides still have their properties compared.
     /// </summary>
     private static bool IsEngineMaterialized(ModelObject obj)
         => obj.Kind == ModelObjectKind.Column
            && obj.Property(PropertyBagKeys.ColumnType) == "CalculatedTableColumn";
 
-    private static IEnumerable<DiffChange> CompareProperties(ModelObject left, ModelObject right)
+    private static IEnumerable<DiffChange> CompareProperties(
+        ModelObject left, ModelObject right, bool ignoreEngineComputedState)
     {
-        foreach (var (name, oldValue, newValue) in Properties(left, right))
+        foreach (var (name, oldValue, newValue) in Properties(left, right, ignoreEngineComputedState))
         {
             if (Equals(oldValue, newValue))
                 continue;
@@ -140,7 +149,8 @@ public sealed class DiffModelHandler
 
     private static IEnumerable<(string Name, object? OldValue, object? NewValue)> Properties(
         ModelObject left,
-        ModelObject right)
+        ModelObject right,
+        bool ignoreEngineComputedState)
     {
         yield return ("Name", left.Name, right.Name);
         yield return ("Kind", ModelObjectProjection.KindLabel(left.Kind), ModelObjectProjection.KindLabel(right.Kind));
@@ -160,11 +170,13 @@ public sealed class DiffModelHandler
             var oldValue = descriptor.Value(left);
             var newValue = descriptor.Value(right);
 
-            // A measure's data type is computed by the engine when the model is processed;
-            // an unprocessed source (a TMDL folder or .bim file) reports it as absent.
-            // Absent-vs-present is processing state, not an authored change, so the type
-            // only diffs when both sides carry a computed value.
-            if (descriptor.JsonKey == "dataType" && (oldValue is null or "" || newValue is null or ""))
+            // A measure's data type is computed by the engine when the model is processed; an
+            // unprocessed source (a TMDL folder or .bim file) reports it as absent. Against a
+            // live database, absent-vs-present is processing state rather than an authored
+            // change, so the type only diffs when both sides carry a computed value.
+            if (ignoreEngineComputedState
+                && descriptor.JsonKey == "dataType"
+                && (oldValue is null or "" || newValue is null or ""))
                 continue;
 
             yield return (descriptor.Header, oldValue, newValue);

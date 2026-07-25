@@ -61,7 +61,14 @@ Differential — needs `--reference full.xmla`, which the matrix wires up automa
 - Each aspect: deployed ⇒ must equal the source; preserved ⇒ must differ from it.
 - No source-side data source or expression went missing (preserving still deploys entries
   that are new in the source).
-- `--deploy-roles` without `--deploy-role-members` ⇒ the role set came from the source.
+- Role definitions and role membership are compared separately, because they deploy
+  separately: `--deploy-roles` takes definitions from the source while members still come
+  from the target.
+- Partitions are compared as two populations, because they have different contracts: ordinary
+  tables must take source partitions under `--deploy-partitions`, while a table whose refresh
+  policy carries a `sourceExpression` keeps the target's until `--deploy-policy-partitions` is
+  passed too. A table either side has under policy is treated as protected, so the exemption
+  is never reported as a preservation failure.
 
 ## Making the differentials conclusive
 
