@@ -5,6 +5,15 @@ real deploy would execute, so most edge cases can be hunted by inspecting payloa
 of spending live deploys. Nothing here executes a deploy — script generation is read-only
 against the target, so the whole harness is safe to run against a real workspace.
 
+**The output is not safe to publish.** A generated script carries the full structure of
+whatever model you pointed at — every table, column and measure name, the DAX and M behind
+them, and any endpoint hostnames held in shared expressions. Against a customer's model that
+is their schema and infrastructure. `deploy-qa/` and `*.xmla` are gitignored for this reason;
+do not defeat that, and prefer an `--out` outside the repo when the model is not a sample.
+Note that the credential scan below deliberately does not flag endpoints — a script that
+deploys connections is supposed to contain them — so "0 failures" says nothing about whether
+the file is publishable.
+
 | Script | Does |
 |--------|------|
 | `deploy-script-matrix.sh` | Generates one script per `--deploy-*` combination, checks each, and asserts the invalid combinations are rejected. |
