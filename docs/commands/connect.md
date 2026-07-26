@@ -47,7 +47,7 @@ mirror.
 
 | Option | Description |
 |--------|-------------|
-| `--dry-run` | Preview what the deploy would change on the target (`+` = added to the target, `-` = removed from it). |
+| `--dry-run` | Preview what the deploy would change on the target (`+` = added to the target, `-` = removed from it). Reports every difference, without accounting for what [granular deployment](#granular-deployment) preserves — see the caveat below. |
 | `--xmla <file>` | Generate the XMLA/TMSL script to a file instead of deploying (`-` for stdout). |
 | `--create-only` | Only create a new model; fail if it already exists. |
 | `--skip-bpa` / `--fix-bpa` | Skip the BPA gate, or auto-fix violations before deploying. |
@@ -93,6 +93,24 @@ tx deploy ./model.tmdl --deploy-roles                    # also push RLS definit
 tx deploy ./model.tmdl --deploy-partitions               # push partitions, keep incremental-refresh data
 tx deploy ./model.tmdl --deploy-full                     # overwrite everything (first-deploy semantics)
 ```
+
+!!! warning "`--dry-run` does not yet account for preservation"
+
+    The preview compares the source against the target and lists every difference it finds,
+    including in aspects the deploy will keep. A target whose connection strings, M parameter
+    values, or role members differ from the source therefore shows those as changes even
+    under the preserving default, where they will not be touched.
+
+    It errs toward listing too much, never too little, so it will not report data as safe
+    that is about to be overwritten. But it cannot currently be used to confirm preservation
+    is working. To see exactly what a deploy would send, generate the payload — it reads the
+    target and applies the same merge the deploy does:
+
+    ```sh
+    tx deploy ./model.tmdl --xmla preview.xmla --yes
+    ```
+
+    Tracked in [issue #128](https://github.com/bgarcevic/tomix-cli/issues/128).
 
 ## `refresh` — trigger a data refresh
 
