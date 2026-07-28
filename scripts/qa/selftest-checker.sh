@@ -174,5 +174,64 @@ expect_pair policy-partitions-not-deployed "$FIXTURE" \
   "policy table partitions was asked to deploy but kept non-source partitions" \
   --deployed partitions,policy-partitions
 
+echo "== strict mode =="
+# A script identical to its reference cannot show anything was preserved. That must warn by
+# default (so a matrix over an arbitrary model still runs) and fail under --strict.
+expect_pair inconclusive-warns "$FIXTURE" '.' -
+expect_pair inconclusive-fails-strict "$FIXTURE" '.' \
+  "FAIL  shared expressions preserved, but matches the source" --strict
+
+echo "== deploy-qa fixture divergence =="
+# The live matrix can only prove preservation if the diverged source differs from the pristine
+# fixture in every aspect. Checked here, offline, because the failure mode is silent: an edit
+# to samples/deploy-qa that collides with a divergence turns a live cell inconclusive, and
+# without --strict that still reads as clean.
+QA_SRC="$ROOT/samples/deploy-qa"
+QA_DIVERGED="$OUT/deploy-qa-diverged"
+"$HERE/diverge-deploy-qa.sh" --out "$QA_DIVERGED" --force >"$OUT/diverge.log" 2>&1 || {
+  printf '  MISSED  %-22s diverge-deploy-qa.sh failed:\n' "divergence-applies"
+  sed 's/^/            /' "$OUT/diverge.log"
+  fail=$((fail + 1))
+}
+
+qa_script() { # $1 = model dir, $2 = output
+  "$TX" deploy "$1" --xmla "$2" --deploy-full --skip-bpa --yes --quiet --non-interactive \
+    --server "powerbi://api.powerbi.com/v1.0/myorg/selftest" --database deploy-qa >/dev/null
+}
+qa_script "$QA_SRC" "$OUT/qa-pristine.xmla"
+qa_script "$QA_DIVERGED" "$OUT/qa-diverged.xmla"
+
+expect_differs() { # $1 = aspect label, $2 = jq path
+  local label="$1" path="$2" a b
+  a=$(jq -S "$2" "$OUT/qa-pristine.xmla")
+  b=$(jq -S "$2" "$OUT/qa-diverged.xmla")
+  if [[ $a != "$b" ]]; then
+    printf '  ok      %-22s diverges, so a live cell can be conclusive\n' "$label"
+    pass=$((pass + 1))
+  else
+    printf '  MISSED  %-22s identical in pristine and diverged — the live cell would only WARN\n' "$label"
+    fail=$((fail + 1))
+  fi
+}
+
+QM='.createOrReplace.database.model'
+expect_differs shared-expressions "$QM.expressions"
+expect_differs role-definitions "$QM.roles | map(del(.members))"
+expect_differs partitions-plain "$QM.tables[] | select(.name==\"Customers\") | .partitions"
+expect_differs partitions-collection "$QM.tables[] | select(.name==\"Products\") | .partitions"
+expect_differs partitions-policy \
+  "$QM.tables[] | select(.name==\"Sales\") | {p: .partitions, r: .refreshPolicy}"
+
+# The marker measure must survive every flag combination; if it can go missing, a merge is
+# reaching past its aspect into model structure.
+if jq -e "$QM.tables[] | select(.name==\"Customers\") | .measures[]?
+          | select(.name==\"Diverged Marker\")" "$OUT/qa-diverged.xmla" >/dev/null; then
+  printf '  ok      %-22s present in the diverged source\n' "structure-marker"
+  pass=$((pass + 1))
+else
+  printf '  MISSED  %-22s Diverged Marker measure absent\n' "structure-marker"
+  fail=$((fail + 1))
+fi
+
 printf '\n  %d passed, %d missed\n' "$pass" "$fail"
 ((fail == 0))

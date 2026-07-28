@@ -13,6 +13,11 @@
 #                             connections,partitions,policy-partitions,expressions,
 #                             roles,role-members,full  (default: none = preserve all)
 #   --cloud                   Target is powerbi:// or asazure:// (role member ids must be stripped).
+#   --strict                  Treat an inconclusive preservation check as a failure. An aspect
+#                             where source and target agree proves nothing, so a run that is
+#                             meant to prove preservation should not pass on one. Use with a
+#                             target seeded from samples/deploy-qa and a source diverged by
+#                             scripts/qa/diverge-deploy-qa.sh.
 #   --quiet                   Only print WARN/FAIL lines.
 #
 # Exit codes: 0 = no failures, 1 = at least one FAIL, 2 = usage error.
@@ -24,6 +29,7 @@ DATABASE=""
 REFERENCE=""
 DEPLOYED=""
 CLOUD=0
+STRICT=0
 QUIET=0
 
 while [[ $# -gt 0 ]]; do
@@ -32,8 +38,9 @@ while [[ $# -gt 0 ]]; do
     --reference) REFERENCE="${2:-}"; shift 2 ;;
     --deployed) DEPLOYED="${2:-}"; shift 2 ;;
     --cloud) CLOUD=1; shift ;;
+    --strict) STRICT=1; shift ;;
     --quiet) QUIET=1; shift ;;
-    -h|--help) sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     -*) echo "unknown option: $1" >&2; exit 2 ;;
     *) SCRIPT="$1"; shift ;;
   esac
@@ -47,6 +54,10 @@ fails=0
 warns=0
 fail() { printf '  FAIL  %s\n' "$1"; fails=$((fails + 1)); }
 warn() { printf '  WARN  %s\n' "$1"; warns=$((warns + 1)); }
+# An aspect where source and target agree cannot show whether it was preserved. That is a
+# coverage hole in the fixture, not a product defect, so it warns by default and fails under
+# --strict — where the whole point of the run is that no such hole exists.
+inconclusive() { ((STRICT)) && fail "$1" || warn "$1"; }
 ok()   { ((QUIET)) || printf '  ok    %s\n' "$1"; }
 info() { ((QUIET)) || printf '  info  %s\n' "$1"; }
 
@@ -251,7 +262,7 @@ else
         && ok "$label deployed from source" \
         || fail "$label was asked to deploy but does not match the source"
     elif [[ $a == "$b" ]]; then
-      warn "$label preserved, but matches the source — inconclusive; make the target differ to test this"
+      inconclusive "$label preserved, but matches the source — inconclusive; make the target differ to test this"
     else
       ok "$label preserved from the target"
     fi
@@ -301,7 +312,7 @@ else
         && ok "$label deployed from source ($total table(s))" \
         || fail "$label was asked to deploy but kept non-source partitions: $differing"
     elif [[ -z $differing ]]; then
-      warn "$label preserved, but every table matches the source — inconclusive; make the target differ to test this"
+      inconclusive "$label preserved, but every table matches the source — inconclusive; make the target differ to test this"
     else
       ok "$label preserved from the target ($differing)"
     fi

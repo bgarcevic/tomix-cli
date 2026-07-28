@@ -13,6 +13,9 @@
 #                   current source). Pass --tx tx to QA the installed global tool instead.
 #   --cloud|--no-cloud
 #                   Override cloud-endpoint detection (affects the memberId check).
+#   --strict        Fail a cell whose preservation check is inconclusive because source and
+#                   target agree. Pair with a target seeded from samples/deploy-qa and a
+#                   source produced by scripts/qa/diverge-deploy-qa.sh.
 #   --             Everything after -- is passed through to tx (e.g. --profile prod).
 #
 # Exit codes: 0 = all cells generated and clean, 1 = at least one failure.
@@ -28,6 +31,7 @@ OUT="./deploy-qa"
 # working tree — the one bug a QA harness must never have.
 TX=""
 CLOUD=""
+STRICT=()
 PASSTHRU=()
 
 while [[ $# -gt 0 ]]; do
@@ -39,8 +43,9 @@ while [[ $# -gt 0 ]]; do
     --tx) TX="${2:-}"; shift 2 ;;
     --cloud) CLOUD=1; shift ;;
     --no-cloud) CLOUD=0; shift ;;
+    --strict) STRICT=(--strict); shift ;;
     --) shift; PASSTHRU=("$@"); break ;;
-    -h|--help) sed -n '2,19p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    -h|--help) sed -n '2,22p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) echo "unknown option: $1" >&2; exit 2 ;;
   esac
 done
@@ -85,8 +90,8 @@ REJECT=(
 
 # tx is echoed because which build is under test is the first thing to doubt when a result
 # looks wrong.
-printf 'model    %s\nserver   %s\ndatabase %s\nout      %s\ncloud    %s\ntx       %s\n\n' \
-  "$MODEL" "$SERVER" "$DATABASE" "$OUT" "$((CLOUD))" "$TX"
+printf 'model    %s\nserver   %s\ndatabase %s\nout      %s\ncloud    %s\nstrict   %s\ntx       %s\n\n' \
+  "$MODEL" "$SERVER" "$DATABASE" "$OUT" "$((CLOUD))" "${#STRICT[@]}" "$TX"
 
 generate() { # $1 = cell name, $2 = flags, $3.. = extra tx args
   local name="$1" flags="$2"; shift 2
@@ -129,7 +134,8 @@ for cell in "${CELLS[@]}"; do
   [[ $name != full && -s $OUT/full.xmla ]] && ref=(--reference "$OUT/full.xmla")
 
   if "$CHECK" "$OUT/$name.xmla" --database "$DATABASE" \
-      ${deployed:+--deployed "$deployed"} "${ref[@]+"${ref[@]}"}" "${CLOUD_FLAG[@]+"${CLOUD_FLAG[@]}"}"; then
+      ${deployed:+--deployed "$deployed"} "${ref[@]+"${ref[@]}"}" \
+      "${CLOUD_FLAG[@]+"${CLOUD_FLAG[@]}"}" "${STRICT[@]+"${STRICT[@]}"}"; then
     results+=("$name|clean")
   else
     results+=("$name|CHECK FAILED")
