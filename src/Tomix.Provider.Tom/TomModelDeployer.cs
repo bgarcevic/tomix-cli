@@ -119,9 +119,17 @@ public static class TomModelDeployer
         var clone = sourceDatabase.Clone();
         clone.Name = deployName;
 
+        // Restricted information mirrors the target side below: a direct deploy must carry the
+        // source's full connection strings (--deploy-connections shipping a credential-less
+        // data source breaks the target's connection), while script output must never hold
+        // credentials.
         var sourceJson = TabularJsonSerializer.SerializeDatabase(
             clone,
-            new SerializeOptions { SplitMultilineStrings = !forExecution });
+            new SerializeOptions
+            {
+                SplitMultilineStrings = !forExecution,
+                IncludeRestrictedInformation = forExecution
+            });
 
         string? targetJson = null;
         if (existing is not null && options.RequiresTargetRead)

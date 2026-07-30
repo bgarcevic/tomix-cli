@@ -220,7 +220,9 @@ fi
 
 if hits=$(grep -n -i -E 'password|pwd=|accountkey|sharedaccesssignature|access_token|client_secret|"Bearer |apikey|api_key' "$SCRIPT"); then
   warn "possible credential material — inspect these lines (nothing here should be a real secret):"
-  printf '%s\n' "$hits" | head -20 | sed 's/^/          /'
+  # head before sed: with 20+ hits, head exiting early would SIGPIPE the producer, and
+  # under pipefail that exit 141 aborts the checker mid-report.
+  head -20 <<<"$hits" | sed 's/^/          /'
 else
   ok "no credential-shaped strings in script output"
 fi
@@ -243,7 +245,10 @@ else
     ok "model structure identical to source outside the preserved aspects"
   else
     fail "model structure differs from source outside the preserved aspects:"
-    diff <(jq -S "$strip" "$REFERENCE") <(jq -S "$strip" "$SCRIPT") | head -40 | sed 's/^/          /'
+    # diff exits 1 whenever the files differ — which in this branch is always — so without
+    # the || true, pipefail + set -e killed the checker here every time this guard fired,
+    # skipping every remaining check.
+    { diff <(jq -S "$strip" "$REFERENCE") <(jq -S "$strip" "$SCRIPT") || true; } | head -40 | sed 's/^/          /'
   fi
 
   # For each aspect: deployed => must equal source; preserved => must differ from source,

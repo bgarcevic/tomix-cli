@@ -73,7 +73,7 @@ opted into deployment individually:
 | Option | Description |
 |--------|-------------|
 | `--deploy-connections` | Overwrite the target's data sources. Default keeps the target's connection strings and bound credentials. |
-| `--deploy-partitions` | Overwrite the target's table partitions. Default keeps the target's partitions and their processed data. |
+| `--deploy-partitions` | Overwrite the target's table partitions. Default keeps the target's partitions and their processed data. Calculated tables and calculation groups are exempt: their partitions *are* model structure (a DAX expression), so they always deploy from the source. |
 | `--deploy-policy-partitions` | With `--deploy-partitions`: also overwrite incremental-refresh policy partitions. Default keeps them even when other partitions deploy, so processed history is never discarded by accident. |
 | `--deploy-shared-expressions` | Overwrite the target's shared expressions (M parameters). Default keeps the target's values; expressions new in the source always deploy. |
 | `--deploy-roles` | Overwrite the target's security roles. Default keeps the target's roles untouched. |
@@ -83,9 +83,14 @@ opted into deployment individually:
 Preservation only applies to an existing target; the first deploy of a model always ships
 the full source. `--xmla` reads the target when any aspect is preserved so the generated
 script matches what a real deploy would execute — use `--deploy-full` to generate a script
-offline. Generated scripts never contain credentials: only a direct deploy carries the
-target's restricted connection-string information, so a preserved data source in an
-`--xmla` script may need its credentials re-bound after the script is executed.
+offline. Generated scripts never contain credentials: only a direct deploy carries
+restricted connection-string information. On targets with `dataSource` objects (Azure AS,
+SSAS — Power BI and Fabric models keep connections in M instead), this means an `--xmla`
+script is **not** equivalent to a direct deploy: `createOrReplace` replaces each data
+source with the credential-stripped copy in the script, so executing it disconnects those
+data sources until credentials are re-entered on the server. Prefer a direct deploy when
+data sources are in play; treat `--xmla` output as a preview or an
+audit artifact there, not a deployment vehicle.
 
 ```sh
 tx deploy ./model.tmdl                                   # promote structure, keep target data and config

@@ -114,7 +114,9 @@ for cell in "${CELLS[@]}"; do
   if ! generate "$name" "$flags"; then
     echo "$name"
     echo "  FAIL  tx exited non-zero — see $OUT/$name.log"
-    sed 's/^/          /' "$OUT/$name.log" | head -10
+    # head first so a long log cannot SIGPIPE the upstream command — under pipefail that
+    # exit 141 would abort the whole matrix mid-report.
+    head -10 "$OUT/$name.log" | sed 's/^/          /'
     echo
     results+=("$name|generate failed")
     failed=1
@@ -160,7 +162,7 @@ for cell in "${REJECT[@]}"; do
   fi
   if [[ $code -ne 2 ]]; then
     echo "  FAIL  $name rejected with exit $code; a usage error must exit 2"
-    sed 's/^/          /' "$OUT/$name.log" | head -5
+    head -5 "$OUT/$name.log" | sed 's/^/          /'
     results+=("$name|wrong exit code")
     failed=1
     continue
@@ -170,7 +172,7 @@ for cell in "${REJECT[@]}"; do
     results+=("$name|rejected")
   else
     echo "  FAIL  $name rejected but not as a TOMIX_DEPLOY_INVALID_FLAGS JSON envelope:"
-    sed 's/^/          /' "$OUT/$name.log" | head -5
+    head -5 "$OUT/$name.log" | sed 's/^/          /'
     results+=("$name|wrong code")
     failed=1
   fi
