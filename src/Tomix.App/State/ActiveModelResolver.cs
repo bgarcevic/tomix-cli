@@ -89,6 +89,30 @@ public sealed class ActiveModelResolver
     public ModelReference? ResolveSyncTarget() => ResolveSyncTarget(_loadSession());
 
     /// <summary>
+    /// Resolves the sync target for a save/mutation of <paramref name="effectiveModel"/>: the
+    /// session's mirror applies only when the model being persisted is the session's primary
+    /// model (what the session resolves to with no explicit source). A model addressed with an
+    /// explicit path or --server/--database that resolves elsewhere is not an edit to the
+    /// primary, so it must never be deployed over the session's workspace mirror.
+    /// </summary>
+    public ModelReference? ResolveSyncTarget(ModelReference effectiveModel)
+        => ResolveSyncTarget(_loadSession(), effectiveModel);
+
+    /// <summary>
+    /// Model-aware overload of <see cref="ResolveSyncTarget(CliConnectionState?)"/> for callers
+    /// holding an explicit connection snapshot; same primary-model gate as the instance overload.
+    /// </summary>
+    public static ModelReference? ResolveSyncTarget(CliConnectionState? session, ModelReference effectiveModel)
+    {
+        var target = ResolveSyncTarget(session);
+        if (target is null)
+            return null;
+
+        var primary = new ActiveModelResolver(() => session).ResolveReference(null);
+        return SameModel(primary, effectiveModel) ? target : null;
+    }
+
+    /// <summary>
     /// Resolves the remote workspace synchronization target from an explicit connection snapshot.
     /// A remote workspace endpoint wins; otherwise the primary server is used when a local
     /// workspace is configured. This overload is the single policy used by command and mutation
@@ -106,6 +130,36 @@ public sealed class ActiveModelResolver
             return new ModelReference(session.Server, NullIfBlank(session.Database));
 
         return null;
+    }
+
+    private static bool SameModel(ModelReference a, ModelReference b)
+    {
+        if (string.IsNullOrWhiteSpace(a.Value) || string.IsNullOrWhiteSpace(b.Value))
+            return false;
+
+        if (a.IsRemote != b.IsRemote)
+            return false;
+
+        if (a.IsRemote)
+            return string.Equals(a.Value, b.Value, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(a.Database, b.Database, StringComparison.OrdinalIgnoreCase);
+
+        return SamePath(a.Value, b.Value);
+    }
+
+    private static bool SamePath(string a, string b)
+    {
+        try
+        {
+            return string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
+        {
+            return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+        }
     }
 
     private static string? NullIfBlank(string? value)
