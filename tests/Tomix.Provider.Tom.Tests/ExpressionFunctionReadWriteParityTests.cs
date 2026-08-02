@@ -55,6 +55,21 @@ public sealed class ExpressionFunctionReadWriteParityTests
         Assert.Empty(ModelObjectSelector.Select(TomModelSummarizer.Snapshot(db, "m"), container, type: null));
     }
 
+    [Fact]
+    public void RewriteExpressions_ReachesFunctionBodies()
+    {
+        // Rename fixup routes dependency-graph sites through RewriteExpressions, so a measure
+        // rename that touches a UDF body must land on the function's expression.
+        var db = NewDatabase();
+        db.Model.Functions.Add(new Function { Name = "F", Expression = "(x) => [Old] * x" });
+        var mutator = new TomModelMutator(db);
+
+        mutator.RewriteExpressions([new ModelExpressionEdit(
+            "Functions/F", ModelObjectKind.Function, "Expression", "(x) => [New] * x")]);
+
+        Assert.Equal("(x) => [New] * x", db.Model.Functions["F"].Expression);
+    }
+
     [Theory]
     [InlineData("Expressions", ModelObjectKind.Expression)]
     [InlineData("Functions", ModelObjectKind.Function)]

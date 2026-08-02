@@ -110,6 +110,9 @@ internal static class TomPropertyApplier
             case CalculationItem item when isMainExpression:
                 item.Expression = edit.Value;
                 break;
+            case Function function when isMainExpression:
+                function.Expression = edit.Value;
+                break;
             case Partition { Source: CalculatedPartitionSource source } when isMainExpression:
                 source.Expression = edit.Value;
                 break;
