@@ -491,6 +491,18 @@ internal static class TomPropertyApplier
             case "expression":
                 expression.Expression = value;
                 break;
+            case "kind":
+                expression.Kind = ParseEnum<ExpressionKind>(value, displayName);
+                break;
+            case "remoteparametername":
+                expression.RemoteParameterName = value;
+                break;
+            case "lineagetag":
+                expression.LineageTag = value;
+                break;
+            case "sourcelineagetag":
+                expression.SourceLineageTag = value;
+                break;
             default:
                 throw new NotSupportedException($"Setting '{displayName}' is not supported for expressions.");
         }
@@ -511,6 +523,12 @@ internal static class TomPropertyApplier
                 break;
             case "ishidden":
                 function.IsHidden = ParseBool(value, displayName);
+                break;
+            case "lineagetag":
+                function.LineageTag = value;
+                break;
+            case "sourcelineagetag":
+                function.SourceLineageTag = value;
                 break;
             default:
                 throw new NotSupportedException($"Setting '{displayName}' is not supported for functions.");
