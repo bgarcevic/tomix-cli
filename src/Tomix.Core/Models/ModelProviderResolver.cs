@@ -18,7 +18,9 @@ public sealed class AmbiguousModelProviderException : Exception
 /// <summary>
 /// Owns provider selection: exactly one provider may claim a model reference. Returns null
 /// when none match (callers report their command-specific no-provider diagnostic) and throws
-/// <see cref="AmbiguousModelProviderException"/> when several do.
+/// <see cref="AmbiguousModelProviderException"/> when several do. A reference that exists on
+/// disk but cannot be read throws <see cref="ModelLoadException"/> instead of returning null,
+/// so the user is told which file to fix rather than that no provider owns it.
 /// </summary>
 public static class ModelProviderResolver
 {
@@ -45,6 +47,31 @@ public static class ModelProviderResolver
         if (claimants is not null)
             throw new AmbiguousModelProviderException(model, claimants);
 
+        if (match is null)
+            ThrowIfUnreadableSource(model);
+
         return match;
+    }
+
+    /// <summary>
+    /// Distinguishes "nothing owns this reference" from "the source exists but cannot be read".
+    /// <see cref="IModelProvider.CanOpen"/> is a total predicate — providers treat an unreadable
+    /// candidate as unowned — so without this probe a permission error on an existing model
+    /// source would surface as the misleading no-provider diagnostic instead of naming the file.
+    /// </summary>
+    private static void ThrowIfUnreadableSource(ModelReference model)
+    {
+        try
+        {
+            if (File.Exists(model.Value))
+                File.OpenRead(model.Value).Dispose();
+            else if (Directory.Exists(model.Value))
+                _ = Directory.EnumerateFileSystemEntries(model.Value).FirstOrDefault();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ModelLoadException(
+                $"Cannot read model source '{model.Value}': {ex.Message}", ex);
+        }
     }
 }

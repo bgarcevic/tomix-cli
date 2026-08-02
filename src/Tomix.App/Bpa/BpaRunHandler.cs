@@ -183,9 +183,10 @@ public sealed class BpaRunHandler
             }
             catch (Exception ex) when (ex
                 is IOException or NotSupportedException or UnauthorizedAccessException
-                or AmbiguousModelProviderException)
+                or AmbiguousModelProviderException or ModelLoadException)
             {
-                // The original may be gone, unreadable, or ambiguously claimed; fall back below.
+                // The original may be gone, unreadable (ResolveSingle reports that as
+                // ModelLoadException), or ambiguously claimed; fall back below.
             }
         }
 
