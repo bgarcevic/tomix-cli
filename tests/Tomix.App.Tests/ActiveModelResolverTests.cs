@@ -52,6 +52,37 @@ public sealed class ActiveModelResolverTests
     }
 
     [Fact]
+    public void ResolveSyncTarget_ForModel_ResolvesSymlinks_BeforeComparing()
+    {
+        // An in-place save of the primary addressed through a link alias must keep syncing;
+        // treating the alias as a different model would silently skip the mirror.
+        var dir = Path.Combine(Path.GetTempPath(), $"tomix-test-{Guid.NewGuid():N}");
+        var modelPath = Path.Combine(dir, "ModelB.SemanticModel");
+        Directory.CreateDirectory(modelPath);
+        var linkPath = Path.Combine(dir, "alias");
+        try
+        {
+            try
+            {
+                Directory.CreateSymbolicLink(linkPath, modelPath);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                return; // Symlinks unavailable on this platform (e.g. Windows without developer mode).
+            }
+
+            var result = ActiveModelResolver.ResolveSyncTarget(
+                LocalWorkspaceConnection(modelPath), new ModelReference(linkPath));
+
+            Assert.NotNull(result);
+        }
+        finally
+        {
+            Directory.Delete(dir, true);
+        }
+    }
+
+    [Fact]
     public void ResolveSyncTarget_ForModel_ReturnsNull_WhenSourceIsAnExplicitRemote()
     {
         // Issue #134: a one-shot save of an explicit -s/-d source must not inherit the

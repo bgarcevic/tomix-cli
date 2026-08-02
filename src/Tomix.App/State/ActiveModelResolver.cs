@@ -151,15 +151,61 @@ public sealed class ActiveModelResolver
     {
         try
         {
-            return string.Equals(
-                Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
-                Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)),
-                StringComparison.OrdinalIgnoreCase);
+            return string.Equals(CanonicalPath(a), CanonicalPath(b), StringComparison.OrdinalIgnoreCase);
         }
         catch (Exception ex) when (ex is ArgumentException or PathTooLongException or NotSupportedException)
         {
             return string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
         }
+    }
+
+    /// <summary>
+    /// Full-path normalization plus component-wise symlink resolution (realpath): the primary
+    /// addressed through a link alias (e.g. <c>/tmp</c> vs <c>/private/tmp</c> on macOS) must
+    /// still compare equal, otherwise an in-place save through the alias would silently skip
+    /// the workspace sync. Components that do not exist or cannot be inspected stay textual.
+    /// </summary>
+    private static string CanonicalPath(string path)
+    {
+        var full = Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
+
+        // Links can appear at any depth and their targets can contain further links
+        // (e.g. an alias pointing into /var, itself a link to /private/var), so re-walk
+        // until a pass resolves nothing — capped to break link cycles.
+        for (var pass = 0; pass < 8; pass++)
+        {
+            var root = Path.GetPathRoot(full);
+            if (string.IsNullOrEmpty(root))
+                return full;
+
+            var current = root;
+            var resolvedAny = false;
+            foreach (var segment in full[root.Length..].Split(Path.DirectorySeparatorChar, StringSplitOptions.RemoveEmptyEntries))
+            {
+                current = Path.Combine(current, segment);
+                try
+                {
+                    FileSystemInfo info = Directory.Exists(current)
+                        ? new DirectoryInfo(current)
+                        : new FileInfo(current);
+                    if (info.Exists && info.ResolveLinkTarget(returnFinalTarget: true) is { } target)
+                    {
+                        current = target.FullName;
+                        resolvedAny = true;
+                    }
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    // Keep the textual component when the link target cannot be inspected.
+                }
+            }
+
+            full = Path.TrimEndingDirectorySeparator(current);
+            if (!resolvedAny)
+                break;
+        }
+
+        return full;
     }
 
     private static string? NullIfBlank(string? value)
