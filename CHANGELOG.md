@@ -31,6 +31,16 @@ and the API surface that major versions protect.
 
 ### Added
 
+- Shared M expressions and DAX user-defined functions are now visible to the
+  read side: `tx ls Expressions` / `tx ls Functions` list them, `tx get
+  "Expressions/<name>"` inspects them, `tx find` searches their names,
+  expressions, and descriptions, and `--type expression|function` filters by
+  kind. Expressions surface `expression`, `kind`, `remoteParameterName`,
+  `lineageTag`, and `sourceLineageTag`; functions surface `expression`,
+  `isHidden`, `lineageTag`, and `sourceLineageTag` — all writable via `tx set`.
+  `tx ls DataSources` now resolves as a container keyword too (previously it
+  silently returned no objects). New snapshot keys are additive; existing
+  JSON/CSV keys and their order are unchanged.
 - Columns now expose their full writable scalar property surface. `tx set`
   accepts `sourceColumn`, `dataType`, `dataCategory`, `summarizeBy`,
   `sortByColumn` (by sibling column name; empty clears), `lineageTag`,
@@ -127,6 +137,13 @@ and the API surface that major versions protect.
 
 ### Fixed
 
+- An unreadable model source (e.g. a permission-denied `.pbip`) no longer crashes with the
+  generic "Unexpected error / report a bug" fallback. Provider matching treats an unreadable
+  candidate as unresolvable (an unreadable `.pbip` still opens when a sibling
+  `*.SemanticModel` folder resolves), and a model source that exists on disk but cannot be
+  read now reports `TOMIX_MODEL_LOAD_FAILED` (exit 2) naming the file, from every command
+  that resolves a model. `IModelProvider.CanOpen` is now documented as a must-not-throw
+  total predicate.
 - `tx connect --local` now actually connects to a running Power BI Desktop instance. Three
   independent bugs each broke it on their own:
   - Microsoft Store installs were never found. They keep their AnalysisServices workspace under
