@@ -43,9 +43,9 @@ Active: Markedsdata  (localhost:50987)
 ```
 
 The name is remembered from when you connected and rechecked each time it is
-shown, so it disappears rather than going stale once that port belongs to a
-different instance. Connecting to an endpoint directly (`tx connect
-localhost:50987`) skips discovery, so no name is recorded.
+shown, so it disappears rather than going stale — whether that report was closed
+or a different instance has since taken the port. Connecting to an endpoint
+directly (`tx connect localhost:50987`) skips discovery, so no name is recorded.
 
 With more than one report open you get a picker, labelled by report name:
 

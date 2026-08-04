@@ -34,7 +34,20 @@ public sealed record CliConnectionState(
     /// proves the cached name still belongs to the instance now on that port.
     /// </summary>
     [property: JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
-    string? ReportPortFile = null);
+    string? ReportPortFile = null)
+{
+    /// <summary>
+    /// The same connection without the report-label cache. Those two fields are an internal
+    /// display optimization, not part of the connection contract — and <see cref="ReportPortFile"/>
+    /// is an absolute path inside the user's profile, which must not leak into command output or
+    /// the recents file. Use this anywhere the state is serialized for someone other than the
+    /// session file.
+    /// </summary>
+    public CliConnectionState WithoutReportCache()
+        => ReportName is null && ReportPortFile is null
+            ? this
+            : this with { ReportName = null, ReportPortFile = null };
+}
 
 public sealed record CliProfile(
     string Name,

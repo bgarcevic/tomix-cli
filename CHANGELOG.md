@@ -143,12 +143,14 @@ and the API surface that major versions protect.
   exception.
 - `tx connect` shows the report name for a Power BI Desktop session (`Active: Sales Overview
   (localhost:59962)`), since the port alone says nothing about which report is open. The name is
-  cached when `--local` connects, then revalidated against the instance's `msmdsrv.port.txt` on
-  every read — so it stays a file read rather than a ~220ms WMI query, and a name is never shown
-  once that port belongs to a different instance (Desktop picks a new port on each start).
+  cached when `--local` connects, then revalidated on every read — so it stays a cheap local check
+  rather than a ~220ms WMI query. Revalidation requires both that the instance's `msmdsrv.port.txt`
+  still holds that port and that something is still listening on it, so a name is never shown for a
+  report that has been closed or for a different instance that reused the port (Desktop picks a new
+  port on each start). The cache is internal: it is stripped from command output and from recents.
 - `tx connect --local` with several reports open now shows a picker labelled by report name
-  (listing the instances instead when not on a TTY, so one can be passed as `--server
-  localhost:<port>`). It previously failed with "Specify a semantic model name" — advice it could
+  (listing the instances instead when not on a TTY, so one can be connected to directly with
+  `tx connect localhost:<port>`). It previously failed with "Specify a semantic model name" — advice it could
   not honor, because over XMLA a Desktop database is named by a GUID and its model is always
   literally `Model`; a supplied name was ignored and the first instance found was used regardless.
 - Destructive confirmations (`rm`, `replace`, `deploy`, `update`, `incremental-refresh rm`, and connect's workspace-overwrite) now fail fast with "Pass --yes to confirm ..." in every non-promptable context — `--quiet`, `--output-format json`/`csv`, and redirected stdin/stderr — instead of blocking on a prompt (or prompting mid-JSON). Previously only `--non-interactive` and redirected stdin were detected; they now share the interaction gate used by `session clear`/`prune` and `stage discard`. `--yes` still bypasses, the error still goes to stderr, and the prompt still defaults to no.

@@ -477,9 +477,9 @@ internal sealed class ConnectCommand : ICommandModule
             Profile: null,
             connection.Workspace,
             connection.WorkspaceFormat,
-            connection.WorkspaceAuth,
-            connection.ReportName,
-            connection.ReportPortFile));
+            connection.WorkspaceAuth));
+        // No report cache to replay: recents deliberately do not store one, since Desktop's port
+        // changes on every start.
 
         if (!setResult.Success)
             return CommandOutput.Render(setResult, format, _ => { });

@@ -97,13 +97,28 @@ public static class PowerBiDesktopDiscovery
         => string.IsNullOrWhiteSpace(path) ? "" : Path.TrimEndingDirectorySeparator(path);
 
     /// <summary>
-    /// Whether <paramref name="portFile"/> still reports the port in <paramref name="endpoint"/>,
-    /// i.e. the instance a cached report name was read from is still the one on that port. Power BI
-    /// creates a fresh workspace folder per session and removes the old one, so a surviving port
-    /// file holding the same port identifies the same instance. Cheap by design — two small file
-    /// operations, so showing a connection does not need the ~220ms WMI lookup.
+    /// Whether the instance a cached report name was read from is still the live instance on
+    /// <paramref name="endpoint"/>. Two conditions, and both are needed:
+    /// <list type="bullet">
+    /// <item><paramref name="portFile"/> still holds that port. Power BI creates a fresh workspace
+    /// folder per session, so this is what distinguishes the original instance from a different
+    /// report that has since been assigned the same port.</item>
+    /// <item>Something is still listening there — msmdsrv does not reliably delete its port file on
+    /// shutdown, so the file alone would keep labelling an instance the user has closed. This is
+    /// the same staleness that <see cref="DiscoverInstances(IEnumerable{string}?)"/> filters, and
+    /// the two must agree.</item>
+    /// </list>
+    /// Cheap by design — a small file read and a listener-table lookup, so showing a connection
+    /// does not need the ~220ms WMI lookup.
     /// </summary>
     public static bool StillServes(string? portFile, string? endpoint)
+        => StillServes(portFile, endpoint, TryReadPort, IsPortListening);
+
+    internal static bool StillServes(
+        string? portFile,
+        string? endpoint,
+        Func<string, int?> readPort,
+        Func<int, bool> isPortListening)
     {
         if (string.IsNullOrWhiteSpace(portFile) || string.IsNullOrWhiteSpace(endpoint))
             return false;
@@ -112,7 +127,7 @@ public static class PowerBiDesktopDiscovery
         if (separator < 0 || !int.TryParse(endpoint.AsSpan(separator + 1), out var expected))
             return false;
 
-        return TryReadPort(portFile) == expected;
+        return readPort(portFile) == expected && isPortListening(expected);
     }
 
     // Bounded probe. The port file lives at

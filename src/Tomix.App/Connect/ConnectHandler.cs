@@ -7,20 +7,28 @@ namespace Tomix.App.Connect;
 public sealed class ConnectHandler
 {
     private readonly CliStateStore _store;
+    private readonly Func<string?, string?, bool> _stillServes;
 
-    public ConnectHandler(CliStateStore store) => _store = store;
+    /// <param name="stillServes">
+    /// Validates a cached Desktop report name against the live instance; defaults to
+    /// <see cref="PowerBiDesktopDiscovery.StillServes(string?, string?)"/>. Injectable so tests do
+    /// not depend on a real listener.
+    /// </param>
+    public ConnectHandler(CliStateStore store, Func<string?, string?, bool>? stillServes = null)
+    {
+        _store = store;
+        _stillServes = stillServes ?? PowerBiDesktopDiscovery.StillServes;
+    }
 
     public TomixResult<ConnectShowResult> Show()
     {
         var state = _store.LoadCurrentSession();
 
-        // Drop a cached Desktop report name that no longer describes whatever is on that port —
-        // Desktop may have restarted, or closed entirely — so no caller can display a stale name.
-        if (state?.ReportName is not null
-            && !PowerBiDesktopDiscovery.StillServes(state.ReportPortFile, state.Server))
-        {
+        // Drop a cached Desktop report name that no longer describes the live instance on that port —
+        // Desktop may have restarted onto a different report, or exited and left its port file
+        // behind — so no caller can display a stale name.
+        if (state?.ReportName is not null && !_stillServes(state.ReportPortFile, state.Server))
             state = state with { ReportName = null, ReportPortFile = null };
-        }
 
         return TomixResult<ConnectShowResult>.Ok(new ConnectShowResult(state is not null, state));
     }
