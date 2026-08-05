@@ -1,5 +1,4 @@
 using Tomix.App.Bpa;
-using Tomix.App.Tests.Support;
 using Tomix.Core.Models;
 using Tomix.Provider.Tmdl;
 
@@ -20,9 +19,8 @@ public sealed class BpaRunHandlerTests
     {
         using var config = new TempConfigDir();
         using var root = new TempDir();
-        var model = root.Combine("model");
+        var model = SampleModel.CopyTo(root, "model");
         root.WriteFile(Path.Combine(".devops", "bpa-rules.json"), OneRuleJson);
-        CopyDirectory(LocateSample(), model);
         await AddExternalRuleAnnotationAsync(model, "..\\\\.devops\\\\bpa-rules.json");
 
         var stores = config.Stores;
@@ -56,27 +54,6 @@ public sealed class BpaRunHandlerTests
             anchor < 0 ? lines.Count : anchor + 1,
             $"annotation {BpaModelRuleLoader.ExternalFilesKey} = [\"{entry}\"]");
         await File.WriteAllLinesAsync(path, lines);
-    }
-
-    private static string LocateSample()
-    {
-        for (var dir = new DirectoryInfo(AppContext.BaseDirectory); dir is not null; dir = dir.Parent)
-        {
-            var candidate = Path.Combine(dir.FullName, "samples", "basic-tmdl");
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-
-        throw new InvalidOperationException("samples/basic-tmdl not found above test base directory.");
-    }
-
-    private static void CopyDirectory(string source, string dest)
-    {
-        Directory.CreateDirectory(dest);
-        foreach (var file in Directory.GetFiles(source))
-            File.Copy(file, Path.Combine(dest, Path.GetFileName(file)));
-        foreach (var dir in Directory.GetDirectories(source))
-            CopyDirectory(dir, Path.Combine(dest, Path.GetFileName(dir)));
     }
 
     /// <summary>A provider that fails while inspecting one specific path, like an unreadable file.</summary>

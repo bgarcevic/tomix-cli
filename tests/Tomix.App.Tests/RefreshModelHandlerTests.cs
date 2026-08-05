@@ -1,6 +1,5 @@
 using Tomix.App.Refresh;
 using Tomix.App.State;
-using Tomix.App.Tests.Support;
 using Tomix.Core.Models;
 
 namespace Tomix.App.Tests;

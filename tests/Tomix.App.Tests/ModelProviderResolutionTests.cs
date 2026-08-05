@@ -1,6 +1,5 @@
 using System.Runtime.Versioning;
 using Tomix.App.Models;
-using Tomix.App.Tests.Support;
 using Tomix.Core.Models;
 
 namespace Tomix.App.Tests;

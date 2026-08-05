@@ -1,6 +1,5 @@
 using Tomix.App.Profile;
 using Tomix.App.State;
-using Tomix.App.Tests.Support;
 
 namespace Tomix.App.Tests;
 

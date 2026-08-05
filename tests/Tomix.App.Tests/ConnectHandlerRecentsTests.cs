@@ -1,6 +1,5 @@
 using Tomix.App.Connect;
 using Tomix.App.State;
-using Tomix.App.Tests.Support;
 
 namespace Tomix.App.Tests;
 

@@ -1,4 +1,4 @@
-namespace Tomix.App.Tests.Support;
+namespace Tomix.Tests.Support;
 
 /// <summary>
 /// A throwaway directory that exists for the lifetime of the <c>using</c> and is deleted

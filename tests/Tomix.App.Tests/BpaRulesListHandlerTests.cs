@@ -1,5 +1,4 @@
 using Tomix.App.Bpa;
-using Tomix.App.Tests.Support;
 using Tomix.Core.Models;
 
 namespace Tomix.App.Tests;
