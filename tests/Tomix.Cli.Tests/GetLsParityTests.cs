@@ -123,31 +123,15 @@ public sealed class GetLsParityTests
 
     private static string Invoke(params string[] args)
     {
-        var root = new RootCommand("test");
-        foreach (var option in GlobalOptions.All())
-            root.Options.Add(option);
         var services = TestServices.Create();
-        root.Subcommands.Add(args[0] == "get"
+        var root = TestRoot.With(args[0] == "get"
             ? new GetCommand(Providers, services.State).Build()
             : new LsCommand(Providers, services.State).Build());
 
-        var originalOut = Console.Out;
-        var originalError = Console.Error;
-        var stdout = new StringWriter();
-        var stderr = new StringWriter();
-        Console.SetOut(stdout);
-        Console.SetError(stderr);
-        try
-        {
-            var exitCode = root.Parse(args).Invoke();
-            Assert.True(exitCode == 0, $"'{string.Join(' ', args)}' exited {exitCode}: {stderr}");
-            return stdout.ToString();
-        }
-        finally
-        {
-            Console.SetOut(originalOut);
-            Console.SetError(originalError);
-        }
+        var captured = ConsoleCapture.Invoke(root.Parse(args));
+        Assert.True(captured.ExitCode == 0,
+            $"'{string.Join(' ', args)}' exited {captured.ExitCode}: {captured.Stderr}");
+        return captured.Stdout;
     }
 
     private static readonly string SampleTmdl = SampleModel.Locate();
