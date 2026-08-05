@@ -2,11 +2,13 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 using Tomix.Core.Authentication;
+using Tomix.Core.Models;
 
 namespace Tomix.App.Connect;
 
 /// <summary>
-/// Lists workspaces via the Power BI REST API (<c>GET /v1.0/myorg/groups</c>). The token comes
+/// Lists workspaces (<c>GET /v1.0/myorg/groups</c>) and their semantic models
+/// (<c>GET /v1.0/myorg/groups/{id}/datasets</c>) via the Power BI REST API. The token comes
 /// from the same <see cref="IAccessTokenProvider"/> the XMLA providers use — the Power BI API
 /// accepts the <c>analysis.windows.net/powerbi/api</c> audience, so no separate sign-in is needed.
 /// </summary>
@@ -49,34 +51,9 @@ public sealed class PowerBiWorkspaceCatalog : IWorkspaceCatalog
 
         for (var skip = 0; ; skip += _pageSize)
         {
-            using var request = new HttpRequestMessage(
-                HttpMethod.Get, $"{_endpoint}?%24top={_pageSize}&%24skip={skip}");
-            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
-
-            HttpResponseMessage response;
-            try
-            {
-                response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
-            }
-            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
-            {
-                // HttpClient's Timeout surfaces as TaskCanceledException; without the invocation
-                // token set, this is an endpoint timeout — an API failure, not a user interrupt
-                // (which must keep propagating to the exit-130 path).
-                throw new InvalidOperationException(
-                    $"Power BI API request timed out after {_httpClient.Timeout.TotalSeconds:0} seconds listing workspaces.");
-            }
-
-            using var _ = response;
-            var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
-
-            if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
-                throw new AuthenticationRequiredException(
-                    "Not authenticated or no Power BI access. Run 'tx auth login'.");
-
-            if (!response.IsSuccessStatusCode)
-                throw new InvalidOperationException(
-                    $"Power BI API returned HTTP {(int)response.StatusCode} listing workspaces: {Truncate(body)}");
+            var body = await GetAsync(
+                $"{_endpoint}?%24top={_pageSize}&%24skip={skip}", token.Token, "listing workspaces", cancellationToken)
+                .ConfigureAwait(false);
 
             var page = ParsePage(body);
             workspaces.AddRange(page);
@@ -85,6 +62,97 @@ public sealed class PowerBiWorkspaceCatalog : IWorkspaceCatalog
         }
 
         return workspaces;
+    }
+
+    public async Task<IReadOnlyList<ServerDatabaseInfo>> ListDatasetsAsync(
+        string workspaceId,
+        CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(workspaceId))
+            throw new ArgumentException("A workspace id is required.", nameof(workspaceId));
+
+        var token = await _tokenProvider.GetTokenAsync(TokenEndpoint, cancellationToken).ConfigureAwait(false);
+
+        // Unlike /groups, the datasets endpoint ignores $top/$skip and returns the workspace in
+        // one shot — so there is no paging loop here.
+        var body = await GetAsync(
+            $"{_endpoint}/{Uri.EscapeDataString(workspaceId)}/datasets",
+            token.Token,
+            "listing semantic models",
+            cancellationToken).ConfigureAwait(false);
+
+        return ParseDatasets(body);
+    }
+
+    /// <summary>
+    /// One authenticated GET with the error contract both listings share: a client timeout, an
+    /// auth rejection, and any other non-success status each map to a fixed exception, with
+    /// <paramref name="operation"/> naming the listing in the message.
+    /// </summary>
+    private async Task<string> GetAsync(
+        string uri,
+        string token,
+        string operation,
+        CancellationToken cancellationToken)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, uri);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+
+        HttpResponseMessage response;
+        try
+        {
+            response = await _httpClient.SendAsync(request, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // HttpClient's Timeout surfaces as TaskCanceledException; without the invocation
+            // token set, this is an endpoint timeout — an API failure, not a user interrupt
+            // (which must keep propagating to the exit-130 path).
+            throw new InvalidOperationException(
+                $"Power BI API request timed out after {_httpClient.Timeout.TotalSeconds:0} seconds {operation}.");
+        }
+
+        using var _ = response;
+        var body = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+            throw new AuthenticationRequiredException(
+                "Not authenticated or no Power BI access. Run 'tx auth login'.");
+
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException(
+                $"Power BI API returned HTTP {(int)response.StatusCode} {operation}: {Truncate(body)}");
+
+        return body;
+    }
+
+    private static List<ServerDatabaseInfo> ParseDatasets(string body)
+    {
+        using var document = JsonDocument.Parse(body);
+        var datasets = new List<ServerDatabaseInfo>();
+
+        if (!document.RootElement.TryGetProperty("value", out var value) ||
+            value.ValueKind != JsonValueKind.Array)
+            return datasets;
+
+        foreach (var entry in value.EnumerateArray())
+        {
+            var name = entry.TryGetProperty("name", out var nameProperty) ? nameProperty.GetString() : null;
+            if (string.IsNullOrWhiteSpace(name))
+                continue;
+
+            // Push/streaming datasets are not addressable over XMLA, so offering one here would
+            // only fail later when the connection is opened. The XMLA listing never showed them.
+            if (entry.TryGetProperty("addRowsAPIEnabled", out var pushProperty) &&
+                pushProperty.ValueKind == JsonValueKind.True)
+                continue;
+
+            // Compatibility level and last-update are XMLA-only facts the REST API does not
+            // report; no caller reads them, so they stay null rather than forcing a second call.
+            datasets.Add(new ServerDatabaseInfo(name));
+        }
+
+        return datasets;
     }
 
     private static List<WorkspaceInfo> ParsePage(string body)
