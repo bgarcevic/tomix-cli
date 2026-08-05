@@ -21,6 +21,21 @@ public sealed class PowerBiWorkspaceCatalog : IWorkspaceCatalog
     // for; any powerbi:// value maps to the fixed Power BI scope (see AuthScopes).
     private const string TokenEndpoint = "powerbi://api.powerbi.com/v1.0/myorg";
 
+    // ContentProviderTypes that are not tabular models on the XMLA endpoint — the set Power BI
+    // documents as stored in the tenant home region rather than the capacity. A denylist, not an
+    // allowlist: when Power BI adds a provider type, showing a model that turns out unopenable is a
+    // smaller failure than silently hiding a real one.
+    private static readonly HashSet<string> NonXmlaContentProviders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Excel",
+        "CSV",
+        "UsageMetricsUserReport",
+        "UsageMetricsUserDashboard",
+        "RealTimeInPushMode",
+        "RealTimeInPubNubMode",
+        "RealTimeInStreamingMode"
+    };
+
     private readonly HttpClient _httpClient;
     private readonly IAccessTokenProvider _tokenProvider;
     private readonly Uri _endpoint;
@@ -137,14 +152,11 @@ public sealed class PowerBiWorkspaceCatalog : IWorkspaceCatalog
 
         foreach (var entry in value.EnumerateArray())
         {
-            var name = entry.TryGetProperty("name", out var nameProperty) ? nameProperty.GetString() : null;
+            var name = TryGetProperty(entry, "name", out var nameProperty) ? nameProperty.GetString() : null;
             if (string.IsNullOrWhiteSpace(name))
                 continue;
 
-            // Push/streaming datasets are not addressable over XMLA, so offering one here would
-            // only fail later when the connection is opened. The XMLA listing never showed them.
-            if (entry.TryGetProperty("addRowsAPIEnabled", out var pushProperty) &&
-                pushProperty.ValueKind == JsonValueKind.True)
+            if (IsNotAddressableOverXmla(entry))
                 continue;
 
             // Compatibility level and last-update are XMLA-only facts the REST API does not
@@ -153,6 +165,53 @@ public sealed class PowerBiWorkspaceCatalog : IWorkspaceCatalog
         }
 
         return datasets;
+    }
+
+    /// <summary>
+    /// Whether the entry is something the XMLA endpoint cannot serve — a push/streaming dataset, an
+    /// Excel or CSV upload, or a usage-metrics model. Offering one would only fail later when the
+    /// connection is opened, and the XMLA listing this replaced never showed them.
+    /// <para>
+    /// This can only be judged when the response carries the metadata. Power BI returns full dataset
+    /// content only to callers with Write permission; a Read-only caller gets just <c>id</c> and
+    /// <c>name</c> (documented under "Limitations" on Get Datasets In Group), so for those entries
+    /// nothing here can fire and an unopenable model may still be offered. That is deliberate: the
+    /// alternative — falling back to the XMLA listing whenever metadata is thin — would forfeit the
+    /// whole speedup for exactly the read-only, inspect-only caller. The residual case surfaces as
+    /// the normal "database not found on endpoint" diagnostic when the model is opened.
+    /// </para>
+    /// </summary>
+    private static bool IsNotAddressableOverXmla(JsonElement entry)
+    {
+        if (TryGetProperty(entry, "addRowsAPIEnabled", out var push) && push.ValueKind == JsonValueKind.True)
+            return true;
+
+        return TryGetProperty(entry, "contentProviderType", out var provider) &&
+               provider.ValueKind == JsonValueKind.String &&
+               NonXmlaContentProviders.Contains(provider.GetString()!);
+    }
+
+    /// <summary>
+    /// Case-insensitive property lookup. The REST reference spells <c>ContentProviderType</c> with a
+    /// leading capital while every neighbouring property is camelCase, so the documented casing is
+    /// not worth betting on for a filter that fails open.
+    /// </summary>
+    private static bool TryGetProperty(JsonElement entry, string name, out JsonElement value)
+    {
+        if (entry.TryGetProperty(name, out value))
+            return true;
+
+        foreach (var property in entry.EnumerateObject())
+        {
+            if (string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     private static List<WorkspaceInfo> ParsePage(string body)

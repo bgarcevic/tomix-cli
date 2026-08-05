@@ -157,6 +157,83 @@ public sealed class PowerBiWorkspaceCatalogTests
         Assert.Equal(new[] { "Sales" }, datasets.Select(d => d.Name));
     }
 
+    // Excel/CSV uploads, usage-metrics models and streaming datasets are not served by the XMLA
+    // endpoint either, and contentProviderType names them where addRowsAPIEnabled does not.
+    [Theory]
+    [InlineData("Excel")]
+    [InlineData("CSV")]
+    [InlineData("UsageMetricsUserReport")]
+    [InlineData("UsageMetricsUserDashboard")]
+    [InlineData("RealTimeInPushMode")]
+    [InlineData("RealTimeInPubNubMode")]
+    [InlineData("RealTimeInStreamingMode")]
+    public async Task ListDatasets_SkipsNonXmlaContentProviders(string contentProviderType)
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, $$"""
+            { "value": [
+                { "id": "d1", "name": "Sales", "contentProviderType": "PbixInImportMode" },
+                { "id": "d2", "name": "Excluded", "contentProviderType": "{{contentProviderType}}" }
+            ] }
+            """));
+        var catalog = new PowerBiWorkspaceCatalog(new HttpClient(handler), new FakeTokenProvider("tok"), Endpoint);
+
+        var datasets = await catalog.ListDatasetsAsync("ws", CancellationToken.None);
+
+        Assert.Equal(new[] { "Sales" }, datasets.Select(d => d.Name));
+    }
+
+    // An unknown provider type must not be hidden: a real model missing from the picker is worse
+    // than an unopenable one being offered, which fails with a clear diagnostic.
+    [Fact]
+    public async Task ListDatasets_UnknownContentProvider_IsKept()
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, """
+            { "value": [ { "id": "d1", "name": "SomethingNew", "contentProviderType": "FabricFutureMode" } ] }
+            """));
+        var catalog = new PowerBiWorkspaceCatalog(new HttpClient(handler), new FakeTokenProvider("tok"), Endpoint);
+
+        var datasets = await catalog.ListDatasetsAsync("ws", CancellationToken.None);
+
+        Assert.Equal(new[] { "SomethingNew" }, datasets.Select(d => d.Name));
+    }
+
+    // The REST reference spells this property with a leading capital while its neighbours are
+    // camelCase, so the filter must not depend on which casing the service actually emits.
+    [Theory]
+    [InlineData("contentProviderType")]
+    [InlineData("ContentProviderType")]
+    public async Task ListDatasets_ContentProviderType_MatchedCaseInsensitively(string property)
+    {
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, $$"""
+            { "value": [ { "id": "d1", "name": "Excluded", "{{property}}": "RealTimeInPushMode" } ] }
+            """));
+        var catalog = new PowerBiWorkspaceCatalog(new HttpClient(handler), new FakeTokenProvider("tok"), Endpoint);
+
+        var datasets = await catalog.ListDatasetsAsync("ws", CancellationToken.None);
+
+        Assert.Empty(datasets);
+    }
+
+    // Power BI returns full dataset content only to callers with Write permission; a Read-only
+    // caller gets id and name alone. Nothing can be filtered then, and the listing must still work
+    // rather than dropping every model or throwing.
+    [Fact]
+    public async Task ListDatasets_ReadOnlyPermissionShape_ListsEverything()
+    {
+        // Verbatim shape from the "Example with Read Only Permission" response in the REST docs.
+        var handler = new StubHandler(_ => Json(HttpStatusCode.OK, """
+            { "value": [
+                { "id": "cfafbeb1-8037-4d0c-896e-a46fb27ff229", "name": "SalesMarketing" },
+                { "id": "d2", "name": "Streaming" }
+            ] }
+            """));
+        var catalog = new PowerBiWorkspaceCatalog(new HttpClient(handler), new FakeTokenProvider("tok"), Endpoint);
+
+        var datasets = await catalog.ListDatasetsAsync("ws", CancellationToken.None);
+
+        Assert.Equal(new[] { "SalesMarketing", "Streaming" }, datasets.Select(d => d.Name));
+    }
+
     [Theory]
     [InlineData(HttpStatusCode.Unauthorized)]
     [InlineData(HttpStatusCode.Forbidden)]
