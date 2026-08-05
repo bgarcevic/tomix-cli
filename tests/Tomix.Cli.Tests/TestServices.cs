@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.CommandLine;
 using Tomix.App;
 using Tomix.App.Format;
@@ -12,8 +13,35 @@ namespace Tomix.Cli.Tests;
 /// </summary>
 internal static class TestServices
 {
-    public static AppServices Create() =>
-        AppServices.Create(Path.Combine(Path.GetTempPath(), $"tomix-cli-tests-{Guid.NewGuid():N}"));
+    private static readonly ConcurrentBag<string> Roots = [];
+
+    // The roots a test actually writes to (config show, connect, doctor) used to survive the run:
+    // roughly five stray tomix-cli-tests-* directories in $TMPDIR per `dotnet test`. There is no
+    // single owner to dispose — a root outlives the AppServices handed to each test — so they are
+    // swept when the test host exits.
+    static TestServices() =>
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            foreach (var root in Roots)
+            {
+                try
+                {
+                    if (Directory.Exists(root))
+                        Directory.Delete(root, recursive: true);
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    // Best-effort: the run is over, so a locked directory must not fail it.
+                }
+            }
+        };
+
+    public static AppServices Create()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"tomix-cli-tests-{Guid.NewGuid():N}");
+        Roots.Add(root);
+        return AppServices.Create(root);
+    }
 }
 
 /// <summary>
