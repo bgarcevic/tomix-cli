@@ -122,7 +122,7 @@ public sealed class TomExporterSourceIndentTests
     [Fact]
     public async Task ExportTmdl_WritesSourceBlocksAtDesktopDepth_AndRoundTrips()
     {
-        var db = new Database { Name = "M", Model = new Model { Name = "Model" } };
+        var db = NewDatabase();
         var table = new Table { Name = "Sales" };
         const string expression = "let\n\tSource = #table({}, {})\nin\n\tSource";
         table.Partitions.Add(new Partition
@@ -158,7 +158,7 @@ public sealed class TomExporterSourceIndentTests
         var junkPath = Path.Combine(targetPath, "stale-artifact.txt");
         File.WriteAllText(junkPath, "old content");
 
-        var db = new Database { Name = "M", Model = new Model { Name = "Model" } };
+        var db = NewDatabase();
         await TomModelExporter.ExportAsync(
             db,
             new ModelExportRequest(targetPath, "tmdl", Force: true, SupportingFiles: false),
