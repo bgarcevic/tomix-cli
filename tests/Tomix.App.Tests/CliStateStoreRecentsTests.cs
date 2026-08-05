@@ -1,4 +1,5 @@
 using Tomix.App.State;
+using Tomix.App.Tests.Support;
 
 namespace Tomix.App.Tests;
 
@@ -12,16 +13,8 @@ public sealed class CliStateStoreRecentsTests
 
     private static void WithStore(Action<CliStateStore> test)
     {
-        var dir = Path.Combine(Path.GetTempPath(), $"tomix-test-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(dir);
-        try
-        {
-            test(new CliStateStore(dir));
-        }
-        finally
-        {
-            Directory.Delete(dir, true);
-        }
+        using var config = new TempConfigDir();
+        test(config.State);
     }
 
     [Fact]

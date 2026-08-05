@@ -19,39 +19,31 @@ public sealed class BpaRunHandlerTests
     public async Task StagedRun_ProviderThrowsClaimingTheOriginal_StillCompletes()
     {
         using var config = new TempConfigDir();
-        var root = Path.Combine(Path.GetTempPath(), $"tomix-bpa-run-{Guid.NewGuid():N}");
-        var model = Path.Combine(root, "model");
-        Directory.CreateDirectory(Path.Combine(root, ".devops"));
+        using var root = new TempDir();
+        var model = root.Combine("model");
+        root.WriteFile(Path.Combine(".devops", "bpa-rules.json"), OneRuleJson);
         CopyDirectory(LocateSample(), model);
-        try
-        {
-            await File.WriteAllTextAsync(Path.Combine(root, ".devops", "bpa-rules.json"), OneRuleJson);
-            await AddExternalRuleAnnotationAsync(model, "..\\\\.devops\\\\bpa-rules.json");
+        await AddExternalRuleAnnotationAsync(model, "..\\\\.devops\\\\bpa-rules.json");
 
-            var stores = config.Stores;
-            var userRules = new BpaUserRuleState(config.Path);
-            var reference = new ModelReference(model);
-            var request = new BpaRunRequest(reference, NoDefaults: true, Fix: true, Stage: true);
+        var stores = config.Stores;
+        var userRules = new BpaUserRuleState(config.Path);
+        var reference = new ModelReference(model);
+        var request = new BpaRunRequest(reference, NoDefaults: true, Fix: true, Stage: true);
 
-            // Stage once with a well-behaved provider so a working copy exists.
-            var staged = await new BpaRunHandler([new TmdlModelProvider()], stores, userRules, config.Path)
-                .HandleAsync(request, CancellationToken.None);
-            Assert.True(staged.Success, string.Join("; ", staged.Diagnostics.Select(d => d.Message)));
+        // Stage once with a well-behaved provider so a working copy exists.
+        var staged = await new BpaRunHandler([new TmdlModelProvider()], stores, userRules, config.Path)
+            .HandleAsync(request, CancellationToken.None);
+        Assert.True(staged.Success, string.Join("; ", staged.Diagnostics.Select(d => d.Message)));
 
-            // Re-run against the existing working copy with a provider that throws while being
-            // asked whether it can open the original — as the real TMDL provider does for an
-            // unreadable .pbip. The run must degrade, not abort.
-            var handler = new BpaRunHandler(
-                [new TmdlModelProvider(), new ThrowsWhenClaiming(model)], stores, userRules, config.Path);
+        // Re-run against the existing working copy with a provider that throws while being
+        // asked whether it can open the original — as the real TMDL provider does for an
+        // unreadable .pbip. The run must degrade, not abort.
+        var handler = new BpaRunHandler(
+            [new TmdlModelProvider(), new ThrowsWhenClaiming(model)], stores, userRules, config.Path);
 
-            var result = await handler.HandleAsync(request, CancellationToken.None);
+        var result = await handler.HandleAsync(request, CancellationToken.None);
 
-            Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
-        }
-        finally
-        {
-            Directory.Delete(root, recursive: true);
-        }
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
     }
 
     private static async Task AddExternalRuleAnnotationAsync(string modelFolder, string entry)
