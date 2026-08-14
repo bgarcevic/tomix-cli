@@ -1,4 +1,7 @@
+using System.CommandLine;
+using System.Reflection;
 using System.Text.Json;
+using Tomix.Cli.Commands;
 using Tomix.Cli.Output;
 using Tomix.Core.Diagnostics;
 
@@ -43,6 +46,54 @@ public sealed class ErrorOutputContractTests
             new TomixDiagnostic("TOMIX_REAL_ERROR", DiagnosticSeverity.Error, "the error"));
 
         Assert.Equal("TOMIX_REAL_ERROR", json.RootElement.GetProperty("code").GetString());
+    }
+
+    [Theory]
+    // Explicit --error-format always wins, whatever stdout is doing.
+    [InlineData("ls --error-format json", "json")]
+    [InlineData("ls --error-format json --output-format text", "json")]
+    [InlineData("ls --error-format text --output-format json", "text")]
+    // No explicit value: JSON stdout implies JSON errors, so a script asking for JSON never has
+    // to parse a colored text error off stderr (docs/error-codes.md).
+    [InlineData("ls --output-format json", "json")]
+    // Anything else stays text — csv and the model formats are not error-shaped.
+    [InlineData("ls", null)]
+    [InlineData("ls --output-format csv", null)]
+    [InlineData("get X --output-format tmdl", null)]
+    public void ErrorFormatValue_DerivesFromOutputFormat(string commandLine, string? expected)
+    {
+        var parseResult = TestRoot.Full().Parse(commandLine);
+        var outputFormat = GlobalOptions.OutputFormatValue(parseResult);
+
+        Assert.Equal(expected, GlobalOptions.ErrorFormatValue(parseResult, outputFormat));
+    }
+
+    /// <summary>
+    /// Eleven command modules once ignored <c>--error-format json</c> — including <c>bpa</c>,
+    /// <c>config</c>, <c>session</c>, <c>stage</c>, and <c>validate</c> — because
+    /// <see cref="CommandOutput.Render{T}(ParseResult, Tomix.Core.Results.TomixResult{T}, string, Action{T})"/>
+    /// had sibling overloads whose <c>errorFormat</c> silently defaulted to <c>null</c>. Nothing
+    /// failed: the text error still reached stderr, so no test noticed and the whole suite stayed
+    /// green. Rather than assert the behaviour command by command (which the next command would
+    /// not be added to), this pins the shape that made forgetting impossible — every public
+    /// <c>Render</c> overload must either take a <see cref="ParseResult"/> and derive the stderr
+    /// format, or demand an explicit non-optional one.
+    /// </summary>
+    [Fact]
+    public void EveryRenderOverload_ForcesAnErrorFormatDecision()
+    {
+        var lax = typeof(CommandOutput)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == nameof(CommandOutput.Render))
+            .Where(m => !m.GetParameters().Any(p => p.ParameterType == typeof(ParseResult)))
+            .Where(m => !m.GetParameters().Any(p => p.Name == "errorFormat" && !p.IsOptional))
+            .Select(m => m.ToString()!)
+            .ToList();
+
+        Assert.True(lax.Count == 0,
+            "CommandOutput.Render overloads that let a caller omit the stderr format — any command " +
+            "using one will silently ignore --error-format json:" +
+            Environment.NewLine + string.Join(Environment.NewLine, lax));
     }
 
     private static JsonDocument CaptureJson(params TomixDiagnostic[] diagnostics)

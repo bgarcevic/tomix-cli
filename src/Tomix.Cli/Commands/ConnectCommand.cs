@@ -104,15 +104,13 @@ internal sealed class ConnectCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(parseResult, format, "connect", OutputFormats.Text, OutputFormats.Json))
                 return 2;
 
-            // Effective stderr format: explicit --error-format wins, else JSON output implies JSON errors.
-            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat)
-                ?? (OutputFormats.IsJson(format) ? OutputFormats.Json : null);
+            var errorFormat = GlobalOptions.ErrorFormatValue(parseResult, format);
 
             var handler = new ConnectHandler(_state);
             if (GlobalOptions.RecentSpecified(parseResult))
             {
                 if (parseResult.GetValue(clearOption))
-                    return RenderRecentOptionError("--recent cannot be combined with --clear.");
+                    return RenderRecentOptionError(parseResult, "--recent cannot be combined with --clear.");
 
                 if (!string.IsNullOrWhiteSpace(parseResult.GetValue(serverArgument)) ||
                     !string.IsNullOrWhiteSpace(parseResult.GetValue(databaseArgument)) ||
@@ -120,13 +118,14 @@ internal sealed class ConnectCommand : ICommandModule
                     parseResult.GetResult(workspaceOption) is not null ||
                     parseResult.GetValue(remoteOption) ||
                     parseResult.GetValue(localOption))
-                    return RenderRecentOptionError("--recent cannot be combined with a server/database, --profile, --workspace, --remote, or --local.");
+                    return RenderRecentOptionError(parseResult, "--recent cannot be combined with a server/database, --profile, --workspace, --remote, or --local.");
 
                 return await ConnectRecentAsync(handler, parseResult, format, cancellationToken);
             }
 
             if (parseResult.GetValue(clearOption))
                 return CommandOutput.Render(
+                    parseResult,
                     handler.Clear(),
                     format,
                     result => AnsiConsole.MarkupLine(result.Cleared
@@ -157,7 +156,7 @@ internal sealed class ConnectCommand : ICommandModule
                     !string.IsNullOrWhiteSpace(request.Auth) ||
                     !string.IsNullOrWhiteSpace(request.WorkspaceFormat) ||
                     !string.IsNullOrWhiteSpace(request.WorkspaceAuth))
-                    return RenderWorkspaceOptionError(
+                    return RenderWorkspaceOptionError(parseResult,
                         "--profile cannot be combined with a server/database, --workspace, --local, --remote, or auth/workspace overrides.");
 
                 var resolved = new ProfileHandler(_state).Resolve(profileName);
@@ -301,13 +300,13 @@ internal sealed class ConnectCommand : ICommandModule
             }
 
             if (plan.UsageError is { } usageError)
-                return RenderWorkspaceOptionError(usageError);
+                return RenderWorkspaceOptionError(parseResult, usageError);
 
             if (plan.InteractionRequired is { } interaction)
                 return RenderInteractiveRequired(parseResult, interaction.Message, interaction.Hint);
 
             if (plan.ShowCurrent)
-                return CommandOutput.Render(handler.Show(), format, ConnectRenderer.RenderShow);
+                return CommandOutput.Render(parseResult, handler.Show(), format, ConnectRenderer.RenderShow);
 
             var target = plan.Target!;
             var model = target.Model;
@@ -390,6 +389,7 @@ internal sealed class ConnectCommand : ICommandModule
 
                 if (format != OutputFormats.Text)
                     return CommandOutput.Render(
+                        parseResult,
                         infoResult,
                         format,
                         _ => { },
@@ -413,10 +413,10 @@ internal sealed class ConnectCommand : ICommandModule
                 desktopInstance?.PortFile));
 
             if (!setResult.Success)
-                return CommandOutput.Render(setResult, format, _ => { });
+                return CommandOutput.Render(parseResult, setResult, format, _ => { });
 
             if (format != OutputFormats.Text)
-                return CommandOutput.Render(setResult, format, _ => { });
+                return CommandOutput.Render(parseResult, setResult, format, _ => { });
 
             ConnectRenderer.RenderConnection(setResult.Data!.Connection);
             return setResult.ExitCode;
@@ -438,7 +438,7 @@ internal sealed class ConnectCommand : ICommandModule
         // lists the recents instead of prompting, so scripts and JSON callers never block.
         var bare = GlobalOptions.RecentValue(parseResult) is null;
         if (bare && (!InteractionGate.CanPrompt(parseResult, format) || connections.Count == 0))
-            return CommandOutput.Render(recents, format, RenderRecentList, ProjectRecentListJson);
+            return CommandOutput.Render(parseResult, recents, format, RenderRecentList, ProjectRecentListJson);
 
         if (!RecentConnections.TryResolve(parseResult, _state, out var entry, out var exitCode))
             return exitCode;
@@ -466,8 +466,7 @@ internal sealed class ConnectCommand : ICommandModule
             {
                 ErrorOutput.Write(
                     infoResult.Diagnostics,
-                    parseResult.GetValue(GlobalOptions.ErrorFormat)
-                        ?? (OutputFormats.IsJson(format) ? OutputFormats.Json : null));
+                    GlobalOptions.ErrorFormatValue(parseResult, format));
                 return infoResult.ExitCode == 0 ? 1 : infoResult.ExitCode;
             }
 
@@ -490,7 +489,7 @@ internal sealed class ConnectCommand : ICommandModule
         // changes on every start.
 
         if (!setResult.Success)
-            return CommandOutput.Render(setResult, format, _ => { });
+            return CommandOutput.Render(parseResult, setResult, format, _ => { });
 
         if (info is not null)
         {
@@ -499,7 +498,7 @@ internal sealed class ConnectCommand : ICommandModule
         }
 
         if (format != OutputFormats.Text)
-            return CommandOutput.Render(setResult, format, _ => { });
+            return CommandOutput.Render(parseResult, setResult, format, _ => { });
 
         ConnectRenderer.RenderConnection(setResult.Data!.Connection);
         return setResult.ExitCode;
@@ -542,15 +541,15 @@ internal sealed class ConnectCommand : ICommandModule
             }).ToArray()
         };
 
-    private static int RenderRecentOptionError(string message)
+    private static int RenderRecentOptionError(ParseResult parseResult, string message)
     {
-        ErrConsole().MarkupLine(Styling.Error(message));
+        RecentConnections.WriteOptionConflict(message, GlobalOptions.ErrorFormatValue(parseResult));
         return 2;
     }
 
-    private static int RenderWorkspaceOptionError(string message)
+    private static int RenderWorkspaceOptionError(ParseResult parseResult, string message)
     {
-        ErrConsole().MarkupLine(Styling.Error(Styling.MarkupEscape(message)));
+        RecentConnections.WriteOptionConflict(message, GlobalOptions.ErrorFormatValue(parseResult));
         return 2;
     }
 
@@ -561,7 +560,7 @@ internal sealed class ConnectCommand : ICommandModule
     {
         ErrorOutput.Write(
             new[] { new TomixDiagnostic("TOMIX_INTERACTIVE_REQUIRED", DiagnosticSeverity.Error, message, Hint: hint) },
-            parseResult.GetValue(GlobalOptions.ErrorFormat));
+            GlobalOptions.ErrorFormatValue(parseResult));
         return 1;
     }
 

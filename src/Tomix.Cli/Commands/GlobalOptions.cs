@@ -114,6 +114,25 @@ internal static class GlobalOptions
         return parseResult.GetValue(localOption) ?? OutputFormats.Text;
     }
 
+    /// <summary>
+    /// The effective stderr format for a command's diagnostics: an explicit <c>--error-format</c>
+    /// wins, otherwise JSON stdout implies JSON errors. Without the second half, a script that asks
+    /// for <c>--output-format json</c> still has to parse a colored text error off stderr — which is
+    /// what docs/error-codes.md has always promised it would not have to do. Every command resolves
+    /// its error format through here so the rule holds uniformly.
+    /// </summary>
+    public static string? ErrorFormatValue(ParseResult parseResult, string outputFormat)
+        => parseResult.GetValue(ErrorFormat)
+           ?? (OutputFormats.IsJson(outputFormat) ? OutputFormats.Json : null);
+
+    /// <summary>
+    /// <see cref="ErrorFormatValue(ParseResult, string)"/> for paths that run before a command has
+    /// resolved its own output format — the top-level crash handler and the unknown-option guard —
+    /// and so must read the global <c>--output-format</c> directly.
+    /// </summary>
+    public static string? ErrorFormatValue(ParseResult parseResult)
+        => ErrorFormatValue(parseResult, OutputFormatValue(parseResult));
+
     public static void ConfigureDefaultOutputFormat(string? format)
         => _defaultOutputFormat = string.Equals(format, OutputFormats.Json, StringComparison.OrdinalIgnoreCase)
             ? OutputFormats.Json

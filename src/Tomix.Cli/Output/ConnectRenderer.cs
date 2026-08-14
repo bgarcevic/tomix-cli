@@ -21,7 +21,8 @@ internal static class ConnectRenderer
         string? workspace)
     {
         if (OutputFormats.IsJson(format))
-            JsonOutput.Write(ProjectConnectedModelJson(result, model, remoteServer, database, workspace));
+            JsonOutput.Write(CommandEnvelope<object>.Of(
+                ProjectConnectedModelJson(result, model, remoteServer, database, workspace)));
         else
             RenderConnectedModelText(result, model, remoteServer, database, workspace);
     }

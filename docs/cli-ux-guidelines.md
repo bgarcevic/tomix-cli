@@ -139,6 +139,37 @@ the bottom for where each concern lives.
   renaming; changing human-oriented text is fine.
 - Don't repurpose a flag to mean something different — add a new one.
 
+### The two JSON shapes
+
+The streams answer different questions, so they have different shapes. Don't merge them.
+
+**stdout — the command envelope.** `--output-format json` wraps every command's payload:
+
+```json
+{ "data": <the command's own shape>, "diagnostics": [] }
+```
+
+`diagnostics` is always present and currently always empty — no handler emits a non-fatal
+diagnostic yet, and a command with no data writes nothing to stdout. It is part of the
+contract so that a command which succeeds *with something to say* has somewhere to say it
+without a breaking change. Rendered by `CommandEnvelope<T>`; scripts read `.data`.
+
+**stderr — the error object.** A single failure, shaped for the one thing a caller wants
+to branch on (see [error-codes.md](error-codes.md)):
+
+```json
+{ "error": "...", "code": "TOMIX_...", "severity": "Error", "hint": "..." }
+```
+
+Emitted under `--error-format json`, and implied by `--output-format json` so a JSON
+caller never has to parse text off stderr. `GlobalOptions.ErrorFormatValue` resolves that
+rule for every command; `CommandOutput.Render` has no overload that lets a command skip it.
+
+**Outside the envelope**, because they are not command results: `--output-format csv`,
+`get --output-format tmdl|bim|tmsl` (model fragments a consumer feeds back to a
+serializer), `deploy --xmla` (a TMSL script for the engine), and `query --output-file`
+(a data file for jq/pandas). `CommandEnvelopeContractTests` pins each one.
+
 ## Versioning policy
 
 - Versions are derived from git tags by [MinVer](https://github.com/adamralph/minver).

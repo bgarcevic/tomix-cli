@@ -1,6 +1,7 @@
 using System.CommandLine;
 using Spectre.Console;
 using Tomix.Cli.Output;
+using Tomix.Core.Diagnostics;
 
 namespace Tomix.Cli.Commands;
 
@@ -21,24 +22,31 @@ internal static class ConfirmationHelper
             action,
             subject,
             parseResult.GetValue(GlobalOptions.Yes),
-            promptForbidden: !InteractionGate.CanPrompt(parseResult, outputFormat));
+            promptForbidden: !InteractionGate.CanPrompt(parseResult, outputFormat),
+            GlobalOptions.ErrorFormatValue(parseResult, outputFormat));
 
     private static bool Confirm(
         string action,
         string subject,
         bool yes,
-        bool promptForbidden)
+        bool promptForbidden,
+        string? errorFormat)
     {
         if (yes)
             return true;
 
         if (promptForbidden)
         {
-            var err = AnsiConsole.Create(new AnsiConsoleSettings
-            {
-                Out = new AnsiConsoleOutput(Console.Error)
-            });
-            err.MarkupLine(Styling.Error($"Pass --yes to confirm {action}."));
+            // Through ErrorOutput, not raw markup: this is the failure a scripted caller actually
+            // hits (json/csv output and --non-interactive both forbid the prompt), so it needs a
+            // code to branch on rather than prose to grep.
+            ErrorOutput.Write(
+                [new TomixDiagnostic(
+                    "TOMIX_CONFIRMATION_REQUIRED",
+                    DiagnosticSeverity.Error,
+                    $"Pass --yes to confirm {action}.",
+                    $"{action} {subject}")],
+                errorFormat);
             return false;
         }
 

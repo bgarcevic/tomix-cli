@@ -111,7 +111,7 @@ internal sealed class LsCommand : ICommandModule
             var pathsOnly = parseResult.GetValue(pathsOnlyOption);
             var noMultiline = parseResult.GetValue(noMultilineOption);
             var formatValue = GlobalOptions.OutputFormatValue(parseResult);
-            var errorFormat = parseResult.GetValue(GlobalOptions.ErrorFormat);
+            var errorFormat = GlobalOptions.ErrorFormatValue(parseResult, formatValue);
 
             if (!CommandOutput.TryValidateFormat(parseResult, formatValue, "ls", OutputFormats.Text, OutputFormats.Json, OutputFormats.Csv))
                 return 2;
@@ -121,7 +121,7 @@ internal sealed class LsCommand : ICommandModule
             {
                 if (!ModelObjectKindParser.TryParse(typeValue, out var parsed))
                 {
-                    return TypeValidation.WriteInvalidTypeError();
+                    return TypeValidation.WriteInvalidTypeError(GlobalOptions.ErrorFormatValue(parseResult, formatValue));
                 }
 
                 type = parsed;

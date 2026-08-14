@@ -3,6 +3,7 @@ using System.Globalization;
 using Spectre.Console;
 using Tomix.App.State;
 using Tomix.Cli.Output;
+using Tomix.Core.Diagnostics;
 
 namespace Tomix.Cli.Commands;
 
@@ -53,7 +54,9 @@ internal static class RecentConnections
 
         if (!string.IsNullOrWhiteSpace(explicitModel) || !string.IsNullOrWhiteSpace(server))
         {
-            WriteError("--recent cannot be combined with a model path or --server.");
+            WriteOptionConflict(
+                "--recent cannot be combined with a model path or --server.",
+                GlobalOptions.ErrorFormatValue(parseResult));
             source = default;
             exitCode = 2;
             return false;
@@ -243,6 +246,17 @@ internal static class RecentConnections
             return $"{(int)age.TotalHours}h ago";
         return $"{(int)age.TotalDays}d ago";
     }
+
+    /// <summary>
+    /// Mutually-exclusive options, reported with a code so a scripted caller can branch on the
+    /// conflict instead of matching prose. The wording differs per command on purpose —
+    /// <c>deploy --recent --server</c> is legal (the server addresses the deploy target) while
+    /// the same pair is a conflict here — so the code, not the message, is the stable part.
+    /// </summary>
+    internal static void WriteOptionConflict(string message, string? errorFormat)
+        => ErrorOutput.Write(
+            [new TomixDiagnostic("TOMIX_OPTION_CONFLICT", DiagnosticSeverity.Error, message)],
+            errorFormat);
 
     private static void WriteError(string message)
         => StdErr().MarkupLine(Styling.Error(message));
