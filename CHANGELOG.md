@@ -394,13 +394,15 @@ development that are worth knowing about if you followed `main`.
   `refresh --partition` malformed values (now `TOMIX_REFRESH_BAD_PARTITION` through
   `ErrorOutput` instead of raw text).
 - Remote XMLA connections are capped at 30 seconds (`Connect Timeout`), matching the REST
-  side. The provider previously emitted no timeout of any kind, so a cold or unreachable
-  Power BI XMLA endpoint parked **every** command that opens a remote model (`info`, `ls`,
-  `get`, `query`, `deploy`, `refresh`) on its spinner indefinitely — and because
-  `Server.Connect` is a blocking call that never observes its cancellation token, Ctrl-C could
-  not break out either. Local Power BI Desktop instances are on loopback and stay uncapped.
-  Making the call genuinely cancellable is deliberately left for later; it is only worth the
-  complexity if a capped wait still feels stuck in practice.
+  side. Nothing emitted a timeout of any kind before, so a cold or unreachable Power BI XMLA
+  endpoint parked **every** command that reaches a remote model (`info`, `ls`, `get`, `query`,
+  `deploy`, `refresh`, `vertipaq`) on its spinner indefinitely — and because `Server.Connect`
+  is a blocking call that never observes its cancellation token, Ctrl-C could not break out
+  either. Local Power BI Desktop instances are on loopback and stay uncapped. The timeout is
+  applied in one place (`XmlaConnectionString`) that all three client paths — the AMO session,
+  the deploy target, and VertiPaq extraction — now share, so a new connection cannot be added
+  without it. Making the call genuinely cancellable is deliberately left for later; it is only
+  worth the complexity if a capped wait still feels stuck in practice.
 - `tx add -q <property>` with no matching `-i <value>` wrote its error to **stdout** (via
   `AnsiConsole.MarkupLine`), so `tx add … | jq` received colored markup on the data stream
   instead of the empty stream a failed command owes it. It now goes to stderr as
