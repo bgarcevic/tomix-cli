@@ -99,12 +99,32 @@ public sealed class TomServerModelProvider : IModelProvider, IServerCatalog
         }
     }
 
+    /// <summary>
+    /// Seconds AMO waits for a remote connect before failing. Matches the 30 s timeout the REST
+    /// side already applies to its <c>HttpClient</c>, so the two remote paths give up together.
+    /// </summary>
+    /// <remarks>
+    /// Without a cap, a cold or unreachable Power BI XMLA endpoint parks every command that opens
+    /// a remote model (<c>info</c>, <c>ls</c>, <c>get</c>, <c>query</c>, <c>deploy</c>,
+    /// <c>refresh</c>) on its spinner indefinitely — and <c>Server.Connect</c> is a blocking call
+    /// that never observes the cancellation token it was handed, so Ctrl-C cannot break out
+    /// either. Capping the wait is the cheap half of that fix; making the call genuinely
+    /// cancellable is a separate problem, and only worth solving if a capped wait still feels
+    /// stuck in practice.
+    /// </remarks>
+    private const int RemoteConnectTimeoutSeconds = 30;
+
     internal static string BuildConnectionString(ModelReference reference)
     {
         var connectionString = $"Data Source={TomModelDeployer.ResolveEndpoint(reference.Value)}";
-        return string.IsNullOrWhiteSpace(reference.Database)
+        if (!string.IsNullOrWhiteSpace(reference.Database))
+            connectionString += $";Initial Catalog={reference.Database}";
+
+        // A Power BI Desktop instance is on loopback and answers immediately; a timeout there
+        // would only add a way to fail.
+        return reference.IsLocalInstance
             ? connectionString
-            : $"{connectionString};Initial Catalog={reference.Database}";
+            : $"{connectionString};Connect Timeout={RemoteConnectTimeoutSeconds}";
     }
 
     private static TabularDatabase ResolveDatabase(TabularServer server, string? database)
