@@ -36,8 +36,17 @@ public static class XmlaConnectionString
     /// XMLA address, optionally scoped to <paramref name="database"/>, and carrying the remote
     /// connect timeout unless the endpoint is a local Power BI Desktop instance.
     /// </summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="endpoint"/> is null or blank. Every caller resolves an endpoint before
+    /// connecting, so a blank one is a bug upstream — and silently building
+    /// <c>Data Source=;Connect Timeout=30</c> would spend the full timeout failing against an
+    /// address that was never there.
+    /// </exception>
     public static string Build(string? endpoint, string? database = null)
     {
+        if (string.IsNullOrWhiteSpace(endpoint))
+            throw new ArgumentException("An endpoint is required to build a connection string.", nameof(endpoint));
+
         var connectionString = $"Data Source={ModelReference.NormalizeEndpoint(endpoint)}";
         if (!string.IsNullOrWhiteSpace(database))
             connectionString += $";Initial Catalog={database}";
@@ -50,6 +59,15 @@ public static class XmlaConnectionString
     }
 
     /// <summary>The connection string for <paramref name="reference"/> and its database, if any.</summary>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="reference"/> has a blank <see cref="ModelReference.Value"/>. Reported
+    /// against this parameter rather than letting the inner call name one that does not exist here.
+    /// </exception>
     public static string Build(ModelReference reference)
-        => Build(reference.Value, reference.Database);
+    {
+        if (string.IsNullOrWhiteSpace(reference.Value))
+            throw new ArgumentException("An endpoint is required to build a connection string.", nameof(reference));
+
+        return Build(reference.Value, reference.Database);
+    }
 }

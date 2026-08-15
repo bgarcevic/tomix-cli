@@ -205,7 +205,7 @@ internal sealed class ConnectCommand : ICommandModule
                 {
                     case ConnectNeedKind.RemotePick:
                         {
-                            var picked = await ResolveRemoteInteractiveAsync(cancellationToken);
+                            var picked = await ResolveRemoteInteractiveAsync(errorFormat, cancellationToken);
                             if (picked is null)
                                 return 1;
                             request = request with { Server = picked.Value.Server, Database = picked.Value.Database, DatabaseResolved = true };
@@ -214,7 +214,7 @@ internal sealed class ConnectCommand : ICommandModule
 
                     case ConnectNeedKind.MirrorWorkspace:
                         {
-                            var picked = await PickWorkspaceAsync(cancellationToken);
+                            var picked = await PickWorkspaceAsync(errorFormat, cancellationToken);
                             if (picked is null)
                                 return 1;
                             pickedWorkspace = picked;
@@ -228,7 +228,7 @@ internal sealed class ConnectCommand : ICommandModule
                             var selection = await PickDatabaseAsync(
                                 ModelReference.Remote(need.Endpoint!),
                                 WorkspaceFor(pickedWorkspace, need.Endpoint!),
-                                allowCreateNew: true, allowWorkspaceOnly: false, suggestion, cancellationToken);
+                                allowCreateNew: true, allowWorkspaceOnly: false, suggestion, errorFormat, cancellationToken);
                             if (selection is null)
                                 return 1; // listing failed — do not save a half-configured mirror
                             request = request with { Database = selection.Value.Name }; // workspace-only is not offered here
@@ -240,7 +240,7 @@ internal sealed class ConnectCommand : ICommandModule
                             var selection = await PickDatabaseAsync(
                                 ModelReference.Remote(need.Endpoint!),
                                 WorkspaceFor(pickedWorkspace, need.Endpoint!),
-                                allowCreateNew: false, allowWorkspaceOnly: true, null, cancellationToken);
+                                allowCreateNew: false, allowWorkspaceOnly: true, null, errorFormat, cancellationToken);
                             if (selection is null)
                                 return 1; // listing failed — do not overwrite the active connection
                             request = request with
@@ -300,7 +300,7 @@ internal sealed class ConnectCommand : ICommandModule
             }
 
             if (plan.UsageError is { } usageError)
-                return RenderWorkspaceOptionError(parseResult, usageError);
+                return RenderWorkspacePrimaryRequired(parseResult, usageError);
 
             if (plan.InteractionRequired is { } interaction)
                 return RenderInteractiveRequired(parseResult, interaction.Message, interaction.Hint);
@@ -349,16 +349,32 @@ internal sealed class ConnectCommand : ICommandModule
                             "Overwrite workspace target", $"'{database}' on {workspace}",
                             parseResult, format))
                         {
-                            ErrConsole().MarkupLine(Styling.Guidance(
-                                "Aborted; connection unchanged. Re-run without -w to connect without the workspace, or pass --force to overwrite it."));
+                            // Text only: ConfirmOrAbort has already written the diagnostic, and in
+                            // JSON mode appending prose after it left stderr holding a JSON object
+                            // followed by a sentence -- not parseable as either.
+                            if (GlobalOptions.ErrorFormatValue(parseResult, format) is not OutputFormats.Json)
+                                ErrConsole().MarkupLine(Styling.Guidance(
+                                    "Aborted; connection unchanged. Re-run without -w to connect without the workspace, or pass --force to overwrite it."));
                             return 1;
                         }
                     }
                     else if (probe.Status == ConnectWorkspaceProbeStatus.Unreachable)
                     {
-                        ConnectRenderer.RenderConnectedModel(infoResult.Data!, format, model, remoteServer, database, workspace);
-                        foreach (var diag in probe.Diagnostics)
-                            ErrConsole().MarkupLine(Styling.Error($"Could not reach workspace server: {Styling.MarkupEscape(ConnectRenderer.WorkspaceConnectMessage(workspace!, diag.Message))}"));
+                        // Text mode still shows what was opened before reporting the unreachable
+                        // mirror. JSON mode must not: this branch exits non-zero, and writing the
+                        // success envelope first left a script holding a well-formed "connected"
+                        // document on stdout for a command that failed.
+                        if (!OutputFormats.IsJson(format))
+                            ConnectRenderer.RenderConnectedModel(
+                                infoResult.Data!, format, model, remoteServer, database, workspace, infoResult.Diagnostics);
+
+                        ErrorOutput.Write(
+                            [.. probe.Diagnostics.Select(d => new TomixDiagnostic(
+                                "TOMIX_WORKSPACE_UNREACHABLE",
+                                DiagnosticSeverity.Error,
+                                $"Could not reach workspace server: {ConnectRenderer.WorkspaceConnectMessage(workspace!, d.Message)}",
+                                "Check the workspace endpoint and your access, or re-run without -w."))],
+                            errorFormat);
                         return probe.ExitCode == 0 ? 1 : probe.ExitCode;
                     }
                     // Missing: server reachable, target database does not exist yet — OK for new mirror.
@@ -451,6 +467,7 @@ internal sealed class ConnectCommand : ICommandModule
             validation = ModelReference.Remote(connection.Server, connection.Database);
 
         InfoModelResult? info = null;
+        IReadOnlyList<TomixDiagnostic> infoDiagnostics = [];
         if (validation is not null)
         {
             var infoHandler = new InfoModelHandler(_providers);
@@ -471,6 +488,7 @@ internal sealed class ConnectCommand : ICommandModule
             }
 
             info = infoResult.Data;
+            infoDiagnostics = infoResult.Diagnostics;
         }
 
         // Replay the snapshot's raw fields rather than its profile name: the recent entry
@@ -493,7 +511,7 @@ internal sealed class ConnectCommand : ICommandModule
 
         if (info is not null)
         {
-            ConnectRenderer.RenderConnectedModel(info, format, connection.Model, connection.Server, connection.Database, connection.Workspace);
+            ConnectRenderer.RenderConnectedModel(info, format, connection.Model, connection.Server, connection.Database, connection.Workspace, infoDiagnostics);
             return 0;
         }
 
@@ -547,6 +565,25 @@ internal sealed class ConnectCommand : ICommandModule
         return 2;
     }
 
+    /// <summary>
+    /// A planner usage error: <c>-w</c> was given without enough of a primary connection to mirror
+    /// from. Distinct from <c>TOMIX_OPTION_CONFLICT</c> — every message
+    /// <see cref="ConnectPlanHandler"/> produces here says a value is <em>missing</em>
+    /// ("--workspace requires ..."), and nothing about them is mutually exclusive, so reporting
+    /// them as a conflict sent a scripted caller down the wrong branch.
+    /// </summary>
+    private static int RenderWorkspacePrimaryRequired(ParseResult parseResult, string message)
+    {
+        ErrorOutput.Write(
+            [new TomixDiagnostic(
+                "TOMIX_WORKSPACE_PRIMARY_REQUIRED",
+                DiagnosticSeverity.Error,
+                message,
+                "Give the primary connection: 'tx connect <server> <database> -w <target>', or a local path with -w <server> <database>.")],
+            GlobalOptions.ErrorFormatValue(parseResult));
+        return 2;
+    }
+
     private static int RenderWorkspaceOptionError(ParseResult parseResult, string message)
     {
         RecentConnections.WriteOptionConflict(message, GlobalOptions.ErrorFormatValue(parseResult));
@@ -567,23 +604,23 @@ internal sealed class ConnectCommand : ICommandModule
     private static IAnsiConsole ErrConsole()
         => AnsiConsole.Create(new AnsiConsoleSettings { Out = new AnsiConsoleOutput(Console.Error) });
 
-    private async Task<(string Server, string? Database)?> ResolveRemoteInteractiveAsync(CancellationToken cancellationToken)
+    private async Task<(string Server, string? Database)?> ResolveRemoteInteractiveAsync(string? errorFormat, CancellationToken cancellationToken)
     {
-        var workspace = await PickWorkspaceAsync(cancellationToken);
+        var workspace = await PickWorkspaceAsync(errorFormat, cancellationToken);
         if (workspace is null)
             return null;
 
         var selection = await PickDatabaseAsync(
             ModelReference.Remote(workspace.XmlaEndpoint),
             workspace,
-            allowCreateNew: false, allowWorkspaceOnly: true, suggestedNewName: null, cancellationToken);
+            allowCreateNew: false, allowWorkspaceOnly: true, suggestedNewName: null, errorFormat, cancellationToken);
         if (selection is null)
             return null; // listing failed — do not fall through to "workspace only"
 
         return (workspace.XmlaEndpoint, selection.Value.IsWorkspaceOnly ? null : selection.Value.Name);
     }
 
-    private async Task<WorkspaceInfo?> PickWorkspaceAsync(CancellationToken cancellationToken)
+    private async Task<WorkspaceInfo?> PickWorkspaceAsync(string? errorFormat, CancellationToken cancellationToken)
     {
         try
         {
@@ -591,7 +628,7 @@ internal sealed class ConnectCommand : ICommandModule
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            RenderInteractiveError(ex);
+            RenderInteractiveError(ex, errorFormat);
             return null;
         }
     }
@@ -615,13 +652,14 @@ internal sealed class ConnectCommand : ICommandModule
         bool allowCreateNew,
         bool allowWorkspaceOnly,
         string? suggestedNewName,
+        string? errorFormat,
         CancellationToken cancellationToken)
     {
         var catalog = _providers.OfType<IServerCatalog>().FirstOrDefault(c => c.CanList(endpoint));
         if (catalog is null && workspace is null)
         {
             RenderInteractiveError(new InvalidOperationException(
-                $"No provider can list models on '{endpoint.Value}'."));
+                $"No provider can list models on '{endpoint.Value}'."), errorFormat);
             return null;
         }
 
@@ -633,7 +671,7 @@ internal sealed class ConnectCommand : ICommandModule
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            RenderInteractiveError(ex);
+            RenderInteractiveError(ex, errorFormat);
             return null;
         }
     }
@@ -671,13 +709,18 @@ internal sealed class ConnectCommand : ICommandModule
         };
     }
 
-    private static void RenderInteractiveError(Exception ex)
+    /// <remarks>
+    /// Takes the resolved stderr format rather than passing <c>null</c>: its three sibling helpers
+    /// were converted to honour <c>--error-format</c> and this one was missed, so a JSON caller
+    /// still got prose for <c>TOMIX_AUTH_REQUIRED</c> and <c>TOMIX_REMOTE_LIST_FAILED</c>.
+    /// </remarks>
+    private static void RenderInteractiveError(Exception ex, string? errorFormat)
     {
         var (code, hint) = ex is AuthenticationRequiredException
             ? ("TOMIX_AUTH_REQUIRED", "Run 'tx auth login', then retry.")
             : ("TOMIX_REMOTE_LIST_FAILED", (string?)null);
         ErrorOutput.Write(
             new[] { new TomixDiagnostic(code, DiagnosticSeverity.Error, ex.Message, Hint: hint) },
-            null);
+            errorFormat);
     }
 }

@@ -163,12 +163,32 @@ to branch on (see [error-codes.md](error-codes.md)):
 
 Emitted under `--error-format json`, and implied by `--output-format json` so a JSON
 caller never has to parse text off stderr. `GlobalOptions.ErrorFormatValue` resolves that
-rule for every command; `CommandOutput.Render` has no overload that lets a command skip it.
+rule for every command. No `CommandOutput.Render` overload lets a command skip the
+decision: each either takes the `ParseResult` and derives the format, or requires it as a
+non-optional argument — enforced by `ErrorOutputContractTests`.
 
-**Outside the envelope**, because they are not command results: `--output-format csv`,
-`get --output-format tmdl|bim|tmsl` (model fragments a consumer feeds back to a
-serializer), `deploy --xmla` (a TMSL script for the engine), and `query --output-file`
-(a data file for jq/pandas). `CommandEnvelopeContractTests` pins each one.
+**Outside the envelope**, because they are not command results:
+
+| Output | Shape | Pinned by |
+|---|---|---|
+| `--output-format csv` | tabular rows | `CommandEnvelopeContractTests` |
+| `get --output-format tmdl\|bim\|tmsl` | a model fragment a consumer feeds back to a serializer | `CommandEnvelopeContractTests` |
+| `deploy --xmla -` in **text** mode | the raw TMSL script, for the engine | `CommandEnvelopeContractTests` |
+| `query --output-file <path>` | a data file for jq/pandas — written to the file, never stdout | `QueryOutputFileContractTests` |
+
+`deploy --xmla --output-format json` is **not** an exception: JSON mode is a command
+result like any other, enveloped as usual. Only the text-mode stdout is raw, and only
+for `--xmla -` — with `--xmla <file>` the script goes to the file and text mode prints
+a human summary instead.
+
+**`diagnostics` appears at two levels, and they are different things.** The envelope's
+`.diagnostics` holds CLI diagnostics (`code`/`severity`/`message`/`hint`) and is empty
+today. A command's own payload may also have a field called `diagnostics` — `bpa run`'s
+`.data.diagnostics` is its non-violation rule outcomes, and `bpa rules list`'s is its
+rule-load problems. Enveloping moved those from `.diagnostics` to `.data.diagnostics`
+like every other payload field; the name collision just makes the mistake quiet rather
+than a missing-key error. **Scripts wanting a command's own diagnostics must read
+`.data.diagnostics`.**
 
 ## Versioning policy
 

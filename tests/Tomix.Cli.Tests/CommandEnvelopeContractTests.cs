@@ -16,6 +16,11 @@ namespace Tomix.Cli.Tests;
 /// observes the wrapper the command actually prints. That is the right level for them — they pin
 /// the shape of <c>data</c> — but it leaves the envelope itself unguarded, which is how the
 /// documented <c>(data, diagnostics)</c> contract managed to not exist in the code at all.
+/// <para>
+/// Every boundary is covered: the envelope on <c>ls</c>/<c>get</c>, the csv and model-shaped
+/// formats, and <c>deploy --xmla</c> below. <c>query --output-file</c> is covered by
+/// <see cref="QueryOutputFileContractTests"/>.
+/// </para>
 /// </remarks>
 [Collection(ConsoleStateCollection.Name)]
 public sealed class CommandEnvelopeContractTests
@@ -60,6 +65,48 @@ public sealed class CommandEnvelopeContractTests
             Assert.False(root.ContainsKey("data"));
             Assert.Equal("Sales", root["name"]!.GetValue<string>());
         }
+    }
+
+    /// <summary>
+    /// <c>deploy --xmla -</c> is the one boundary where the same command emits both shapes: text
+    /// mode writes the raw TMSL for the engine, JSON mode is an ordinary command result with the
+    /// script inside <c>data</c>. Both directions are asserted, since the interesting regression is
+    /// either one adopting the other's shape.
+    /// </summary>
+    /// <remarks>
+    /// No live endpoint is involved: <c>--deploy-full</c> preserves nothing, so
+    /// <c>RequiresTargetRead</c> is false and <c>GenerateScriptAsync</c> returns before it would
+    /// connect (<c>TomModelDeployer.cs</c>). An earlier revision of this file claimed the branch
+    /// needed a real server and left it unpinned on that basis — it does not.
+    /// </remarks>
+    [Fact]
+    public void DeployXmla_IsRawScriptInTextMode_AndEnvelopedInJsonMode()
+    {
+        string[] args =
+        [
+            "deploy", SampleTmdl, "--xmla", "-", "--deploy-full", "--skip-bpa", "--yes",
+            "--non-interactive", "-s", "powerbi://api.powerbi.com/v1.0/myorg/Unreachable", "-d", "Target"
+        ];
+
+        var text = InvokeDeploy(args);
+        // The engine's script, at the top level: a consumer pipes this straight to XMLA.
+        Assert.Contains("createOrReplace", text, StringComparison.Ordinal);
+        Assert.DoesNotContain("\"diagnostics\"", text, StringComparison.Ordinal);
+
+        var json = JsonNode.Parse(InvokeDeploy([.. args, "--output-format", "json"]))!.AsObject();
+        Assert.Equal(["data", "diagnostics"], json.Select(kvp => kvp.Key).Order());
+        Assert.Equal("Target", json["data"]!["database"]!.GetValue<string>());
+    }
+
+    private static string InvokeDeploy(string[] args)
+    {
+        var services = TestServices.Create();
+        var root = TestRoot.With(new DeployCommand(Providers, services.State).Build());
+        var captured = ConsoleCapture.Invoke(root.Parse(args));
+
+        Assert.True(captured.ExitCode == 0,
+            $"'{string.Join(' ', args)}' exited {captured.ExitCode}: {captured.Stderr}");
+        return captured.Stdout;
     }
 
     private static string Invoke(params string[] args)

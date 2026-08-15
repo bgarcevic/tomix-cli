@@ -181,8 +181,10 @@ development that are worth knowing about if you followed `main`.
   `diagnostics` ships empty (no handler emits a non-fatal diagnostic yet) and is present so a
   command that later succeeds *with* something to report does not need a breaking change to say
   it. Deliberately **not** enveloped, because they are not command results: `--output-format
-  csv`, `get --output-format tmdl|bim|tmsl` (model fragments), `deploy --xmla` (a TMSL script),
-  and `query --output-file` (a data file for jq/pandas). Each boundary is pinned by a test.
+  csv`, `get --output-format tmdl|bim|tmsl` (model fragments), `deploy --xmla -` in text mode
+  (a TMSL script for the engine — under `--output-format json` it is an ordinary enveloped
+  command result), and `query --output-file` (a data file for jq/pandas). Each boundary is
+  pinned by a test.
 - Project renamed `mdl-cli` → `tomix-cli` (the command is `tx`); MinVer-based versioning and
   CI automation added.
 - **Secrets are no longer accepted on the command line or from environment variables**
@@ -329,7 +331,7 @@ development that are worth knowing about if you followed `main`.
   endpoint so every later command can open it.
 - `connect --workspace` shows a spinner during the remote probe (no silent gap).
 - Destructive confirmations (`rm`, `replace`, `deploy`, `update`, `incremental-refresh rm`,
-  and connect's workspace-overwrite) fail fast with "Pass --yes to confirm ..." in every
+  and connect's workspace-overwrite) fail fast with `TOMIX_CONFIRMATION_REQUIRED` in every
   non-promptable context — `--quiet`, `--output-format json`/`csv`, and redirected
   stdin/stderr — instead of blocking on a prompt (or prompting mid-JSON). Previously only
   `--non-interactive` and redirected stdin were detected; they now share the interaction gate
@@ -400,8 +402,8 @@ development that are worth knowing about if you followed `main`.
   is a blocking call that never observes its cancellation token, Ctrl-C could not break out
   either. Local Power BI Desktop instances are on loopback and stay uncapped. The timeout is
   applied in one place (`XmlaConnectionString`) that all three client paths — the AMO session,
-  the deploy target, and VertiPaq extraction — now share, so a new connection cannot be added
-  without it. Making the call genuinely cancellable is deliberately left for later; it is only
+  the deploy target, and VertiPaq extraction — now share, guarded by a test that fails if any
+  of them stops routing through it or if a fourth builds its own. Making the call genuinely cancellable is deliberately left for later; it is only
   worth the complexity if a capped wait still feels stuck in practice.
 - `tx add -q <property>` with no matching `-i <value>` wrote its error to **stdout** (via
   `AnsiConsole.MarkupLine`), so `tx add … | jq` received colored markup on the data stream

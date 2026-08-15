@@ -69,6 +69,27 @@ public sealed class ErrorOutputContractTests
     }
 
     /// <summary>
+    /// The parameterless overload — used by the top-level crash handlers, the unknown-option guard,
+    /// and the shared <c>--recent</c> helper, all of which run before a command resolves its own
+    /// format — has to see a <c>--output-format</c> bound to a command's <em>local</em> option.
+    /// </summary>
+    /// <remarks>
+    /// <c>doctor</c>, <c>update</c> and <c>completion</c> declare their own <c>--output-format</c>
+    /// next to the recursive global one. Reading the global option alone reports its default for
+    /// exactly those three, so a caller who asked for JSON got a text error off stderr — the gap
+    /// the rest of this file exists to close, left open on the paths that cannot ask a command.
+    /// </remarks>
+    [Theory]
+    [InlineData("doctor --output-format json", OutputFormats.Json)]
+    [InlineData("update --check --output-format json", OutputFormats.Json)]
+    [InlineData("completion bash --output-format json", OutputFormats.Json)]
+    [InlineData("ls --output-format json", OutputFormats.Json)]
+    [InlineData("doctor", null)]
+    [InlineData("doctor --output-format text", null)]
+    public void ErrorFormatValue_SeesAFormatBoundToALocalOption(string commandLine, string? expected)
+        => Assert.Equal(expected, GlobalOptions.ErrorFormatValue(TestRoot.Full().Parse(commandLine)));
+
+    /// <summary>
     /// Eleven command modules once ignored <c>--error-format json</c> — including <c>bpa</c>,
     /// <c>config</c>, <c>session</c>, <c>stage</c>, and <c>validate</c> — because
     /// <see cref="CommandOutput.Render{T}(ParseResult, Tomix.Core.Results.TomixResult{T}, string, Action{T})"/>

@@ -40,12 +40,17 @@ internal static class ConfirmationHelper
             // Through ErrorOutput, not raw markup: this is the failure a scripted caller actually
             // hits (json/csv output and --non-interactive both forbid the prompt), so it needs a
             // code to branch on rather than prose to grep.
+            // The subject belongs in the message; the hint is the remediation, per
+            // docs/error-codes.md, so it must say what to do rather than restate the action.
             ErrorOutput.Write(
                 [new TomixDiagnostic(
                     "TOMIX_CONFIRMATION_REQUIRED",
                     DiagnosticSeverity.Error,
-                    $"Pass --yes to confirm {action}.",
-                    $"{action} {subject}")],
+                    $"{action} {subject} needs confirmation.",
+                    // Not "re-run without --non-interactive": InteractionGate also refuses to
+                    // prompt under --quiet, json/csv output, and redirected stdin/stderr, so
+                    // naming one cause misdirects the caller who hit any of the others.
+                    "Pass --yes to confirm.")],
                 errorFormat);
             return false;
         }

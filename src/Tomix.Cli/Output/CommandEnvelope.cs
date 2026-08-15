@@ -22,9 +22,18 @@ namespace Tomix.Cli.Output;
 /// </para>
 /// <para>
 /// Deliberately not enveloped, because they are not command JSON: <c>--output-format csv</c>,
-/// <c>get --output-format tmdl|bim|tmsl</c> (model-shaped fragments), <c>deploy --xmla</c>
-/// script output, and <c>query --output-file</c> (a data file for jq/pandas, where a wrapper
-/// would break every strict reader). <see cref="Tomix.Cli.Tests"/> pins each of those.
+/// <c>get --output-format tmdl|bim|tmsl</c> (model-shaped fragments), <c>deploy --xmla -</c> in
+/// <em>text</em> mode (the raw TMSL script), and <c>query --output-file</c> (a data file for
+/// jq/pandas, where a wrapper would break every strict reader). Note the qualifier on
+/// <c>deploy --xmla</c>: under <c>--output-format json</c> it is an ordinary command result and
+/// <em>is</em> enveloped. Every one of these is pinned by a test — see
+/// <c>CommandEnvelopeContractTests</c> and <c>QueryOutputFileContractTests</c>.
+/// </para>
+/// <para>
+/// <c>diagnostics</c> also exists on some payloads (<c>bpa run</c>, <c>bpa rules list</c>), where
+/// it means something else entirely. Enveloping moved those to <c>.data.diagnostics</c> along with
+/// every other payload field; the shared name only makes a script reading <c>.diagnostics</c> get
+/// an empty array instead of a missing-key error. docs/cli-ux-guidelines.md spells this out.
 /// </para>
 /// <para>
 /// stderr keeps its own single-error shape (<c>error</c>/<c>code</c>/<c>severity</c>/<c>hint</c>,
@@ -32,11 +41,13 @@ namespace Tomix.Cli.Output;
 /// questions — "what did the command produce" versus "why did it fail" — and merging them would
 /// force every error consumer to walk an array to find the one error it cares about.
 /// </para>
+/// <para>
+/// There is deliberately no <c>Of(data)</c> convenience that defaults the diagnostics to empty:
+/// its one caller used it to envelope a payload whose diagnostics were simply out of scope at that
+/// seam, which is invisible in the output — the key is still there, still an empty array. Callers
+/// pass the diagnostics they hold.
+/// </para>
 /// </remarks>
 /// <param name="Data">The command's payload, in whatever shape that command documents.</param>
 /// <param name="Diagnostics">Non-fatal diagnostics; empty when the command had nothing to add.</param>
-internal sealed record CommandEnvelope<T>(T Data, IReadOnlyList<TomixDiagnostic> Diagnostics)
-{
-    /// <summary>Envelopes <paramref name="data"/> with no diagnostics.</summary>
-    public static CommandEnvelope<T> Of(T data) => new(data, []);
-}
+internal sealed record CommandEnvelope<T>(T Data, IReadOnlyList<TomixDiagnostic> Diagnostics);

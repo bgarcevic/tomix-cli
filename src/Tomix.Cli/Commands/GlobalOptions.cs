@@ -1,4 +1,5 @@
 using System.CommandLine;
+using System.CommandLine.Parsing;
 using Tomix.Cli.Output;
 
 namespace Tomix.Cli.Commands;
@@ -127,11 +128,44 @@ internal static class GlobalOptions
 
     /// <summary>
     /// <see cref="ErrorFormatValue(ParseResult, string)"/> for paths that run before a command has
-    /// resolved its own output format — the top-level crash handler and the unknown-option guard —
-    /// and so must read the global <c>--output-format</c> directly.
+    /// resolved its own output format — the top-level crash handler, the unknown-option guard, and
+    /// shared helpers like <see cref="RecentConnections"/> that fail before the command body runs.
     /// </summary>
     public static string? ErrorFormatValue(ParseResult parseResult)
-        => ErrorFormatValue(parseResult, OutputFormatValue(parseResult));
+        => ErrorFormatValue(parseResult, EffectiveOutputFormat(parseResult));
+
+    /// <summary>
+    /// The <c>--output-format</c> value as actually parsed, whichever option carried it.
+    /// </summary>
+    /// <remarks>
+    /// <c>doctor</c>, <c>update</c> and <c>completion</c> declare their own local
+    /// <c>--output-format</c> alongside the recursive global one — which is why
+    /// <see cref="OutputFormatValue(ParseResult, Option{string})"/> exists at all. Reading
+    /// <see cref="OutputFormat"/> alone reports its *default* for exactly those commands, so a
+    /// caller that passed <c>--output-format json</c> to one of them would still get a text error
+    /// off stderr. Walking outward from the parsed command finds whichever option was bound,
+    /// innermost first, matching that helper's local-then-global precedence.
+    /// </remarks>
+    private static string EffectiveOutputFormat(ParseResult parseResult)
+    {
+        for (SymbolResult? symbol = parseResult.CommandResult; symbol is not null; symbol = symbol.Parent)
+        {
+            if (symbol is not CommandResult command)
+                continue;
+
+            foreach (var option in command.Command.Options)
+            {
+                if (option is not Option<string> formatOption
+                    || !string.Equals(formatOption.Name, OutputFormat.Name, StringComparison.Ordinal))
+                    continue;
+
+                if (parseResult.GetResult(formatOption) is { Implicit: false })
+                    return parseResult.GetValue(formatOption) ?? OutputFormats.Text;
+            }
+        }
+
+        return OutputFormatValue(parseResult);
+    }
 
     public static void ConfigureDefaultOutputFormat(string? format)
         => _defaultOutputFormat = string.Equals(format, OutputFormats.Json, StringComparison.OrdinalIgnoreCase)

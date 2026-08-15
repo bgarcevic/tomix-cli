@@ -59,6 +59,39 @@ public sealed class XmlaConnectionStringTests
     };
 
     /// <summary>
+    /// Every file that <em>builds</em> a client connection string, and so must route through the
+    /// builder. A positive assertion, because <c>deploy</c> and <c>vertipaq</c> cannot be reached
+    /// by a unit test — nothing else would notice them being rewritten to connect their own way.
+    /// </summary>
+    /// <remarks>
+    /// Not the same set as "files that open a connection": <c>TomModelQueryExecutor</c> and
+    /// <c>TomQueryTraceSink</c> both connect, but from a string handed to them by
+    /// <c>TomServerModelProvider</c>, so they inherit the timeout and have nothing to assert here.
+    /// </remarks>
+    private static readonly string[] ClientConnectionFiles =
+    [
+        "Tomix.Provider.Tom/TomServerModelProvider.cs",
+        "Tomix.Provider.Tom/TomModelDeployer.cs",
+        "Tomix.Provider.Vpax/VpaxVertipaqAnalyzer.cs",
+    ];
+
+    /// <summary>
+    /// Matches a connection string being assembled by hand, tolerating the spacing the keyword
+    /// legally allows — the plain-substring version of this guard read as protection while
+    /// <c>"Data Source ="</c> walked straight past it.
+    /// </summary>
+    /// <remarks>
+    /// Case-insensitive, because connection-string keywords are: <c>data source=</c> opens exactly
+    /// the same connection as <c>Data Source=</c>. The whitespace between the two words is required
+    /// rather than optional, though — <c>DataSource</c> is the TOM type and property name, and
+    /// matching that flags every file that merely removes a data source from a model.
+    /// </remarks>
+    private static readonly System.Text.RegularExpressions.Regex HandBuiltConnectionString =
+        new(@"Data\s+Source\s*=",
+            System.Text.RegularExpressions.RegexOptions.CultureInvariant
+            | System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+
+    /// <summary>
     /// The timeout is only worth anything if every client connection goes through the builder.
     /// It first shipped applied at one call site, which left <c>deploy</c> and <c>vertipaq</c>
     /// connecting with no timeout at all — a hand-built string is how that regresses.
@@ -66,12 +99,9 @@ public sealed class XmlaConnectionStringTests
     [Fact]
     public void OnlyTheBuilder_ConstructsClientConnectionStrings()
     {
-        var offenders = Directory
-            .EnumerateFiles(RepoPaths.Combine("src"), "*.cs", SearchOption.AllDirectories)
-            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
-                && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-            .Where(path => File.ReadAllText(path).Contains("Data Source=", StringComparison.Ordinal))
-            .Select(path => Path.GetRelativePath(RepoPaths.Combine("src"), path).Replace(Path.DirectorySeparatorChar, '/'))
+        var offenders = SourceFiles()
+            .Where(file => HandBuiltConnectionString.IsMatch(File.ReadAllText(file.Path)))
+            .Select(file => file.Relative)
             .Where(relative => !ConnectionStringAuthors.ContainsKey(relative))
             .Order(StringComparer.Ordinal)
             .ToList();
@@ -82,4 +112,37 @@ public sealed class XmlaConnectionStringTests
             + $"timeout: {string.Join(", ", offenders)}. Use {nameof(XmlaConnectionString)}.{nameof(XmlaConnectionString.Build)} "
             + $"instead, or add the file to {nameof(ConnectionStringAuthors)} with the reason it is not a client connection.");
     }
+
+    /// <summary>
+    /// The other direction: a new connection path can evade the scan above entirely by building
+    /// its string somewhere else and passing it in, so the files known to connect must be shown
+    /// to reach the builder rather than merely to lack a literal.
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(ClientConnectionFileCases))]
+    public void EveryClientConnectionPath_RoutesThroughTheBuilder(string relativePath)
+    {
+        var source = File.ReadAllText(RepoPaths.Combine("src", relativePath));
+
+        Assert.True(
+            source.Contains($"{nameof(XmlaConnectionString)}.{nameof(XmlaConnectionString.Build)}", StringComparison.Ordinal),
+            $"{relativePath} opens a client connection but no longer calls "
+            + $"{nameof(XmlaConnectionString)}.{nameof(XmlaConnectionString.Build)}, so its connect is uncapped. "
+            + "If it genuinely stopped connecting, drop it from ClientConnectionFiles.");
+    }
+
+    public static TheoryData<string> ClientConnectionFileCases()
+    {
+        var data = new TheoryData<string>();
+        foreach (var file in ClientConnectionFiles)
+            data.Add(file);
+        return data;
+    }
+
+    private static IEnumerable<(string Path, string Relative)> SourceFiles()
+        => Directory
+            .EnumerateFiles(RepoPaths.Combine("src"), "*.cs", SearchOption.AllDirectories)
+            .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal)
+                && !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+            .Select(path => (path, Path.GetRelativePath(RepoPaths.Combine("src"), path).Replace(Path.DirectorySeparatorChar, '/')));
 }
