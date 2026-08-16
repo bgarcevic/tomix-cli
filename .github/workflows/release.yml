@@ -167,6 +167,11 @@ jobs:
     needs: [publish, pack]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/v')
+    # Required by the nuget.org Trusted Publishing policy, which is registered
+    # with Environment: prod. The environment name is a claim in the OIDC token,
+    # so a job that omits this key gets a token nuget.org refuses — and it fails
+    # at NuGet/login, after the GitHub Release has already been created.
+    environment: prod
     permissions:
       contents: write
       id-token: write # OIDC token for NuGet Trusted Publishing
