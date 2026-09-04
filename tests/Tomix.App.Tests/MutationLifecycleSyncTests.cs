@@ -259,6 +259,9 @@ public sealed class MutationLifecycleSyncTests
         }
 
         public Task<string> GenerateScriptAsync(ModelDeployRequest request, CancellationToken cancellationToken) => Task.FromResult("");
+
+        public Task<ModelDeployPlan> GeneratePlanAsync(ModelDeployRequest request, CancellationToken cancellationToken)
+            => throw new NotSupportedException("This stub never plans a deploy.");
     }
 
     private sealed class CancellingDeploySession : IModelDeploySession
@@ -267,6 +270,9 @@ public sealed class MutationLifecycleSyncTests
             => throw new OperationCanceledException();
 
         public Task<string> GenerateScriptAsync(ModelDeployRequest request, CancellationToken cancellationToken) => Task.FromResult("");
+
+        public Task<ModelDeployPlan> GeneratePlanAsync(ModelDeployRequest request, CancellationToken cancellationToken)
+            => throw new NotSupportedException("This stub never plans a deploy.");
     }
 
     private sealed class StubNonDeployMutationSession : IModelMutationSession
