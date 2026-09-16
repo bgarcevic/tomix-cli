@@ -37,9 +37,9 @@ Load summary (`tx load`): 5 tables, 5 measures, 22 columns, 3 relationships.
 
 - `tx validate` — clean, exit 0.
 - `tx bpa run` (standard ruleset) — exactly 3 rules / 6 findings, 0 errors. Assumes the
-  IsAvailableInMDX property-key fix (branch `fix/bpa-isavailableinmdx-property`); on builds
-  without it, an error-severity `SET_ISAVAILABLEINMDX_TO_TRUE_ON_NECESSARY_COLUMNS` ×3 false
-  positive appears instead and the hidden-column rule below stays dark:
+  IsAvailableInMDX property-key fix (#251, merged to main); on builds from before it, an
+  error-severity `SET_ISAVAILABLEINMDX_TO_TRUE_ON_NECESSARY_COLUMNS` ×3 false positive appears
+  instead and the hidden-column rule below stays dark:
   - `AVOID_FLOATING_POINT_DATA_TYPES` ×1 (warning) — **deliberate**: `Sales[Amount]` is `double`.
   - `HIDE_FOREIGN_KEYS` ×4 (warning) — **deliberate auto-fixable family**: relationship-end columns (`Sales[OrderDate]`, `Sales[ShipDate]`, `Sales[CustomerID]`, `Customer[CustomerID]`). Use for fix → preview → stage → save QA.
   - `ISAVAILABLEINMDX_FALSE_NONATTRIBUTE_COLUMNS` ×1 (warning) — **deliberate auto-fixable**: the hidden `Customer[InternalCode]` sits at the default `true`; best practice sets hidden non-attribute columns to `false`, and the fix persists (non-default value) once applied.
