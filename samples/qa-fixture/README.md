@@ -36,10 +36,13 @@ difference (an added measure), so `diff` has a known target.
 Load summary (`tx load`): 5 tables, 5 measures, 22 columns, 3 relationships.
 
 - `tx validate` — clean, exit 0.
-- `tx bpa run` (standard ruleset) — exactly 3 rules / 8 findings:
+- `tx bpa run` (standard ruleset) — exactly 3 rules / 6 findings, 0 errors. Assumes the
+  IsAvailableInMDX property-key fix (branch `fix/bpa-isavailableinmdx-property`); on builds
+  without it, an error-severity `SET_ISAVAILABLEINMDX_TO_TRUE_ON_NECESSARY_COLUMNS` ×3 false
+  positive appears instead and the hidden-column rule below stays dark:
   - `AVOID_FLOATING_POINT_DATA_TYPES` ×1 (warning) — **deliberate**: `Sales[Amount]` is `double`.
   - `HIDE_FOREIGN_KEYS` ×4 (warning) — **deliberate auto-fixable family**: relationship-end columns (`Sales[OrderDate]`, `Sales[ShipDate]`, `Sales[CustomerID]`, `Customer[CustomerID]`). Use for fix → preview → stage → save QA.
-  - `SET_ISAVAILABLEINMDX_TO_TRUE_ON_NECESSARY_COLUMNS` ×3 (error) — **known false positive on TMDL-loaded models**: the affected columns (`Date[Year]`, `Date[MonthNumber]`, `Date[MonthName]`) have `isAvailableInMdx: true` in the source and read back true via `get`, but the rule evaluates the serialized property, which the writer omits when true. Expected to fire on every offline TMDL model with hierarchies or sort-by; not a fixture defect.
+  - `ISAVAILABLEINMDX_FALSE_NONATTRIBUTE_COLUMNS` ×1 (warning) — **deliberate auto-fixable**: the hidden `Customer[InternalCode]` sits at the default `true`; best practice sets hidden non-attribute columns to `false`, and the fix persists (non-default value) once applied.
 - `tx deps [Sales Per Customer]` — upstream exactly 2: `[Total Sales]`, `[Customer Count]`.
 - `tx deps --unused` — 14 objects, including the deliberate `Metrics/Unused Hidden Measure`, `Customer/InternalCode`, `Customer/NameLength`. (`Sales vs Target` counts as unused too: nothing references it downstream.)
 - `tx incremental-refresh show Events` — rollingWindow 3 Year, incremental 2 Month, offset 0.
