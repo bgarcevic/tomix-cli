@@ -43,6 +43,8 @@ Runs the BPA gate before deploying. The gate blocks only on findings at or above
 severity threshold: error-severity by default, or warnings too with `--bpa-fail-on warning`.
 A rule that cannot be evaluated is itself an error-severity finding — a broken rule
 expression blocks the deploy (named in the message) instead of silently skipping the rule.
+The gate shares `bpa rules disable` state with `bpa run`: rules you disabled locally are
+skipped here too, so both commands see the same rule set on the same machine.
 
 Without `-s/--server`, the target comes from the active connection: a remote connection
 deploys to itself, and a local connection with a workspace-mode mirror deploys to the
