@@ -10,7 +10,7 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
-## [0.3.0] - 2026-09-24
+## [0.3.0] - 2026-09-25
 
 ### Added
 
