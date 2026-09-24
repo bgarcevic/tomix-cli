@@ -23,6 +23,13 @@ and the API surface that major versions protect.
 
 ### Changed
 
+- **Breaking:** removed `incremental-refresh`. Inspect, configure, and remove policies
+  with `get`/`set`/`rm <table>/RefreshPolicy`. `set` accepts repeatable `-p`/`--set`
+  assignments. Use `refresh --table <table>` to apply the deployed policy and load
+  data, or `refresh --table <table> --policy-only` to manage partitions without
+  loading data. The policy-only mode supports `--dry-run` and effective dates.
+  See the [migration guide](docs/commands/modify.md#migration-from-incremental-refresh).
+
 - `deploy` accepts `--bpa-fail-on error|warning` (default `error`) and applies that threshold
   consistently to both BPA gate phases — the pre-deploy check and the re-check after `--fix-bpa`
   fixes. The default path previously failed on any violation (info included) while the fix path
@@ -53,6 +60,9 @@ and the API surface that major versions protect.
   longer re-report every multi-line expression as formatted.
 
 ### Fixed
+
+- Refresh scripts with `--effective-date` now explicitly include `applyRefreshPolicy`,
+  as required by the XMLA endpoint. Verified with the inline refresh-policy QA sample.
 
 - `deploy --profile` now fails with the profile name and a recovery hint when the profile is missing or has no server, before confirmation or model work (#179). Deploy and profile help now show how to create and use a profile.
 - `diff` and `deploy --dry-run` no longer report engine-derived data type differences
