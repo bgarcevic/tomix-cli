@@ -4,14 +4,15 @@ namespace Tomix.Core.Tests;
 
 public sealed class MLanguageTests
 {
-    private const string Partition = """
+    // Normalized: a CRLF checkout (Windows CI) must not change the anchors below.
+    private static readonly string Partition = """
         let
             Source = Sql.Database("srv", "db"),
             #"Changed Type" = Table.TransformColumnTypes(Source, {{"Sorting", Int64.Type}}),
             Filtered = Table.SelectRows(#"Changed Type", each [Sales Amount] > 0.5 and [#"Is Open"] <> null)
         in
             Filtered
-        """;
+        """.ReplaceLineEndings("\n");
 
     [Theory]
     [InlineData("let", MTextClassification.Keyword)]
