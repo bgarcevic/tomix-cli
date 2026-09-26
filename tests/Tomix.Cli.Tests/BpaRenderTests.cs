@@ -147,12 +147,31 @@ public class BpaRenderTests
     [Theory]
     [InlineData(null, "tx bpa run --details")]
     [InlineData(new[] { "bpa", "run", "samples/My Model.pbip", "--ruleset", "full" },
-        "tx bpa run \"samples/My Model.pbip\" --ruleset full --details")]
+        "tx bpa run 'samples/My Model.pbip' --ruleset full --details")]
     // Display, fix, and persistence flags (with their values) never leak into a hint.
     [InlineData(new[] { "bpa", "run", "m.bim", "--full", "--fix", "--save-to", "out", "-y", "--errors" },
         "tx bpa run m.bim --details")]
+    [InlineData(new[] { "bpa", "run", "m.bim", "--save-to=old.bim", "--trx=old.trx", "--fix=true" },
+        "tx bpa run m.bim --details")]
+    [InlineData(new[] { "bpa", "run", "Sales$(whoami).bim" },
+        "tx bpa run 'Sales$(whoami).bim' --details")]
     public void HintCommand_EchoesTheCommandLine(string[]? tokens, string expected)
         => Assert.Equal(expected, BpaRunView.HintCommand(tokens, "--details"));
+
+    [Fact]
+    public void HintCommand_QuotesRuleIdAddedByRenderer()
+        => Assert.Equal("tx bpa run --rule 'RULE_$X'",
+            BpaRunView.HintCommand(null, "--rule", "RULE_$X"));
+
+    [Fact]
+    public void HintCommand_EscapesApostropheForHostShell()
+    {
+        var expected = OperatingSystem.IsWindows()
+            ? "tx bpa run 'O''Brien.bim' --details"
+            : "tx bpa run 'O'\\''Brien.bim' --details";
+
+        Assert.Equal(expected, BpaRunView.HintCommand(["bpa", "run", "O'Brien.bim"], "--details"));
+    }
 
     [Theory]
     [InlineData("[Performance] Do not use X", "Performance", "Do not use X")]

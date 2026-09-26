@@ -172,19 +172,33 @@ internal static class BpaRunView
         var source = tokens ?? ["bpa", "run"];
         for (var i = 0; i < source.Count; i++)
         {
-            if (HintDroppedValueOptions.Contains(source[i]))
-                i++;
-            else if (!HintDroppedFlags.Contains(source[i]))
+            var equals = source[i].IndexOf('=');
+            var option = equals < 0 ? source[i] : source[i][..equals];
+            if (HintDroppedValueOptions.Contains(option))
+            {
+                if (equals < 0)
+                    i++;
+            }
+            else if (!HintDroppedFlags.Contains(option))
                 kept.Add(source[i]);
         }
 
-        return "tx " + string.Join(" ", kept.Select(Quote).Concat(extra));
+        return "tx " + string.Join(" ", kept.Concat(extra).Select(QuoteToken));
     }
 
-    private static string Quote(string token)
-        => token.Length == 0 || token.Any(c => char.IsWhiteSpace(c) || c is '"' or '\'' or '&' or '|' or ';' or '<' or '>' or '(' or ')' or '$' or '`')
-            ? "\"" + token.Replace("\"", "\\\"") + "\""
-            : token;
+    /// <summary>Quotes a command argument literally for the host shell used by <c>tx</c> hints.</summary>
+    internal static string QuoteToken(string token)
+    {
+        if (token.Length > 0 && token.All(c => char.IsAsciiLetterOrDigit(c)
+            || c is '_' or '-' or '.' or '/' or ':' or '='))
+            return token;
+
+        // Single quotes suppress variable and command expansion in both PowerShell and POSIX
+        // shells. Their embedded-quote escaping differs, so use the host platform's syntax.
+        return OperatingSystem.IsWindows()
+            ? "'" + token.Replace("'", "''") + "'"
+            : "'" + token.Replace("'", "'\\''") + "'";
+    }
 
     private static string Count(int n, string noun) => $"{n} {Plural(n, noun)}";
 
