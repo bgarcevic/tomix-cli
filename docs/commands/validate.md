@@ -87,6 +87,14 @@ the prompt in scripts.
 | `bpa rules enable` / `bpa rules disable` | Turn a built-in rule back on, or off, for this user. |
 | `bpa rules ignore` / `bpa rules unignore` | Add or remove a rule on the model's ignore list. |
 
+`disable` and `ignore` check the rule ID first, so a typo can't silently turn off
+nothing. The ID must belong to the bundled catalog (every ruleset), your config-dir
+`bpa-rules.json`, or, for `ignore`, the model's embedded or local external rules. An
+unknown ID fails with `TOMIX_BPA_RULE_NOT_FOUND` and suggests close matches. If a rule
+source can't be read (for example, a remote rule file, which is never fetched here), the
+check is skipped. Pass `--allow-unknown` to use an ID anyway. `enable` and `unignore`
+accept any ID, so you can always clean up an entry for a rule that no longer exists.
+
 `bpa rules --rules-file <file>` points the subcommands at a BPA rules JSON
 file. `bpa rules list` narrows what is listed:
 

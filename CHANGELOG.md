@@ -16,6 +16,11 @@ and the API surface that major versions protect.
   link, source, status, scope, expression, and fix expression (`--output-format json`
   supported). An unknown ID fails with `TOMIX_BPA_RULE_NOT_FOUND` and suggests IDs that
   contain what you typed.
+- `bpa rules disable` and `bpa rules ignore` reject a rule ID that no known rule has,
+  so a typo no longer silently disables nothing. The check covers the bundled catalog,
+  the config-dir `bpa-rules.json`, and (for `ignore`) the model's own rules. It is
+  skipped when a rule source can't be read, and `--allow-unknown` bypasses it. `enable`
+  and `unignore` still accept any ID.
 - Power Query (M) expressions are syntax-highlighted in text output, like DAX: `get`
   properties, `ls` partition and shared-expression cells, and `format --lang m` output.
   Keywords, library functions, step and field definitions, field access, literals, and

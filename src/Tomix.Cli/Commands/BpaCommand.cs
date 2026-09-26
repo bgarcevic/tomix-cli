@@ -452,8 +452,11 @@ internal sealed class BpaCommand : ICommandModule
     private Command BuildRulesFlagCommand(string name, string description)
     {
         var ruleIdArgument = new Argument<string>("rule-id") { Description = "Rule ID" };
-        var command = new Command(name, description) { ruleIdArgument };
         var disable = name.Equals("disable", StringComparison.OrdinalIgnoreCase);
+        var allowUnknownOption = AllowUnknownOption();
+        var command = new Command(name, description) { ruleIdArgument };
+        if (disable)
+            command.Options.Add(allowUnknownOption);
 
         command.SetAction(parseResult =>
         {
@@ -461,8 +464,11 @@ internal sealed class BpaCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(parseResult, format, $"bpa rules {name}", OutputFormats.Text, OutputFormats.Json))
                 return 2;
 
-            var result = new BpaRulesDisableHandler(_bpaRules).Handle(
-                new BpaRulesDisableRequest(parseResult.GetValue(ruleIdArgument)!, Disable: disable));
+            var result = new BpaRulesDisableHandler(_bpaRules, _configDirectory).Handle(
+                new BpaRulesDisableRequest(
+                    parseResult.GetValue(ruleIdArgument)!,
+                    Disable: disable,
+                    AllowUnknown: disable && parseResult.GetValue(allowUnknownOption)));
 
             return CommandOutput.Render(parseResult, result, format, BpaRulesRenderer.RenderDisable, BpaRulesRenderer.ToDisableJson);
         });
@@ -482,6 +488,7 @@ internal sealed class BpaCommand : ICommandModule
         var revertOption = LifecycleOptions.Revert();
         var noSyncOption = LifecycleOptions.NoSync();
         var forceOption = LifecycleOptions.Force();
+        var allowUnknownOption = AllowUnknownOption();
 
         var command = new Command(name, description)
         {
@@ -496,6 +503,8 @@ internal sealed class BpaCommand : ICommandModule
             noSyncOption,
             forceOption
         };
+        if (ignore)
+            command.Options.Add(allowUnknownOption);
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
@@ -511,7 +520,7 @@ internal sealed class BpaCommand : ICommandModule
                     out var recentExit))
                 return recentExit;
 
-            var result = await new BpaRulesIgnoreHandler(_providers, _mutations).HandleAsync(
+            var result = await new BpaRulesIgnoreHandler(_providers, _mutations, _configDirectory).HandleAsync(
                 new BpaRulesIgnoreRequest(
                     model,
                     parseResult.GetValue(ruleIdArgument)!,
@@ -523,7 +532,8 @@ internal sealed class BpaCommand : ICommandModule
                     Stage: parseResult.GetValue(stageOption),
                     Revert: parseResult.GetValue(revertOption),
                     NoSync: parseResult.GetValue(noSyncOption),
-                    Force: parseResult.GetValue(forceOption)),
+                    Force: parseResult.GetValue(forceOption),
+                    AllowUnknown: ignore && parseResult.GetValue(allowUnknownOption)),
                 cancellationToken);
 
             return CommandOutput.Render(parseResult, result, format, BpaRulesRenderer.RenderIgnore, BpaRulesRenderer.ToIgnoreJson);
@@ -531,6 +541,12 @@ internal sealed class BpaCommand : ICommandModule
 
         return command;
     }
+
+    private static Option<bool> AllowUnknownOption()
+        => new(BpaKnownRules.AllowUnknownOption)
+        {
+            Description = "Accept a rule ID that no loaded rule has (for example, one from a remote rule file)"
+        };
 
     private static Argument<string?> OptionalModelArgument()
         => new("model")

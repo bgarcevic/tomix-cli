@@ -81,6 +81,7 @@ Manage BPA rule collections
 # tx bpa rules disable
 Turn off a built-in rule for this user
   arg <rule-id>  Rule ID
+  opt --allow-unknown  Accept a rule ID that no loaded rule has (for example, one from a remote rule file)
 
 # tx bpa rules enable
 Turn a disabled built-in rule back on
@@ -98,6 +99,7 @@ Put a rule on the model's ignore list
   opt --revert  Revert a staged mutation
   opt --no-sync  Skip workspace sync when workspace mode is active.
   opt --force, -f  Save despite newly introduced validation errors
+  opt --allow-unknown  Accept a rule ID that no loaded rule has (for example, one from a remote rule file)
 
 # tx bpa rules list
 List rules from every source, with each rule's status
