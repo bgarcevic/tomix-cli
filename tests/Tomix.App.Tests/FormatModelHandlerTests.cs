@@ -192,11 +192,12 @@ public sealed class FormatModelHandlerTests
     }
 
     [Fact]
-    public async Task HandleAsync_WholeModelSweepFailure_CarriesErrorDetailAndExitsZero()
+    public async Task HandleAsync_WholeModelSweepFailure_CarriesErrorDetailAndExitsOne()
     {
         // Issue #200: sweep failures reported only "Failed: N" and dropped the formatter's error
         // text, so users had to re-run inline to learn why. The detail now rides on each failed
-        // row; the sweep still succeeds with exit 0 by design.
+        // row. A failure applies nothing, so the run exits 1 with TOMIX_FORMAT_FAILED; exit 0 let
+        // CI pass over a broken expression.
         var handler = new FormatModelHandler(
             [new StubProvider(new StubSession(Snapshot()))],
             new FailingFormatter(["Formatter service returned HTTP 415: unsupported media type"]),
@@ -214,8 +215,12 @@ public sealed class FormatModelHandlerTests
                 SaveTo: null),
             CancellationToken.None);
 
-        Assert.True(result.Success);
-        Assert.Equal(0, result.ExitCode);
+        Assert.True(result.Success); // The rows still render: they say where each expression breaks.
+        Assert.Equal(1, result.ExitCode);
+        var diagnostic = Assert.Single(result.Diagnostics);
+        Assert.Equal("TOMIX_FORMAT_FAILED", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+        Assert.Equal("No changes applied: 1 of 1 expressions failed to format.", diagnostic.Message);
         var model = Assert.IsType<ModelFormatResult>(result.Data);
         Assert.Equal(1, model.Failed);
         var row = Assert.Single(model.Results);

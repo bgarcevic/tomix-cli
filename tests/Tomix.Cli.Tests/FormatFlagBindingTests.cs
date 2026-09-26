@@ -63,9 +63,10 @@ public sealed partial class FormatFlagBindingTests
             BuildFailingRoot().Parse(["format", "-m", SampleTmdl, "--dry-run"]),
             captureAnsiConsole: true);
 
-        Assert.Equal(0, captured.ExitCode);
+        Assert.Equal(1, captured.ExitCode);
         Assert.Contains("Failed: 4", StripAnsi(captured.Stdout));
         var stderr = StripAnsi(captured.Stderr);
+        Assert.Contains("No changes applied: 4 of 4 expressions failed to format.", stderr);
         Assert.Contains("HTTP 415", stderr);
         Assert.Contains("(+3 more)", stderr);
         Assert.Equal(1, stderr.Split("HTTP 415").Length - 1);
@@ -78,8 +79,10 @@ public sealed partial class FormatFlagBindingTests
             BuildFailingRoot().Parse(["format", "-m", SampleTmdl, "--dry-run", "--output-format", "json"]),
             captureAnsiConsole: true);
 
-        Assert.Equal(0, captured.ExitCode);
+        Assert.Equal(1, captured.ExitCode);
         using var document = JsonDocument.Parse(captured.Stdout);
+        var diagnostic = Assert.Single(document.RootElement.GetProperty("diagnostics").EnumerateArray());
+        Assert.Equal("TOMIX_FORMAT_FAILED", diagnostic.GetProperty("code").GetString());
         var failed = document.RootElement
             .GetProperty("data")
             .GetProperty("results")

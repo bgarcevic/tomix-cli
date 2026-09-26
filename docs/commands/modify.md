@@ -433,6 +433,11 @@ when the failure is a syntax error:
 }
 ```
 
+If any object fails, nothing is applied, saved, or staged: the run exits 1 with
+`TOMIX_FORMAT_FAILED` (`No changes applied: N of M expressions failed to format.`), and the
+text summary shows `Formatted: N (not applied)`. The result rows are still written, so the
+counts show what would change once the failures are fixed.
+
 Formatted DAX and M are syntax-highlighted in text output, for both inline `-e`
 and `--path`; piping or redirecting strips the color, so the output stays safe to
 copy back into a model.

@@ -205,7 +205,9 @@ internal sealed class FormatCommand : ICommandModule
                 break;
 
             case ModelFormatResult model:
-                AnsiConsole.MarkupLine(Styling.Success($"Formatted: {model.Formatted}"));
+                // A failure applies nothing, so the formatted count is only what would have changed.
+                var notApplied = model.Failed > 0 && model.Formatted > 0 ? " (not applied)" : "";
+                AnsiConsole.MarkupLine(Styling.Success($"Formatted: {model.Formatted}{notApplied}"));
                 AnsiConsole.MarkupLine(Styling.Warning($"Unchanged: {model.Unchanged}"));
                 AnsiConsole.MarkupLine(Styling.Error($"Failed: {model.Failed}"));
                 WriteFailureDetails(model.Results);
@@ -216,7 +218,7 @@ internal sealed class FormatCommand : ICommandModule
                     AnsiConsole.MarkupLine(Styling.Success("Mutation staged."));
                 else if (model.DryRun)
                     StdErr.MarkupLine(Styling.Guidance("Dry run: nothing was saved."));
-                else if (model.Formatted > 0)
+                else if (model.Formatted > 0 && model.Failed == 0)
                     AnsiConsole.MarkupLine(Styling.Muted("Not saved — re-run with --save to persist or --stage to stage."));
 
                 MutationOutput.RenderSync(model.Outcome);

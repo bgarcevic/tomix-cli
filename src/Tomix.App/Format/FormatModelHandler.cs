@@ -79,7 +79,7 @@ public sealed class FormatModelHandler
                 cancellationToken);
         }
 
-        return await MutationRunner.RunAsync(
+        var sweep = await MutationRunner.RunAsync(
             _providers, request.Model, options, "format", _stores,
             async (mutator, session, _) =>
             {
@@ -141,6 +141,12 @@ public sealed class FormatModelHandler
             },
             outcome => (IFormatModelResult)new ModelFormatResult(0, 0, 0, 0, []) { Outcome = outcome },
             cancellationToken);
+
+        // One failure applies nothing, so the run failed: keep the rows (they say where each
+        // expression breaks) but exit 1 so CI does not pass over a broken expression.
+        return sweep.Data is ModelFormatResult { Failed: > 0 } model
+            ? FormatFailure.NothingApplied(sweep, model.Failed, model.Total)
+            : sweep;
     }
 
     private async Task<TomixResult<IFormatModelResult>> FormatInlineAsync(

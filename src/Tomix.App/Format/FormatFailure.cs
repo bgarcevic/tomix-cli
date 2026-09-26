@@ -53,6 +53,25 @@ internal static class FormatFailure
             : "the formatter reported a failure";
 
     /// <summary>
+    /// A whole-model run where some expressions failed: nothing is applied, saved or staged. The
+    /// result keeps its rows, adds a <c>TOMIX_FORMAT_FAILED</c> error and exits 1.
+    /// </summary>
+    public static TomixResult<T> NothingApplied<T>(TomixResult<T> result, int failed, int total)
+        => result with
+        {
+            ExitCode = 1,
+            Diagnostics =
+            [
+                .. result.Diagnostics,
+                new TomixDiagnostic(
+                    Code,
+                    DiagnosticSeverity.Error,
+                    $"No changes applied: {failed} of {total} expressions failed to format.",
+                    Hint: "Fix the failed expressions and re-run; nothing is saved or staged until every expression formats.")
+            ]
+        };
+
+    /// <summary>
     /// A <c>TOMIX_FORMAT_FAILED</c> result. The diagnostic's line and column are the first syntax
     /// error's, and every syntax error rides along so machine output can point at all of them.
     /// </summary>

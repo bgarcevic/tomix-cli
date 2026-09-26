@@ -88,6 +88,18 @@ public sealed partial class FormatRenderTests
         Assert.Contains("let Source = 1 in Source", StripAnsi(output));
     }
 
+    [Theory]
+    [InlineData(1, "Formatted: 2 (not applied)", false)]
+    [InlineData(0, "Formatted: 2", true)]
+    public void WholeModel_FailureMarksFormattedCountNotApplied(int failed, string summary, bool saveHint)
+    {
+        // One failure applies nothing, so "Formatted: 2" alone would claim changes that were not made.
+        var output = StripAnsi(Render(new ModelFormatResult(2 + failed, 2, 0, failed, [])));
+
+        Assert.Contains(summary, output.Split('\n').Select(line => line.TrimEnd()));
+        Assert.Equal(saveHint, output.Contains("re-run with --save"));
+    }
+
     private static string Render(IFormatModelResult result)
         => ConsoleCapture.Run(
             () =>
