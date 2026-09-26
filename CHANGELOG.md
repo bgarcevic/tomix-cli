@@ -70,6 +70,11 @@ and the API surface that major versions protect.
   than guessed. `rm` now blocks removing a UDF or calendar that DAX still references, and
   removing a table checks references to its calendars. `deps` now shows UDF call edges,
   and `validate` no longer reports a quoted calendar reference as a missing table.
+- Text-mode banners and hints go to stderr, so `tx validate > file` (and `bpa run`,
+  `refresh`, `test`, `script`, `deploy`) captures only the result. Moved: the
+  "Validating:", "BPA analysis ·", "Refreshed … on …", and "DAX tests ·" banners; "Try"
+  and "Run …" hints; mutation "Dry run", "Not saved yet", and "Staged" notices; and
+  workspace sync warnings. Result lines, tables, and counts stay on stdout (#255).
 - Refresh scripts with `--effective-date` now explicitly include `applyRefreshPolicy`,
   as required by the XMLA endpoint. Verified with the inline refresh-policy QA sample.
 
