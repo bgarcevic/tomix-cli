@@ -38,12 +38,13 @@ When you rename an object (`mv`, or `set` on `Name`), `tx` rewrites DAX
 expressions that reference the old name automatically. That covers tables,
 measures, columns, user-defined functions (call sites such as `AddTax(...)`),
 and calendars (`'Fiscal'`), wherever the reference lives, including UDF bodies.
-References that cannot be rewritten produce a warning listing the objects left
-broken. These are role RLS filter expressions, and `'Name'` references when a
-table and a calendar share the renamed name (`'Name'` could mean either).
+References that cannot be rewritten safely produce a warning listing the objects
+to check. These are role RLS filter expressions, and `'Name'` references when a
+table and a calendar share the renamed name (`'Name'` could mean either, so it
+may still resolve to the other object).
 
 - `--strict-refs` — fail instead of warning when a rename leaves references
-  broken.
+  that were not rewritten.
 - `--no-fix-refs` — don't rewrite anything; warn about every stale reference.
 
 ## Removals are guarded

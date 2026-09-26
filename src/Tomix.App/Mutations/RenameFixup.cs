@@ -159,8 +159,8 @@ internal static class RenameFixup
            + "Update them with 'tx replace' or inspect with 'tx deps'.";
 
     public static string UnfixableWarning(IReadOnlyList<string> references)
-        => $"Rename breaks {references.Count} DAX reference(s) that cannot be rewritten automatically: "
-           + $"{string.Join(", ", references)}. Update them manually with 'tx replace'.";
+        => $"Rename leaves {references.Count} DAX reference(s) that cannot be rewritten safely: "
+           + $"{string.Join(", ", references)}. Check them with 'tx deps' and update them with 'tx replace'.";
 
     /// <summary>
     /// Rebuilds one expression with every reference to <paramref name="target"/> replaced by its
