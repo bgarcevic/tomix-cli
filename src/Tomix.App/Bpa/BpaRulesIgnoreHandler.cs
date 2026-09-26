@@ -18,7 +18,8 @@ public sealed record BpaRulesIgnoreRequest(
     bool Revert = false,
     bool NoSync = false,
     bool Force = false,
-    bool AllowUnknown = false);
+    bool AllowUnknown = false,
+    string? RulesFile = null);
 
 public sealed record BpaRulesIgnoreResult(
     string RuleId,
@@ -69,7 +70,7 @@ public sealed class BpaRulesIgnoreHandler
                 // Only ignoring is checked: unignoring must stay possible for an ID that no longer exists.
                 if (request.Ignore && !request.AllowUnknown)
                 {
-                    var known = await BpaKnownRules.Load(_configDirectory).WithModelRulesAsync(
+                    var known = await BpaKnownRules.Load(_configDirectory, request.RulesFile).WithModelRulesAsync(
                         snapshot.Properties,
                         BpaModelRuleLoader.ResolveBaseDirectory(session, request.Model),
                         cancellationToken).ConfigureAwait(false);

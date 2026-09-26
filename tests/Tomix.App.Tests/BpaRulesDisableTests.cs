@@ -77,6 +77,21 @@ public sealed class BpaRulesDisableTests
     }
 
     [Fact]
+    public void Handler_DisableRuleFromSelectedRulesFile_IsKnown()
+    {
+        using var dir = new TempDir();
+        var rulesFile = dir.WriteFile("selected.json",
+            "[{\"ID\":\"SELECTED_RULE\",\"Name\":\"m\",\"Category\":\"c\",\"Severity\":2,\"Scope\":\"Table\",\"Expression\":\"true\"}]");
+        var handler = new BpaRulesDisableHandler(new BpaUserRuleState(dir.Path), dir.Path);
+
+        var result = handler.Handle(new BpaRulesDisableRequest(
+            "SELECTED_RULE", Disable: true, RulesFile: rulesFile));
+
+        Assert.True(result.Success);
+        Assert.Contains("SELECTED_RULE", result.Data!.DisabledRuleIds);
+    }
+
+    [Fact]
     public void Handler_AllowUnknownAndEnable_SkipTheCheck()
     {
         using var dir = new TempDir();

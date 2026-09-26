@@ -18,7 +18,9 @@ internal static class BpaRulesRenderer
     /// over a muted metadata line (ID · severity · source · status · fixable) that never splits
     /// the ID. Source is shown only when the listing mixes sources.
     /// </summary>
-    public static void RenderList(BpaRulesListResult result)
+    public static void RenderList(BpaRulesListResult result) => RenderList(result, null);
+
+    public static void RenderList(BpaRulesListResult result, BpaRulesListRequest? request)
     {
         if (result.Rules.Count == 0)
         {
@@ -63,7 +65,30 @@ internal static class BpaRulesRenderer
         RenderListDiagnostics(result);
 
         BpaRunRenderer.HintConsole().MarkupLine(
-            Styling.Guidance("Show a rule:") + "  " + Styling.Option($"tx bpa rules show {result.Rules[0].Id}"));
+            Styling.Guidance("Show a rule:") + "  " + Styling.Option(ShowHint(result.Rules[0].Id, request)));
+    }
+
+    /// <summary>Shows the selected rule with the same model and rule sources as the listing.</summary>
+    internal static string ShowHint(string ruleId, BpaRulesListRequest? request)
+    {
+        var args = new List<string> { "bpa", "rules" };
+        if (!string.IsNullOrWhiteSpace(request?.RulesFile))
+            args.AddRange(["--rules-file", request.RulesFile]);
+
+        args.AddRange(["show", ruleId]);
+        if (request?.Model is { Value: { Length: > 0 } model })
+        {
+            args.Add(model);
+            if (!string.IsNullOrWhiteSpace(request.Model.Database))
+                args.AddRange(["--database", request.Model.Database]);
+        }
+
+        if (!string.IsNullOrWhiteSpace(request?.Ruleset))
+            args.AddRange(["--ruleset", request.Ruleset]);
+        if (request?.NoDefaults == true)
+            args.Add("--no-defaults");
+
+        return "tx " + string.Join(" ", args.Select(BpaRunView.QuoteToken));
     }
 
     /// <summary>

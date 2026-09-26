@@ -2,7 +2,8 @@ using Tomix.Core.Results;
 
 namespace Tomix.App.Bpa;
 
-public sealed record BpaRulesDisableRequest(string RuleId, bool Disable, bool AllowUnknown = false);
+public sealed record BpaRulesDisableRequest(
+    string RuleId, bool Disable, bool AllowUnknown = false, string? RulesFile = null);
 
 public sealed record BpaRulesDisableResult(
     string RuleId,
@@ -34,7 +35,7 @@ public sealed class BpaRulesDisableHandler
 
         // Only disabling is checked: enabling must stay possible for an ID that no longer exists.
         if (request.Disable && !request.AllowUnknown
-            && BpaKnownRules.Load(_configDirectory).Check<BpaRulesDisableResult>(request.RuleId) is { } unknown)
+            && BpaKnownRules.Load(_configDirectory, request.RulesFile).Check<BpaRulesDisableResult>(request.RuleId) is { } unknown)
             return unknown;
 
         var changed = request.Disable ? _state.Disable(request.RuleId) : _state.Enable(request.RuleId);

@@ -133,6 +133,25 @@ public sealed class BpaRulesIgnoreHandlerTests
     }
 
     [Fact]
+    public async Task Ignore_RuleFromSelectedRulesFile_IsKnown()
+    {
+        using var dir = new TempDir();
+        var rulesFile = dir.WriteFile("selected.json",
+            "[{\"ID\":\"SELECTED_RULE\",\"Name\":\"m\",\"Category\":\"c\",\"Severity\":2,\"Scope\":\"Table\",\"Expression\":\"true\"}]");
+        var session = new CapturingSession(modelAnnotations: null);
+        var handler = new BpaRulesIgnoreHandler([new Provider(session)], TestStores, dir.Path);
+
+        var result = await handler.HandleAsync(
+            new BpaRulesIgnoreRequest(new ModelReference("any"), "SELECTED_RULE",
+                Ignore: true, Save: true, RulesFile: rulesFile),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Contains("SELECTED_RULE", result.Data!.RuleIds);
+        Assert.Single(session.SetRequests);
+    }
+
+    [Fact]
     public async Task Unignore_UnknownRule_IsNotChecked()
     {
         var session = new CapturingSession(new Dictionary<string, string>

@@ -345,31 +345,31 @@ internal sealed class BpaCommand : ICommandModule
             if (!TryResolveOptionalModel(parseResult, parseResult.GetValue(modelArgument), out var model, out var modelExit))
                 return modelExit;
 
+            var request = new BpaRulesListRequest(
+                Model: model,
+                All: parseResult.GetValue(allOption),
+                RulesFile: parseResult.GetValue(rulesFileOption),
+                Ruleset: parseResult.GetValue(rulesetOption),
+                NoDefaults: parseResult.GetValue(noDefaultsOption),
+                IgnoredOnly: parseResult.GetValue(ignoredOption),
+                DisabledOnly: parseResult.GetValue(disabledOption));
             var result = await new BpaRulesListHandler(_providers, _bpaRules, _httpClient).HandleAsync(
-                new BpaRulesListRequest(
-                    Model: model,
-                    All: parseResult.GetValue(allOption),
-                    RulesFile: parseResult.GetValue(rulesFileOption),
-                    Ruleset: parseResult.GetValue(rulesetOption),
-                    NoDefaults: parseResult.GetValue(noDefaultsOption),
-                    IgnoredOnly: parseResult.GetValue(ignoredOption),
-                    DisabledOnly: parseResult.GetValue(disabledOption)),
-                cancellationToken);
+                request, cancellationToken);
 
             return CommandOutput.Render(
                 parseResult,
                 result,
                 format,
-                BpaRulesRenderer.RenderList,
+                value => BpaRulesRenderer.RenderList(value, request),
                 BpaRulesRenderer.ToListJson);
         });
 
-        rulesCommand.Subcommands.Add(BuildRulesFlagCommand("disable", "Turn off a built-in rule for this user"));
-        rulesCommand.Subcommands.Add(BuildRulesFlagCommand("enable", "Turn a disabled built-in rule back on"));
-        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("ignore", "Put a rule on the model's ignore list", ignore: true));
+        rulesCommand.Subcommands.Add(BuildRulesFlagCommand("disable", "Turn off a built-in rule for this user", rulesFileOption));
+        rulesCommand.Subcommands.Add(BuildRulesFlagCommand("enable", "Turn a disabled built-in rule back on", rulesFileOption));
+        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("ignore", "Put a rule on the model's ignore list", ignore: true, rulesFileOption));
         rulesCommand.Subcommands.Add(listCommand);
         rulesCommand.Subcommands.Add(BuildRulesShowCommand(rulesFileOption));
-        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("unignore", "Take a rule off the model's ignore list", ignore: false));
+        rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("unignore", "Take a rule off the model's ignore list", ignore: false, rulesFileOption));
         return rulesCommand;
     }
 
@@ -449,7 +449,7 @@ internal sealed class BpaCommand : ICommandModule
         return true;
     }
 
-    private Command BuildRulesFlagCommand(string name, string description)
+    private Command BuildRulesFlagCommand(string name, string description, Option<string?> rulesFileOption)
     {
         var ruleIdArgument = new Argument<string>("rule-id") { Description = "Rule ID" };
         var disable = name.Equals("disable", StringComparison.OrdinalIgnoreCase);
@@ -468,7 +468,8 @@ internal sealed class BpaCommand : ICommandModule
                 new BpaRulesDisableRequest(
                     parseResult.GetValue(ruleIdArgument)!,
                     Disable: disable,
-                    AllowUnknown: disable && parseResult.GetValue(allowUnknownOption)));
+                    AllowUnknown: disable && parseResult.GetValue(allowUnknownOption),
+                    RulesFile: parseResult.GetValue(rulesFileOption)));
 
             return CommandOutput.Render(parseResult, result, format, BpaRulesRenderer.RenderDisable, BpaRulesRenderer.ToDisableJson);
         });
@@ -476,7 +477,7 @@ internal sealed class BpaCommand : ICommandModule
         return command;
     }
 
-    private Command BuildRulesIgnoreCommand(string name, string description, bool ignore)
+    private Command BuildRulesIgnoreCommand(string name, string description, bool ignore, Option<string?> rulesFileOption)
     {
         var ruleIdArgument = new Argument<string>("rule-id") { Description = "Rule ID" };
         var modelArgument = OptionalModelArgument();
@@ -533,7 +534,8 @@ internal sealed class BpaCommand : ICommandModule
                     Revert: parseResult.GetValue(revertOption),
                     NoSync: parseResult.GetValue(noSyncOption),
                     Force: parseResult.GetValue(forceOption),
-                    AllowUnknown: ignore && parseResult.GetValue(allowUnknownOption)),
+                    AllowUnknown: ignore && parseResult.GetValue(allowUnknownOption),
+                    RulesFile: parseResult.GetValue(rulesFileOption)),
                 cancellationToken);
 
             return CommandOutput.Render(parseResult, result, format, BpaRulesRenderer.RenderIgnore, BpaRulesRenderer.ToIgnoreJson);

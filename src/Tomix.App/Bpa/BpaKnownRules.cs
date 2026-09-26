@@ -4,8 +4,8 @@ namespace Tomix.App.Bpa;
 
 /// <summary>
 /// The rule IDs a <c>bpa rules disable</c>/<c>ignore</c> target can name: the whole bundled catalog,
-/// the user's config-dir <c>bpa-rules.json</c>, and, with a model, its embedded and local external
-/// rules. Guards against a typo silently disabling or ignoring nothing.
+/// the user's config-dir <c>bpa-rules.json</c>, the selected rules file, and, with a model,
+/// its embedded and local external rules. Guards against a typo silently disabling or ignoring nothing.
 /// </summary>
 public sealed class BpaKnownRules
 {
@@ -25,8 +25,8 @@ public sealed class BpaKnownRules
     /// </summary>
     public bool Complete { get; }
 
-    /// <summary>The bundled catalog plus the user's config-dir rules, when present and readable.</summary>
-    public static BpaKnownRules Load(string? configDirectory)
+    /// <summary>The bundled catalog plus the user's config-dir and selected rules files.</summary>
+    public static BpaKnownRules Load(string? configDirectory, string? rulesFile = null)
     {
         var ids = new HashSet<string>(
             BpaRuleLoader.LoadBundledCatalog().Select(r => r.Id), StringComparer.OrdinalIgnoreCase);
@@ -36,18 +36,31 @@ public sealed class BpaKnownRules
             ? null
             : Path.Combine(configDirectory, "bpa-rules.json");
         if (userRulesPath is not null && File.Exists(userRulesPath))
-        {
-            try
-            {
-                ids.UnionWith(BpaRuleLoader.LoadFromFile(userRulesPath).Select(r => r.Id));
-            }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Text.Json.JsonException)
-            {
-                complete = false;
-            }
-        }
+            complete &= AddFileRules(userRulesPath, ids);
+
+        // An explicit file may be missing or remote. Keep validation permissive when its IDs
+        // cannot be checked; remote files are not fetched just to validate a mutation.
+        if (!string.IsNullOrWhiteSpace(rulesFile))
+            complete &= AddFileRules(rulesFile, ids);
 
         return new BpaKnownRules(ids, complete);
+    }
+
+    private static bool AddFileRules(string path, HashSet<string> ids)
+    {
+        try
+        {
+            if (!File.Exists(path))
+                return false;
+
+            ids.UnionWith(BpaRuleLoader.LoadFromFile(path).Select(r => r.Id));
+            return true;
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException
+            or System.Text.Json.JsonException or ArgumentException or NotSupportedException)
+        {
+            return false;
+        }
     }
 
     /// <summary>Adds the model's embedded and local external rules. Remote files are never fetched.</summary>
