@@ -108,6 +108,13 @@ List rules from every source, with each rule's status
   opt --disabled  List only rules disabled for this user
   opt --all  Include disabled and ignored rules in the listing
 
+# tx bpa rules show
+Show a rule's description, scope, expression, and fix
+  arg <rule-id>  Rule ID
+  arg [model]  Path to model
+  opt --ruleset <ruleset>  Standard BPA ruleset to look in (standard, full, microsoft, microsoft-it, microsoft-ja, microsoft-es)
+  opt --no-defaults  Leave the built-in ruleset out of the lookup
+
 # tx bpa rules unignore
 Take a rule off the model's ignore list
   arg <rule-id>  Rule ID

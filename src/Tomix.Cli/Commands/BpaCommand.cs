@@ -342,21 +342,8 @@ internal sealed class BpaCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(parseResult, format, "bpa rules list", OutputFormats.Text, OutputFormats.Json))
                 return 2;
 
-            var modelPath = GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument);
-            ModelReference? model = null;
-            if (GlobalOptions.RecentSpecified(parseResult))
-            {
-                if (!RecentConnections.TryGetSource(parseResult, modelPath, _state, out var source, out var recentExit))
-                    return recentExit;
-                model = RecentConnections.CreateResolver(source, _state).ResolveReference(source.Model, source.Database, source.Server);
-            }
-            else if (!string.IsNullOrWhiteSpace(modelPath))
-            {
-                model = new ActiveModelResolver(_state).ResolveReference(
-                    modelPath,
-                    parseResult.GetValue(GlobalOptions.Database),
-                    parseResult.GetValue(GlobalOptions.Server));
-            }
+            if (!TryResolveOptionalModel(parseResult, parseResult.GetValue(modelArgument), out var model, out var modelExit))
+                return modelExit;
 
             var result = await new BpaRulesListHandler(_providers, _bpaRules, _httpClient).HandleAsync(
                 new BpaRulesListRequest(
@@ -381,8 +368,85 @@ internal sealed class BpaCommand : ICommandModule
         rulesCommand.Subcommands.Add(BuildRulesFlagCommand("enable", "Turn a disabled built-in rule back on"));
         rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("ignore", "Put a rule on the model's ignore list", ignore: true));
         rulesCommand.Subcommands.Add(listCommand);
+        rulesCommand.Subcommands.Add(BuildRulesShowCommand(rulesFileOption));
         rulesCommand.Subcommands.Add(BuildRulesIgnoreCommand("unignore", "Take a rule off the model's ignore list", ignore: false));
         return rulesCommand;
+    }
+
+    private Command BuildRulesShowCommand(Option<string?> rulesFileOption)
+    {
+        var ruleIdArgument = new Argument<string>("rule-id") { Description = "Rule ID" };
+        var modelArgument = OptionalModelArgument();
+        var rulesetOption = new Option<string?>("--ruleset")
+        {
+            Description = $"Standard BPA ruleset to look in ({string.Join(", ", BpaRuleLoader.KnownRulesets)})"
+        };
+        var noDefaultsOption = new Option<bool>("--no-defaults")
+        {
+            Description = "Leave the built-in ruleset out of the lookup"
+        };
+
+        var command = new Command("show", "Show a rule's description, scope, expression, and fix")
+        {
+            ruleIdArgument,
+            modelArgument,
+            rulesetOption,
+            noDefaultsOption
+        };
+
+        command.SetAction(async (parseResult, cancellationToken) =>
+        {
+            var format = GlobalOptions.OutputFormatValue(parseResult);
+            if (!CommandOutput.TryValidateFormat(parseResult, format, "bpa rules show", OutputFormats.Text, OutputFormats.Json))
+                return 2;
+
+            if (!TryResolveOptionalModel(parseResult, parseResult.GetValue(modelArgument), out var model, out var modelExit))
+                return modelExit;
+
+            var result = await new BpaRulesListHandler(_providers, _bpaRules, _httpClient).HandleAsync(
+                new BpaRulesListRequest(
+                    Model: model,
+                    RulesFile: parseResult.GetValue(rulesFileOption),
+                    Ruleset: parseResult.GetValue(rulesetOption),
+                    NoDefaults: parseResult.GetValue(noDefaultsOption),
+                    RuleId: parseResult.GetValue(ruleIdArgument)),
+                cancellationToken);
+
+            return CommandOutput.Render(
+                parseResult,
+                result,
+                format,
+                BpaRulesRenderer.RenderShow,
+                BpaRulesRenderer.ToListJson);
+        });
+
+        return command;
+    }
+
+    /// <summary>
+    /// The model for the read-only <c>bpa rules</c> commands: optional, so without one they
+    /// list the rulesets alone; with <c>--recent</c> it comes from the recent list.
+    /// </summary>
+    private bool TryResolveOptionalModel(ParseResult parseResult, string? modelArgument, out ModelReference? model, out int exitCode)
+    {
+        model = null;
+        exitCode = 0;
+        var modelPath = GlobalOptions.ModelValue(parseResult) ?? modelArgument;
+        if (GlobalOptions.RecentSpecified(parseResult))
+        {
+            if (!RecentConnections.TryGetSource(parseResult, modelPath, _state, out var source, out exitCode))
+                return false;
+            model = RecentConnections.CreateResolver(source, _state).ResolveReference(source.Model, source.Database, source.Server);
+        }
+        else if (!string.IsNullOrWhiteSpace(modelPath))
+        {
+            model = new ActiveModelResolver(_state).ResolveReference(
+                modelPath,
+                parseResult.GetValue(GlobalOptions.Database),
+                parseResult.GetValue(GlobalOptions.Server));
+        }
+
+        return true;
     }
 
     private Command BuildRulesFlagCommand(string name, string description)
