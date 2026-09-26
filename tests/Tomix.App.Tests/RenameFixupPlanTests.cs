@@ -271,6 +271,26 @@ public sealed class RenameFixupPlanTests
         Assert.Equal(["Sales/YTD"], plan.UnfixablePaths);
     }
 
+    [Fact]
+    public async Task TableSharingACalendarName_ReportsTableShapedSites_FixesQualifiedOnes()
+    {
+        // Renaming the table: 'Fiscal' alone could mean the calendar, but 'Fiscal'[Day] is the table.
+        var plan = await Plan(
+            [
+                Table("Fiscal"),
+                Table("Sales"),
+                Column("Day", "Fiscal/Day"),
+                Calendar("Fiscal", "Sales/Fiscal"),
+                Measure("YTD", "Sales/YTD", "TOTALYTD([Base], 'Fiscal')"),
+                Measure("Days", "Sales/Days", "COUNT('Fiscal'[Day])"),
+            ],
+            "Fiscal", "Fiscal Table");
+
+        Assert.Equal(["Sales/YTD"], plan.UnfixablePaths);
+        var edit = Assert.Single(plan.Edits);
+        Assert.Equal("COUNT('Fiscal Table'[Day])", edit.Value);
+    }
+
     private static async Task<RenameFixupPlan> Plan(
         IReadOnlyList<ModelObject> objects, string path, string newName, string? newTable = null)
         => await RenameFixup.PlanAsync(

@@ -122,16 +122,20 @@ internal static class RenameFixup
 
         var graph = DependencyGraph.FromSnapshot(snapshot);
 
-        // 'Fiscal' is written the same for a table and a calendar, so when both exist a rewrite
-        // could break the table use — report those sites instead of guessing.
-        var ambiguous = target.Kind == ModelObjectKind.Calendar && graph.HasTable(target.Name);
+        // 'Fiscal' is written the same for a table and a calendar, so when both share the renamed
+        // name a table-shaped reference could mean either — whichever of the two is renamed,
+        // report those sites instead of guessing. 'Fiscal'[Col] is unambiguously the table.
+        var ambiguousName = target.Kind is ModelObjectKind.Table or ModelObjectKind.Calendar
+            && graph.HasTable(target.Name) && graph.HasCalendar(target.Name);
 
         foreach (var site in graph.SitesReferencing(target))
         {
             if (nameUnchanged && !site.References.Any(r => r.FullyQualified))
                 continue;
 
-            if (ambiguous || !IsFixable(site.Source.Kind))
+            if (!IsFixable(site.Source.Kind)
+                || (ambiguousName && site.References.Any(r =>
+                    r.Shape is DaxReferenceShape.Table or DaxReferenceShape.TableCandidate)))
             {
                 if (!unfixablePaths.Contains(site.Source.Path))
                     unfixablePaths.Add(site.Source.Path);

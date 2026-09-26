@@ -103,6 +103,9 @@ internal sealed class DependencyGraph
     /// <summary>Whether a table named <paramref name="name"/> exists (case-insensitive, like DAX).</summary>
     public bool HasTable(string name) => _tableByName.ContainsKey(name);
 
+    /// <summary>Whether a calendar named <paramref name="name"/> exists (case-insensitive, like DAX).</summary>
+    public bool HasCalendar(string name) => _calendarByName.ContainsKey(name);
+
     /// <summary>
     /// Recursive dependency tree. <paramref name="upstream"/> follows "depends on"; otherwise
     /// "referenced by". Each object is expanded once: a node already seen on this traversal (a

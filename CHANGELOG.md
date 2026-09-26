@@ -64,10 +64,12 @@ and the API surface that major versions protect.
   calendars (#228). A UDF body that references a renamed measure, column, or table is
   rewritten instead of reported as broken. Renaming a UDF rewrites its call sites
   (`AddTax(...)`, `Local.AddTax(...)`) and leaves built-in functions, strings, and comments
-  alone. Renaming a calendar rewrites `'Fiscal'` references. A calendar that shares a
-  table's name is ambiguous, so its references are reported in `brokenReferences` (and
-  fail `--strict-refs`) rather than guessed. `deps` now shows UDF call edges, and `validate`
-  no longer reports a quoted calendar reference as a missing table.
+  alone. Renaming a calendar rewrites `'Fiscal'` references. When a table and a calendar
+  share the renamed name, `'Fiscal'` could mean either, so — whichever one is renamed —
+  those references are reported in `brokenReferences` (and fail `--strict-refs`) rather
+  than guessed. `rm` now blocks removing a UDF or calendar that DAX still references, and
+  removing a table checks references to its calendars. `deps` now shows UDF call edges,
+  and `validate` no longer reports a quoted calendar reference as a missing table.
 - Refresh scripts with `--effective-date` now explicitly include `applyRefreshPolicy`,
   as required by the XMLA endpoint. Verified with the inline refresh-policy QA sample.
 

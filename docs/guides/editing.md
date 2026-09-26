@@ -39,8 +39,8 @@ expressions that reference the old name automatically. That covers tables,
 measures, columns, user-defined functions (call sites such as `AddTax(...)`),
 and calendars (`'Fiscal'`), wherever the reference lives, including UDF bodies.
 References that cannot be rewritten produce a warning listing the objects left
-broken. These are role RLS filter expressions, and references to a calendar
-that shares its name with a table.
+broken. These are role RLS filter expressions, and `'Name'` references when a
+table and a calendar share the renamed name (`'Name'` could mean either).
 
 - `--strict-refs` — fail instead of warning when a rename leaves references
   broken.
@@ -48,8 +48,8 @@ that shares its name with a table.
 
 ## Removals are guarded
 
-`rm` refuses to remove an object that is still referenced by DAX, and lists
-the referencing objects. `--force` removes it anyway and reports the
+`rm` refuses to remove an object that is still referenced by DAX (including
+UDF call sites and calendar arguments), and lists the referencing objects. `--force` removes it anyway and reports the
 now-broken references. Structural references — relationships, sort-by
 columns, hierarchy levels, perspective entries, role permissions — never
 block; they are cascade-removed with the object.
