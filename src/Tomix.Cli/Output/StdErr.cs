@@ -13,12 +13,22 @@ internal static class StdErr
     /// <c>Console.Error</c>, so a cached console would miss the swap. Inherits the stdout
     /// console's no-color setting (<c>NO_COLOR</c> and the <c>noColor</c> config).
     /// </summary>
+    /// <remarks>
+    /// Redirected stderr (<c>2&gt; log.txt</c>, a CI log, a test's writer) has no width, and Spectre
+    /// would fall back to 80 columns and hard-wrap: a long model path in the "Connected to:" banner
+    /// or an error message would be split mid-line, so it could not be copied or grepped. Only a
+    /// terminal keeps its real width.
+    /// </remarks>
     public static IAnsiConsole Console()
     {
         var settings = new AnsiConsoleSettings { Out = new AnsiConsoleOutput(System.Console.Error) };
         if (AnsiConsole.Profile.Capabilities.ColorSystem == ColorSystem.NoColors)
             settings.ColorSystem = ColorSystemSupport.NoColors;
-        return AnsiConsole.Create(settings);
+
+        var console = AnsiConsole.Create(settings);
+        if (!console.Profile.Out.IsTerminal)
+            console.Profile.Width = int.MaxValue;
+        return console;
     }
 
     /// <summary>Writes one markup line to stderr.</summary>

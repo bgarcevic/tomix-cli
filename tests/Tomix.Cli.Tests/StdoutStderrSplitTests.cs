@@ -23,6 +23,21 @@ public sealed partial class StdoutStderrSplitTests
         { "refresh", "Refreshed Prod on", "Sales" },
     };
 
+    [Fact]
+    public void RedirectedStderr_KeepsLongLinesWhole()
+    {
+        // Redirected stderr has no width; Spectre's 80-column fallback used to hard-wrap, splitting
+        // a long model path in the "Connected to:" banner across lines.
+        var path = Path.Combine("C:", "Users", "someone with a long name", "repos", "tomix-cli",
+            ".claude", "worktrees", "a-fairly-long-worktree-name", "samples", "basic-tmdl");
+        var line = $"Connected to: {path}";
+
+        var captured = ConsoleCapture.Run(() => StdErr.MarkupLine(Styling.Muted(line)));
+
+        Assert.True(line.Length > 80, "The line must be longer than Spectre's fallback width.");
+        Assert.Equal(line, captured.Stderr.TrimEnd());
+    }
+
     [Theory]
     [MemberData(nameof(Cases))]
     public void Banner_GoesToStderr_ResultStaysOnStdout(string command, string banner, string resultLine)
