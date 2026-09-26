@@ -88,7 +88,13 @@ public sealed partial class FormatFlagBindingTests
             .ToList();
 
         Assert.Equal(4, failed.Count);
-        Assert.All(failed, r => Assert.Contains("HTTP 415", r.GetProperty("error").GetString()));
+        Assert.All(failed, r =>
+        {
+            // `error` is an object; a failure that is not a syntax error has only a message.
+            var error = r.GetProperty("error");
+            Assert.Contains("HTTP 415", error.GetProperty("message").GetString());
+            Assert.Equal(["message"], error.EnumerateObject().Select(p => p.Name));
+        });
     }
 
     private static RootCommand BuildFailingRoot()

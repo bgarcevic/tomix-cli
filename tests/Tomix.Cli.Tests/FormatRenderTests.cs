@@ -21,7 +21,7 @@ public sealed partial class FormatRenderTests
     public void InlineDax_IsHighlighted()
     {
         var output = Render(new InlineFormatResult(
-            true, "CALCULATE(SUM('Sales'[Amount]))", "dax", []));
+            true, "CALCULATE(SUM('Sales'[Amount]))", "dax"));
 
         Assert.Contains(Harbor + "CALCULATE", output);
         Assert.Contains(Harbor + "SUM", output);
@@ -33,7 +33,7 @@ public sealed partial class FormatRenderTests
     public void InlinePowerQuery_IsHighlighted()
     {
         var output = Render(new InlineFormatResult(
-            true, "let\n    Source = Table.FromRows({})\nin\n    Source", "m", []));
+            true, "let\n    Source = Table.FromRows({})\nin\n    Source", "m"));
 
         Assert.Contains(Lav + "let", output);
         Assert.Contains(Terra + "Source", output);
@@ -52,7 +52,7 @@ public sealed partial class FormatRenderTests
                 Filtered
             """.ReplaceLineEndings("\n");
 
-        var output = Render(new InlineFormatResult(true, formatted, "m", []));
+        var output = Render(new InlineFormatResult(true, formatted, "m"));
 
         Assert.Equal(formatted, StripAnsi(output).TrimEnd('\r', '\n').ReplaceLineEndings("\n"));
     }
@@ -62,7 +62,7 @@ public sealed partial class FormatRenderTests
     {
         const string formatted = "CALCULATE(SUM('Sales'[Amount]), 'Sales'[Region] = \"West\")";
 
-        var output = Render(new InlineFormatResult(true, formatted, "dax", []));
+        var output = Render(new InlineFormatResult(true, formatted, "dax"));
 
         Assert.Equal(formatted, StripAnsi(output).TrimEnd('\r', '\n'));
     }

@@ -58,8 +58,7 @@ public sealed class FormatModelHandler
 
                     var formatted = await FormatExpressionAsync(request, obj.Expression!, language, cancellationToken);
                     if (!formatted.Success)
-                        throw new InvalidOperationException(
-                            $"Formatting failed for: {obj.Path}: {FailureDetail(formatted)}");
+                        throw new ExpressionFormatFailedException(obj.Path, formatted);
 
                     var status = Status(obj.Expression!, formatted.Formatted);
                     if (status == "formatted")
@@ -102,7 +101,7 @@ public sealed class FormatModelHandler
                     if (!response.Success)
                     {
                         failedCount++;
-                        results.Add(ToModelResult(obj, "failed", FailureDetail(response)));
+                        results.Add(ToModelResult(obj, "failed", FormatError.From(response)));
                         continue;
                     }
 
@@ -160,17 +159,16 @@ public sealed class FormatModelHandler
 
         if (!formatted.Success)
         {
-            return TomixResult<IFormatModelResult>.Fail(
-                "TOMIX_FORMAT_FAILED",
-                $"Formatting failed: {FailureDetail(formatted)}");
+            return FormatFailure.Result<IFormatModelResult>(
+                $"Formatting failed: {FormatFailure.Detail(formatted)}",
+                formatted.SyntaxErrors);
         }
 
         return TomixResult<IFormatModelResult>.Ok(
             new InlineFormatResult(
                 formatted.Success,
                 formatted.Formatted,
-                FormatterLanguages.DisplayName(language),
-                formatted.Errors),
+                FormatterLanguages.DisplayName(language)),
             exitCode: 0);
     }
 
@@ -244,12 +242,7 @@ public sealed class FormatModelHandler
     // skips the write.
     private static string NormalizeLineEndings(string text) => text.Replace("\r\n", "\n");
 
-    private static string FailureDetail(ExpressionFormatResponse response)
-        => response.Errors.Count > 0
-            ? string.Join("; ", response.Errors)
-            : "the formatter reported a failure";
-
-    private static ModelFormatObjectResult ToModelResult(ModelObject obj, string status, string? error = null)
+    private static ModelFormatObjectResult ToModelResult(ModelObject obj, string status, FormatError? error = null)
     {
         var table = obj.Path.Split('/')[0];
         return obj.Kind == ModelObjectKind.Partition
