@@ -31,20 +31,21 @@ $ tx find "SUM" --in expressions
 
 $ tx bpa run
 BPA analysis · basic-tmdl
-────────────────────────────────────────────────────────────────────────────────
-SEVERITY  CATEGORY    RULE / ID                          COUNT
-● ERROR   Formatting  Do not summarize numeric columns      ×7
-                      NUMERIC_COLUMN_SUMMARIZE_BY
-● ERROR   Formatting  Provide format string for measures    ×4
-                      PROVIDE_FORMAT_STRING_FOR_MEASURES
-● WARNING Formatting  Hide foreign keys                     ×4
-                      HIDE_FOREIGN_KEYS
-● WARNING Performance Model should have a date table        ×1
-                      MODEL_SHOULD_HAVE_A_DATE_TABLE
+
+● WARNING  3 rules · 9 objects
+  ×4  Hide foreign keys
+      HIDE_FOREIGN_KEYS · Formatting · fixable
+  ×4  Provide format string for measures
+      PROVIDE_FORMAT_STRING_FOR_MEASURES · Formatting
+  ×1  Model should have a date table
+      MODEL_SHOULD_HAVE_A_DATE_TABLE · Performance
 
 ────────────────────────────────────────────────────────────────────────────────
-16 findings · 11 errors · 5 warnings · 0 info · 4 rules
-11 of 16 can be auto-fixed — run  bpa run --fix
+✗ 9 warnings in 3 of 26 rules · 23 passed · 159ms
+
+Fix 4 findings:  tx bpa run --fix --save
+Details:         tx bpa run --details
+One rule:        tx bpa run --rule HIDE_FOREIGN_KEYS
 
 $ tx deploy --server MyWorkspace --database basic-tmdl
 OK Deployed basic-tmdl to MyWorkspace (4.1s)
