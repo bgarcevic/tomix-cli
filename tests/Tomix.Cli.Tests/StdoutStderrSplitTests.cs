@@ -35,7 +35,9 @@ public sealed partial class StdoutStderrSplitTests
         var captured = ConsoleCapture.Run(() => StdErr.MarkupLine(Styling.Muted(line)));
 
         Assert.True(line.Length > 80, "The line must be longer than Spectre's fallback width.");
-        Assert.Equal(line, captured.Stderr.TrimEnd());
+        // Strip color only (CI runners get it; a local run may not). Line breaks must survive, or
+        // a wrapped line would pass.
+        Assert.Equal(line, Ansi().Replace(captured.Stderr, "").TrimEnd());
     }
 
     [Theory]
