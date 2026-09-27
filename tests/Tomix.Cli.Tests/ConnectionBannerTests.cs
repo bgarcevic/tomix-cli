@@ -34,6 +34,19 @@ public sealed class ConnectionBannerTests
     }
 
     [Fact]
+    public void Announce_RedirectedStderr_KeepsALongTargetOnOneLine()
+    {
+        // Redirected stderr has no terminal width, so Spectre used to hard-wrap at 80 columns and
+        // split the path — the banner test above failed whenever the repo lived at a long path.
+        var longPath = Path.Combine(Path.GetTempPath(), string.Join(" ", Enumerable.Repeat("long folder name", 12)), "model");
+        var parsed = TestRoot.With(new LsCommand(Providers, TestServices.Create().State).Build()).Parse(["ls"]);
+
+        var captured = ConsoleCapture.Run(() => ConnectionBanner.Announce(parsed, new ModelReference(longPath)));
+
+        Assert.Equal($"Connected to: {longPath}", captured.Stderr.TrimEnd('\r', '\n'));
+    }
+
+    [Fact]
     public void Ls_WithExplicitModel_DoesNotAnnounce()
     {
         var (root, _) = CreateRoot(withSessionModel: true);
