@@ -21,7 +21,22 @@ or `tx config set validateOnSave false` to disable the gate (default: on).
 The default `standard` ruleset is a curated high-signal subset of the bundled
 catalog — rules that catch broken models, expensive-at-scale patterns, and a
 small core of consumer-experience checks. Use `--ruleset full` for the entire
-bundled catalog (including style and advisory rules).
+bundled catalog (including style, advisory, and heuristic rules that fire on
+most models).
+
+`standard` also drives the [`deploy`](connect.md#deploy-deploy-to-a-workspace) BPA gate, which blocks on
+error-severity findings by default. Error severity is therefore reserved for
+findings that mean the model is broken: a data column with no source column,
+an expression-reliant object with no expression, invalid characters in a name
+or description, `USERELATIONSHIP` against a table with row-level security, and
+sort-by or hierarchy columns hidden from MDX. Everything else in `standard` is
+a warning or info that `bpa run` reports without blocking a deploy
+(`deploy --bpa-fail-on warning` blocks on warnings too).
+
+A few rules — high-cardinality bi-directional relationships, long high-
+cardinality columns, and referential-integrity violations — read VertiPaq
+statistics and stay silent on a model without them, so an offline `standard`
+run is a metadata check.
 
 The bundled catalog is embedded in the application and cannot be overridden by
 placing a file beside the executable. Use `--rules`, model rule annotations, or
@@ -66,6 +81,14 @@ tx bpa run --errors
 tx bpa run --fix --save
 ```
 
+Text output groups findings by severity. Each rule shows its object count, its name,
+and a line with its ID, its category and whether it is `fixable`. `--details` adds the
+guidance and lists the affected objects one per line. The summary line counts the
+findings and shows how many of the evaluated rules passed. Next-step commands are
+printed ready to copy on stderr, reusing your model path and rule options. After
+`--fix`, the output shows how many findings were fixed and remain, and whether the
+result was saved, staged, or kept in memory only.
+
 `bpa run --fix --allow-delete` deletes model objects, so it asks for
 confirmation; `--revert` (drops staged work) asks too. Pass `--yes` to skip
 the prompt in scripts.
@@ -74,9 +97,19 @@ the prompt in scripts.
 
 | Subcommand | Description |
 |------------|-------------|
-| `bpa rules list` | List rules from every source, with each rule's status. With a model, also lists the model's embedded and external-file rules (remote URLs are reported, not fetched) and any rule-load diagnostics. |
+| `bpa rules list` | List rules from every source, grouped by category, with each rule's severity, status, and whether it is `fixable`. With a model, also lists the model's embedded and external-file rules (remote URLs are reported, not fetched) and any rule-load diagnostics. A rule on the model's ignore list shows as `ignored`; one turned off with `bpa rules disable` shows as `disabled`. |
+| `bpa rules show <rule-id> [model]` | Show one rule in full: description, reference link, source, scope, expression, and fix expression. Accepts `--ruleset` and `--no-defaults` like `list`. An unknown ID fails with `TOMIX_BPA_RULE_NOT_FOUND` and suggests IDs that contain what you typed. |
 | `bpa rules enable` / `bpa rules disable` | Turn a built-in rule back on, or off, for this user. |
 | `bpa rules ignore` / `bpa rules unignore` | Add or remove a rule on the model's ignore list. |
+
+`disable` and `ignore` check the rule ID first, so a typo can't silently turn off
+nothing. The ID must belong to the bundled catalog (every ruleset), your config-dir
+`bpa-rules.json`, the selected `--rules-file`, or, for `ignore`, the model's embedded
+or local external rules. An unknown ID fails with `TOMIX_BPA_RULE_NOT_FOUND` and suggests
+close matches. If a rule source can't be read (for example, a remote rule file,
+which is never fetched here), the check is skipped. Pass `--allow-unknown` to use an
+ID anyway. `enable` and `unignore` accept any ID, so you can always clean up an entry
+for a rule that no longer exists.
 
 `bpa rules --rules-file <file>` points the subcommands at a BPA rules JSON
 file. `bpa rules list` narrows what is listed:
@@ -85,8 +118,14 @@ file. `bpa rules list` narrows what is listed:
 |--------|-------------|
 | `--ruleset <name>` | Standard BPA ruleset to list: `standard`, `full`, `microsoft`, `microsoft-it`, `microsoft-ja`, `microsoft-es`. |
 | `--no-defaults` | Leave the built-in ruleset out of the listing. |
-| `--ignored` / `--disabled` | List only ignored / only disabled rules. |
+| `--ignored` / `--disabled` | List only rules on the model's ignore list / only rules disabled for this user. Pass both for either. |
 | `--all` | Include disabled and ignored rules in the listing. |
+
+```sh
+tx bpa rules list
+tx bpa rules list model.bim --all
+tx bpa rules show HIDE_FOREIGN_KEYS
+```
 
 The BPA gate also runs automatically on `deploy` (`--skip-bpa` to bypass,
 `--fix-bpa` to auto-fix first, `--bpa-rules` to point at specific rule files,
