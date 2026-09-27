@@ -12,6 +12,15 @@ and the API surface that major versions protect.
 
 ### Added
 
+- `bpa rules show <rule-id>` prints one rule in full: its description and reference
+  link, source, status, scope, expression, and fix expression (`--output-format json`
+  supported). An unknown ID fails with `TOMIX_BPA_RULE_NOT_FOUND` and suggests IDs that
+  contain what you typed.
+- `bpa rules disable` and `bpa rules ignore` reject a rule ID that no known rule has,
+  so a typo no longer silently disables nothing. The check covers the bundled catalog,
+  the config-dir `bpa-rules.json`, and (for `ignore`) the model's own rules. It is
+  skipped when a rule source can't be read, and `--allow-unknown` bypasses it. `enable`
+  and `unignore` still accept any ID.
 - Power Query (M) expressions are syntax-highlighted in text output, like DAX: `get`
   properties, `ls` partition and shared-expression cells, and `format --lang m` output.
   Keywords, library functions, step and field definitions, field access, literals, and
@@ -23,6 +32,21 @@ and the API surface that major versions protect.
 
 ### Changed
 
+- `bpa run` text output is redesigned. Findings are grouped by severity, one block per
+  rule, and rule IDs are never split across lines. Each rule shows its category and
+  whether its fixes can be applied (`fixable`). A single summary line counts the
+  findings and the rules that passed. Next-step commands are printed ready to copy on
+  stderr, reusing your model path and rule options. After `--fix`, the output shows how
+  many findings were fixed and remain, and whether the result was saved, staged, or kept
+  in memory only. JSON, TRX, and CI output are unchanged.
+- `bpa rules list` text output replaces the truncating five-column table. Rules are
+  grouped by category, and each rule shows its name, ID, severity, status, and whether it
+  is `fixable`, with nothing cut off. Source is shown only when the listing mixes
+  sources.
+- **Breaking:** `bpa rules list` now tells ignored rules apart from disabled ones. A rule
+  on the model's ignore list has `status: "ignored"` (it was `"disabled"`), and
+  `summary.ignored` is counted (it was always `0`). `--ignored` and `--disabled` now
+  filter separately; before, both returned the same set.
 - **Breaking:** mutation JSON results share one persistence contract (#161). `saved` is
   always a bool; the path or `server / database` moved to `savedTo`. A new `status`
   (`saved`, `staged`, `preview`, `dryRun`, `unchanged`, `reverted`) replaces `staged` and
@@ -56,6 +80,13 @@ and the API surface that major versions protect.
   partitions. M that does not parse is left unchanged and reported with its line and column
   (#196).
 
+- The `standard` BPA ruleset (the `bpa run` default and the deploy gate) is re-curated so
+  error severity means a broken model. Six style and convention rules drop from error to
+  warning, so they no longer block `deploy`. Five noisy or heuristic rules move to `full`,
+  and four precise ones join `standard` (26 rules). False positives are fixed for
+  calculation-group columns, undeclared column types, field-parameter tables, and
+  `USERELATIONSHIP` with reversed arguments. See [BPA rulesets](docs/commands/validate.md).
+
 ### Removed
 
 - The `TOMIX_POWERQUERY_FORMATTER_API` environment variable. M formatting no longer uses a
@@ -66,6 +97,8 @@ and the API surface that major versions protect.
 - `tx connect --local` and `tx connect localhost:<port>` now look up and save the Desktop
   instance's database (a GUID) and open the model to validate it, so `tx vertipaq --export`
   works without `-d`. VertiPaq also resolves the database when an older saved session has none (#299).
+- Stderr commentary (banners, hints) is no longer hard-wrapped at 80 columns when stderr
+  is redirected, so `2> log.txt` keeps a long model path on one line.
 - Renames rewrite DAX references in user-defined functions (UDFs) and to UDFs and
   calendars (#228). A UDF body that references a renamed measure, column, or table is
   rewritten instead of reported as broken. Renaming a UDF rewrites its call sites
