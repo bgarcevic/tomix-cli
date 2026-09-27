@@ -31,6 +31,9 @@ internal static class StdErr
         return console;
     }
 
-    /// <summary>Writes one markup line to stderr.</summary>
+    /// <summary>
+    /// Writes one markup line to stderr, unwrapped when stderr is redirected (see
+    /// <see cref="Console"/>); a terminal still wraps at its own width.
+    /// </summary>
     public static void MarkupLine(string markup) => Console().MarkupLine(markup);
 }
