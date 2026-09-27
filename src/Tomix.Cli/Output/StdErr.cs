@@ -32,16 +32,8 @@ internal static class StdErr
     }
 
     /// <summary>
-    /// Writes one markup line to stderr. When stderr is not a terminal (redirected to a file or
-    /// pipe), Spectre falls back to an 80-column width and hard-wraps at word boundaries, which
-    /// splits long values such as model paths across lines in <c>2&gt; log.txt</c>. A line of
-    /// commentary is written unwrapped there; a terminal still wraps at its own width.
+    /// Writes one markup line to stderr, unwrapped when stderr is redirected (see
+    /// <see cref="Console"/>); a terminal still wraps at its own width.
     /// </summary>
-    public static void MarkupLine(string markup)
-    {
-        var console = Console();
-        if (!console.Profile.Out.IsTerminal)
-            console.Profile.Width = int.MaxValue;
-        console.MarkupLine(markup);
-    }
+    public static void MarkupLine(string markup) => Console().MarkupLine(markup);
 }
