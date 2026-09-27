@@ -13,7 +13,7 @@ namespace Tomix.Cli.Tests;
 /// reaches --quiet or machine output.
 /// </summary>
 [Collection(ConsoleStateCollection.Name)]
-public sealed class ConnectionBannerTests
+public sealed partial class ConnectionBannerTests
 {
     private static readonly IReadOnlyList<IModelProvider> Providers = [new TmdlModelProvider()];
 
@@ -43,7 +43,7 @@ public sealed class ConnectionBannerTests
 
         var captured = ConsoleCapture.Run(() => ConnectionBanner.Announce(parsed, new ModelReference(longPath)));
 
-        Assert.Equal($"Connected to: {longPath}", captured.Stderr.TrimEnd('\r', '\n'));
+        Assert.Equal($"Connected to: {longPath}", StripAnsi(captured.Stderr).TrimEnd('\r', '\n'));
     }
 
     [Fact]
@@ -104,4 +104,9 @@ public sealed class ConnectionBannerTests
 
         return (TestRoot.With(new LsCommand(Providers, services.State).Build()), services.State);
     }
+
+    [System.Text.RegularExpressions.GeneratedRegex("\x1b\\[[0-9;]*m")]
+    private static partial System.Text.RegularExpressions.Regex AnsiRegex();
+
+    private static string StripAnsi(string text) => AnsiRegex().Replace(text, "");
 }
