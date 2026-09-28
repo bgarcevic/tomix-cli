@@ -128,10 +128,10 @@ public sealed class BpaRunHandlerTests
         var reference = new ModelReference(model);
         var request = new BpaRunRequest(reference, NoDefaults: true, Fix: true, Stage: true);
 
-        // Stage once with a well-behaved provider so a working copy exists.
-        var staged = await new BpaRunHandler([new TmdlModelProvider()], stores, userRules, config.Path)
-            .HandleAsync(request, CancellationToken.None);
-        Assert.True(staged.Success, string.Join("; ", staged.Diagnostics.Select(d => d.Message)));
+        // Stage work with a well-behaved provider so a working copy exists. It needs an op: a
+        // copy with none is discarded when its run ends (#289).
+        using (var staged = await stores.Staging.GetOrCreateAsync(reference, null, [new TmdlModelProvider()], CancellationToken.None))
+            await staged.AppendOpAsync("set", "earlier staged work", CancellationToken.None);
 
         // Re-run against the existing working copy with a provider that throws while being
         // asked whether it can open the original — as the real TMDL provider does for an
