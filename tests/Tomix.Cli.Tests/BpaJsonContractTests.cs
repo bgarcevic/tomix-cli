@@ -57,6 +57,8 @@ public sealed class BpaJsonContractTests
         // The CompilationError sentinel for BROKEN_RULE is projected as an error-severity finding
         // (issue #253), so it counts as a violation in addition to AVOID_FLOATS.
         Assert.Equal(2, root.GetProperty("violations").GetInt32());
+        // No post-fix evaluation on this result, so remaining falls back to the run's violations.
+        Assert.Equal(2, root.GetProperty("remaining").GetInt32());
         Assert.Equal(1, root.GetProperty("ruleErrors").GetInt32());
         Assert.Equal(1, root.GetProperty("ignoredRules").GetInt32());
         Assert.Equal(1, root.GetProperty("disabledRules").GetInt32());
@@ -73,6 +75,16 @@ public sealed class BpaJsonContractTests
         Assert.Equal("notConfigured", root.GetProperty("sync").GetProperty("status").GetString());
         Assert.False(root.TryGetProperty("staged", out _));
         Assert.Equal(0, root.GetProperty("errors").GetArrayLength());
+    }
+
+    [Fact]
+    public void RunJson_Remaining_CountsPostFixViolations()
+    {
+        var result = SampleRunResult() with { RemainingViolations = [] };
+        var root = JsonDocument.Parse(JsonOutput.Serialize(BpaRunRenderer.ToJson(result))).RootElement;
+
+        Assert.Equal(2, root.GetProperty("violations").GetInt32());
+        Assert.Equal(0, root.GetProperty("remaining").GetInt32());
     }
 
     [Fact]

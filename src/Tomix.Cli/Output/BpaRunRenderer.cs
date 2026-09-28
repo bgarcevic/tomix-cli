@@ -157,7 +157,7 @@ internal static class BpaRunRenderer
         var parts = new List<string>
         {
             $"Fixed {result.FixesApplied} of {total} findings",
-            $"{Math.Max(0, total - result.FixesApplied)} remain"
+            $"{result.RemainingViolations?.Count ?? Math.Max(0, total - result.FixesApplied)} remain"
         };
         if (result.FixesSkipped > 0)
             parts.Add($"{result.FixesSkipped} skipped");
@@ -333,6 +333,7 @@ internal static class BpaRunRenderer
         {
             rulesEvaluated = result.RulesEvaluated,
             violations = result.Violations.Count,
+            remaining = result.BlockingCandidates.Count,
             ruleErrors = result.RuleErrors,
             ignoredRules = result.IgnoredViolations,
             disabledRules = result.DisabledRules,

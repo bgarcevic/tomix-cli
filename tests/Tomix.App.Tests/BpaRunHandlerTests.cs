@@ -71,6 +71,40 @@ public sealed class BpaRunHandlerTests
         Assert.Equal(2, result.ExitCode);
     }
 
+    private const string FixableRuleJson =
+        "{\"ID\":\"FIXABLE\",\"Name\":\"fixable\",\"Category\":\"c\",\"Severity\":2,\"Scope\":\"Table\",\"Expression\":\"Description <> \\\"ok\\\"\",\"FixExpression\":\"Description = \\\"ok\\\"\",\"CompatibilityLevel\":1200}";
+
+    private const string UnfixableRuleJson =
+        "{\"ID\":\"UNFIXABLE\",\"Name\":\"unfixable\",\"Category\":\"c\",\"Severity\":2,\"Scope\":\"Table\",\"Expression\":\"true\",\"CompatibilityLevel\":1200}";
+
+    [Theory]
+    [InlineData(false, 0)]
+    [InlineData(true, 1)]
+    public async Task HandleAsync_FixAndSave_ExitCodeReflectsFindingsRemainingAfterFix(bool withUnfixable, int expectedExit)
+    {
+        // Issue #297: the exit code must describe the saved model, not the pre-fix findings.
+        using var config = new TempConfigDir();
+        using var root = new TempDir();
+        var model = SampleModel.CopyTo(root, "model");
+        var rules = withUnfixable ? $"[{FixableRuleJson},{UnfixableRuleJson}]" : $"[{FixableRuleJson}]";
+        var rulesPath = root.WriteFile("rules.json", rules);
+
+        var result = await RunAsync(config, model, r => r with
+        {
+            RulesFiles = [rulesPath],
+            NoDefaults = true,
+            Fix = true,
+            Save = true,
+            FailOn = "warning"
+        });
+
+        Assert.True(result.Success, string.Join("; ", result.Diagnostics.Select(d => d.Message)));
+        Assert.True(result.Data!.FixesApplied > 0);
+        Assert.Contains(result.Data.Violations, v => v.RuleId == "FIXABLE");
+        Assert.DoesNotContain(result.Data.RemainingViolations!, v => v.RuleId == "FIXABLE");
+        Assert.Equal(expectedExit, result.ExitCode);
+    }
+
     private static async Task<TomixResult<BpaRunResult>> RunAsync(
         TempConfigDir config, string model, Func<BpaRunRequest, BpaRunRequest> configure)
     {
