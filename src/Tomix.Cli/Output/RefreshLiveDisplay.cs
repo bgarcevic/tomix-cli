@@ -17,6 +17,8 @@ internal sealed class RefreshLiveDisplay : IDisposable
     private readonly Dictionary<string, (long Rows, string? Phase, bool Completed)> _rows = new(StringComparer.Ordinal);
     private readonly object _rowsLock = new();
     private StatusContext? _ctx;
+    // Latest model-level phase (relationships, calculation script, commit); shown once no table is active.
+    private string? _modelPhase;
 
     public RefreshLiveDisplay()
     {
@@ -29,8 +31,15 @@ internal sealed class RefreshLiveDisplay : IDisposable
 
     private void OnReport(RefreshProgress p)
     {
-        if (!string.IsNullOrEmpty(p.Table))
+        if (p.Table is null)
         {
+            _modelPhase = p.Phase;
+        }
+        else if (p.Table.Length > 0)
+        {
+            // Name the partition for multi-partition tables: "read Sales-2024".
+            var phase = p.Partition is null ? p.Phase : $"{p.Phase} {p.Partition}";
+            p = p with { Phase = phase };
             lock (_rowsLock)
             {
                 if (_rows.TryGetValue(p.Table, out var existing))
@@ -66,9 +75,10 @@ internal sealed class RefreshLiveDisplay : IDisposable
         var active = snapshot.Where(s => !s.Completed)
             .Select(s => (s.Name, s.Rows, s.Phase))
             .ToList();
-        if (active.Count == 0) return;
-
-        _ctx.Status = BuildStatus(active);
+        if (active.Count > 0)
+            _ctx.Status = BuildStatus(active);
+        else if (_modelPhase is { Length: > 0 } phase)
+            _ctx.Status = BuildModelStatus(phase);
     }
 
     /// <summary>
@@ -84,6 +94,10 @@ internal sealed class RefreshLiveDisplay : IDisposable
             var phaseStr = s.Phase ?? "processing";
             return Styling.MarkupEscape($"{s.Name}{detail} {phaseStr}".Trim());
         }));
+
+    /// <summary>Status line for a model-level phase once no table is active: "Building relationships...".</summary>
+    internal static string BuildModelStatus(string phase)
+        => Styling.MarkupEscape(char.ToUpperInvariant(phase[0]) + phase[1..] + "...");
 
     public async Task<TomixResult<RefreshModelResult>> RunAsync(string label, Func<Task<TomixResult<RefreshModelResult>>> action)
     {

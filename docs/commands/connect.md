@@ -168,6 +168,17 @@ tx refresh --refresh-type full
 tx refresh --table Sales --table Customers
 ```
 
+While it runs, the live status names each table's current step (query, read, compress,
+hierarchies, calculated columns), the partition for multi-partition tables, and the running row
+count; after the tables load it shows the model-level step (relationships, calculation script,
+commit). The summary lists each table with `Rows`, `Query` (source query), `Read`, `Process`
+(post-load hierarchies and calculated columns), and `Total`, with a sub-row per partition when a
+table has several, followed by a phase table (data load, hierarchies, calculated columns,
+relationships, calculation script, commit) in wall-clock time. With `--output-format json` the same
+detail is in `tables[].processMs`, `tables[].partitions`, and `phases`; the CSV columns are
+unchanged. Power BI / Fabric delivers the trace a few seconds behind the refresh, so the summary
+can appear a little after the refresh itself finishes; the reported duration is the refresh's own.
+
 Routine refreshes run without prompting. The partition-risky variants —
 `--refresh-type clearvalues` (wipes partition data), `--skip-refresh-policy` /
 `--apply-refresh-policy false` (refreshes all historical partitions), `--policy-only`, and

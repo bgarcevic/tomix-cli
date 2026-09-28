@@ -10,6 +10,29 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
+### Added
+
+- `tx refresh` reports refresh progress in detail: the live status shows each table's step
+  (query, read, compress, hierarchies, calculated columns), the partition being loaded, and then
+  the model-level steps (relationships, calculation script, commit). The summary adds a `Process`
+  column, a row per partition for multi-partition tables, and a phase table; JSON gains
+  `tables[].processMs`, `tables[].partitions`, and `phases`.
+
+### Removed
+
+- **Breaking:** `tx query --plan` and the `plans` field of `tx query --output-format json`. Power BI /
+  Fabric XMLA endpoints never deliver query-plan trace events, so the option could not return a plan.
+
+### Fixed
+
+- `tx refresh` reported only the last partition's rows and timings for tables with several
+  partitions, and on Power BI / Fabric could summarize before the trace arrived, reporting zeros
+  (typically with `--output-format json`).
+- `tx query --trace` returns server timings on Power BI / Fabric XMLA endpoints. The trace was
+  rejected for an unsupported column, and events that arrived were then silently discarded; timings
+  (and `benchmark` storage-engine stats) came back `null`. A missing timing now always comes with a
+  warning on stderr.
+
 ## [0.4.3] - 2026-09-28
 
 ### Changed
