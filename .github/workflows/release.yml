@@ -334,7 +334,7 @@ jobs:
       - run: echo "Major release ${{ needs.plan.outputs.version }} approved."
 
   release:
-    name: ${{ needs.plan.outputs.kind == 'preview' && 'publish preview' || 'create release' }}
+    name: publish release
     needs: [plan, test, verify, pack, approve-major]
     timeout-minutes: 10
     runs-on: ubuntu-latest
