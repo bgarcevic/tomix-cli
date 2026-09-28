@@ -92,12 +92,15 @@ public sealed class BpaJsonContractTests
         Assert.Equal("Error", item.GetProperty("severityLabel").GetString());
         Assert.Equal("Sales[Amount]", item.GetProperty("objectName").GetString());
         Assert.Equal("Column", item.GetProperty("objectType").GetString());
+        Assert.Equal("model/tables/Sales[Amount]", item.GetProperty("objectPath").GetString());
+        Assert.Equal("Do not use floating point.\nReference: https://example.test", item.GetProperty("description").GetString());
         Assert.True(item.GetProperty("canFix").GetBoolean());
 
         var ruleError = results[1];
         Assert.Equal("BROKEN_RULE", ruleError.GetProperty("ruleId").GetString());
         Assert.Equal("Error", ruleError.GetProperty("severityLabel").GetString());
         Assert.Equal(string.Empty, ruleError.GetProperty("objectName").GetString());
+        Assert.Equal(string.Empty, ruleError.GetProperty("objectPath").GetString());
         Assert.False(ruleError.GetProperty("canFix").GetBoolean());
     }
 

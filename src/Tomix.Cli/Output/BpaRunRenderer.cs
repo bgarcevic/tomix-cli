@@ -359,6 +359,8 @@ internal static class BpaRunRenderer
                 severityLabel = v.Severity.ToString(),
                 objectName = v.ObjectName,
                 objectType = v.ObjectType,
+                objectPath = v.ObjectPath,
+                description = v.Description,
                 canFix = v.CanFix
             }),
             diagnostics = result.Results
