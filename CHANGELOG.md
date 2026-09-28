@@ -34,6 +34,13 @@ and the API surface that major versions protect.
   exits `0` instead of failing with "Required command was not provided."
 - The unknown-option hint names the full command, e.g. `tx bpa run --help` rather
   than `tx run --help`.
+- For a model file, the `bpa run` hint about collecting VertiPaq statistics now
+  lists the two commands on separate lines. It used to be one long sentence that
+  wrapped in a normal-width terminal.
+
+## [0.4.1] - 2026-09-28
+
+### Fixed
 
 - `bpa run --fix` evaluates the rules again after fixing, and the exit code and
   `--fail-on` now apply to the findings that remain. A run that fixes every blocking
@@ -42,9 +49,6 @@ and the API surface that major versions protect.
   result, so a finding can be addressed from a script (#258).
 - A failed `--stage` mutation no longer leaves an empty staged working copy behind.
   Earlier staged work is kept (#289).
-- For a model file, the `bpa run` hint about collecting VertiPaq statistics now
-  lists the two commands on separate lines. It used to be one long sentence that
-  wrapped in a normal-width terminal.
 
 ## [0.4.0] - 2026-09-28
 
@@ -876,7 +880,8 @@ development that are worth knowing about if you followed `main`.
   nonexistent option; `ls --type` help lists `calculatedcolumn`; the `--output-format`
   description typo "tTomix" is `tmdl` again.
 
-[Unreleased]: https://github.com/bgarcevic/tomix-cli/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/bgarcevic/tomix-cli/compare/v0.4.1...HEAD
+[0.4.1]: https://github.com/bgarcevic/tomix-cli/compare/v0.4.0...v0.4.1
 [0.4.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/bgarcevic/tomix-cli/compare/v0.2.0...v0.2.1
