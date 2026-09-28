@@ -76,17 +76,6 @@ public sealed class RefreshResultOutputTests
         Assert.False(root.GetProperty("tables")[0].TryGetProperty("partitions", out _));
     }
 
-    [Theory]
-    [InlineData("building relationships", "Building relationships...")]
-    [InlineData("running calculation script", "Running calculation script...")]
-    public void ModelStatus_IsCapitalizedAndMarkupSafe(string phase, string expected)
-    {
-        var status = RefreshLiveDisplay.BuildModelStatus(phase);
-
-        Assert.Equal(expected, status);
-        _ = new Markup(status);
-    }
-
     private static string Render(RefreshModelResult result)
     {
         var original = AnsiConsole.Console;

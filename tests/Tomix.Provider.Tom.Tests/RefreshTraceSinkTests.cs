@@ -380,6 +380,24 @@ public sealed class RefreshTraceSinkTests
     }
 
     /// <summary>
+    /// A sub-step whose End never arrives must not keep the table "in progress" once its
+    /// partition has finished — that pinned tables on the live status for the whole refresh.
+    /// </summary>
+    [Fact]
+    public void PartitionEnd_ClearsUnpairedSubSteps_SoTheTableCompletes()
+    {
+        var reports = new List<RefreshProgress>();
+        var sink = new RefreshTraceSink(["Sales"], new SynchronousProgress(reports.Add));
+
+        sink.Process(Partition(AsTraceEventClass.ProgressReportBegin, AsTraceEventSubclass.TabularRefresh, "Sales", "Sales"));
+        sink.Process(Partition(AsTraceEventClass.ProgressReportBegin, AsTraceEventSubclass.ExecuteSql, "Sales", "Sales"));
+        // No ExecuteSql End.
+        sink.Process(Partition(AsTraceEventClass.ProgressReportEnd, AsTraceEventSubclass.TabularRefresh, "Sales", "Sales", duration: 5));
+
+        Assert.True(reports[^1].Completed);
+    }
+
+    /// <summary>
     /// Hierarchy and calculated-column TabularRefresh events are post-load work: they add to the
     /// table's ProcessMs and their phases, and never touch the partition's load numbers.
     /// </summary>

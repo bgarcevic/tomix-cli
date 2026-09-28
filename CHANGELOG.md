@@ -12,9 +12,11 @@ and the API surface that major versions protect.
 
 ### Added
 
-- `tx refresh` reports refresh progress in detail: the live status shows each table's step
-  (query, read, compress, hierarchies, calculated columns), the partition being loaded, and then
-  the model-level steps (relationships, calculation script, commit). The summary adds a `Process`
+- `tx refresh` reports refresh progress in detail: a live panel shows overall progress and each
+  in-progress table's step (querying, reading, compressing, hierarchies, calculated columns),
+  partition, rows, and running time, then the model-level steps (relationships, calculation
+  script, commit). It replaces the single status line, which on large models was cut off at the
+  terminal width and kept showing the same few tables. The summary adds a `Process`
   column, a row per partition for multi-partition tables, and a phase table; JSON gains
   `tables[].processMs`, `tables[].partitions`, and `phases`.
 

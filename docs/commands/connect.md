@@ -168,10 +168,11 @@ tx refresh --refresh-type full
 tx refresh --table Sales --table Customers
 ```
 
-While it runs, the live status names each table's current step (query, read, compress,
-hierarchies, calculated columns), the partition for multi-partition tables, and the running row
-count; after the tables load it shows the model-level step (relationships, calculation script,
-commit). The summary lists each table with `Rows`, `Query` (source query), `Read`, `Process`
+While it runs, a live panel shows the elapsed time, how many tables are done and in progress,
+and the rows loaded so far, then one line per in-progress table — oldest first, capped at six —
+with its current step (querying, reading, compressing, hierarchies, calculated columns), the
+partition for multi-partition tables, its rows, and how long it has been running. Once no table is
+in progress it shows the model-level step (relationships, calculation script, commit). The summary lists each table with `Rows`, `Query` (source query), `Read`, `Process`
 (post-load hierarchies and calculated columns), and `Total`, with a sub-row per partition when a
 table has several, followed by a phase table (data load, hierarchies, calculated columns,
 relationships, calculation script, commit) in wall-clock time. With `--output-format json` the same

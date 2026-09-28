@@ -202,6 +202,11 @@ internal sealed class RefreshTraceSink : IDisposable
             line.Append('\t').Append(e.TextData.Replace('\n', ' ').Replace('\r', ' ').Trim());
         if (!string.IsNullOrEmpty(e.Error))
             line.Append('\t').Append("error=").Append(e.Error.Replace('\n', ' ').Trim());
+        // Appended last so the leading columns stay positional.
+        if (!string.IsNullOrEmpty(e.ObjectPath))
+            line.Append('\t').Append("path=").Append(e.ObjectPath);
+        if (e.ObjectType != 0)
+            line.Append('\t').Append("type=").Append(e.ObjectType);
         lock (_traceWriter)
             _traceWriter.WriteLine(line.ToString());
     }
@@ -320,6 +325,9 @@ internal sealed class RefreshTraceSink : IDisposable
                     partition.RefreshMs = e.Duration;
                     partition.Completed = true;
                     AddInterval("load", e);
+                    // The partition is done even if a sub-step's End never arrived; a leftover
+                    // Begin must not hold the table "in progress" for the rest of the refresh.
+                    acc.Active.RemoveWhere(k => k.StartsWith(partitionName + "/", StringComparison.Ordinal));
                     break;
             }
 
