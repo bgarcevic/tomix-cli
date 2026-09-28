@@ -1,3 +1,4 @@
+using Tomix.App.Diagnostics;
 using Tomix.App.Models;
 using Tomix.App.State;
 using Tomix.Core.Authentication;
@@ -104,6 +105,10 @@ public sealed class RefreshModelHandler
                 return TomixResult<RefreshModelResult>.Ok(new RefreshModelResult(
                     target.Value, target.Database, NormalizeType(request.RefreshType), 0, Array.Empty<RefreshTableResult>(), null, script));
             }
+            catch (ModelConnectionException ex)
+            {
+                return ProviderConnectionGuard.ConnectionFailure<RefreshModelResult>(target, ex);
+            }
             catch (AuthenticationRequiredException ex)
             {
                 return AuthFail(ex);
@@ -133,6 +138,10 @@ public sealed class RefreshModelHandler
             return TomixResult<RefreshModelResult>.Ok(new RefreshModelResult(
                 result.Server, result.Database, result.RefreshType, result.DurationMs, result.Tables, result.Totals, Script: null,
                 Phases: result.Phases));
+        }
+        catch (ModelConnectionException ex)
+        {
+            return ProviderConnectionGuard.ConnectionFailure<RefreshModelResult>(target, ex);
         }
         catch (AuthenticationRequiredException ex)
         {
@@ -194,6 +203,10 @@ public sealed class RefreshModelHandler
                 policy.Table, effectiveDate, Refresh: false, request.MaxParallelism), cancellationToken).ConfigureAwait(false);
             return TomixResult<RefreshModelResult>.Ok(new RefreshModelResult(result.Server, result.Database,
                 "policyOnly", result.DurationMs, [], null, null, PolicyApplication: result));
+        }
+        catch (ModelConnectionException ex)
+        {
+            return ProviderConnectionGuard.ConnectionFailure<RefreshModelResult>(target, ex);
         }
         catch (AuthenticationRequiredException ex)
         {

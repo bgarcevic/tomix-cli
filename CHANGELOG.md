@@ -12,6 +12,10 @@ and the API surface that major versions protect.
 
 ### Added
 
+- `tx connect <workspace> --list` lists the semantic models on a workspace or XMLA
+  endpoint without connecting (name, compatibility level, last update). It works
+  non-interactively and with `--output-format json`, so scripts and agents can
+  discover models on a workspace that hosts more than one.
 - `tx refresh` reports refresh progress in detail: a live panel shows overall progress and each
   in-progress table's step (querying, reading, compressing, hierarchies, calculated columns),
   partition, rows, and running time, then the model-level steps (relationships, calculation
@@ -19,6 +23,12 @@ and the API surface that major versions protect.
   terminal width and kept showing the same few tables. The summary adds a `Process`
   column, a row per partition for multi-partition tables, and a phase table; JSON gains
   `tables[].processMs`, `tables[].partitions`, and `phases`.
+
+### Changed
+
+- Opening a workspace that hosts several models without naming one now fails with
+  `TOMIX_DATABASE_REQUIRED` (exit 2) and a hint to run `tx connect <workspace> --list`,
+  instead of `TOMIX_CONNECT_FAILED` / `TOMIX_QUERY_FAILED` (exit 1).
 
 ### Removed
 
