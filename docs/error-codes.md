@@ -54,7 +54,7 @@ All diagnostic codes use uppercase `SNAKE_CASE` prefixed with `TOMIX_`. For exam
 ## Mutation Codes (`TOMIX_MUTATION_*`)
 
 Emitted by `MutationRunner` and handlers that participate in the mutation lifecycle
-(`add`, `rm`, `set`, `mv`, `replace`, `format`, `script`, `bpa run --fix`,
+(`add`, `rm`, `set`, `mv`, `replace`, `format`, `bpa run --fix`,
 `bpa rules ignore/unignore`).
 
 | Code | Exit | Trigger |
@@ -232,13 +232,6 @@ Policy commands also reuse `TOMIX_OBJECT_NOT_FOUND` (table missing), `TOMIX_REFR
 | `TOMIX_AUTH_SECRET_SOURCE_CONFLICT` | 2 | `--password -` and `--password-file` (or the certificate-password equivalents) were combined; choose one. |
 | `TOMIX_AUTH_SECRET_FILE_NOT_FOUND` | 2 | The `--password-file` / `--certificate-password-file` path does not exist. |
 
-## Script Codes (`TOMIX_SCRIPT_*`)
-
-| Code | Exit | Trigger |
-|------|------|---------|
-| `TOMIX_SCRIPT_FILE_NOT_FOUND` | 1 | The script file was not found. |
-| `TOMIX_SCRIPT_REQUIRED` | 2 | `script` called without a script file or inline script. |
-
 ## Config Codes (`TOMIX_CONFIG_*`)
 
 > **Note:** `TOMIX_CONFIG_DIR` is an environment variable, not a diagnostic code. See below.
@@ -376,7 +369,5 @@ Command-specific validation codes (checked before entering `MutationRunner`) are
 
 - `TOMIX_REPLACE_PATTERN_REQUIRED`
 - `TOMIX_SET_PROPERTY_REQUIRED`
-- `TOMIX_SCRIPT_FILE_NOT_FOUND`
-- `TOMIX_SCRIPT_REQUIRED`
 - `TOMIX_BPA_RULE_ID_REQUIRED`
 - `TOMIX_FORMAT_UNSUPPORTED_LANGUAGE`

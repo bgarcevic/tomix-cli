@@ -37,8 +37,8 @@ reminder on stderr after every save to Desktop, and JSON output reports
 
 ### JSON result
 
-Every mutation command (`add`, `mv`, `set`, `rm`, `replace`, `format`, `script`,
-`save`, `vertipaq --annotate`, `bpa run --fix`, `bpa rules ignore`) reports the same
+Every mutation command (`add`, `mv`, `set`, `rm`, `replace`, `format`, `save`,
+`vertipaq --annotate`, `bpa run --fix`, `bpa rules ignore`) reports the same
 persistence fields under `data`:
 
 | Field | Type | Meaning |
@@ -272,7 +272,7 @@ sources only — `impersonationMode` (`Default`, `ImpersonateAccount`,
 `isolation` (`ReadCommitted`, `Snapshot`), and `timeout` (seconds);
 structured sources accept `contextExpression`. Connection strings,
 accounts, and passwords are secrets, so they are never accepted via
-argv — edit the source file or use `tx script` to change credentials:
+argv — edit the source file to change credentials:
 
 ```sh
 tx set DataSources/Import -q maxConnections -i 5
@@ -472,32 +472,6 @@ tx format --path "Sales/Total Sales" --save
 tx format --save                     # whole model
 ```
 
-## `script` — run C# against the model
-
-```
-tx script [model] [options]
-```
-
-Scripts get a `Model` variable (the TOM model) — the escape hatch for
-anything the built-in commands don't cover.
-
-| Option | Description |
-|--------|-------------|
-| `--file <file>` | Path(s) to `.cs`/`.csx` script file(s). Repeatable (`--script` still accepted). |
-| `-e, --expression <code>` | Inline C# expression(s). `-` reads from stdin. |
-| `--dry-run` | Compile and report errors without executing. |
-
-```sh
-tx script -e "Model.Tables.Count"
-tx script transform.csx --save
-```
-
-`script --save` runs arbitrary C# and then overwrites the source (and syncs
-the workspace mirror), so it asks for confirmation; pass `--yes` to skip the
-prompt in scripts. `--revert` (drops staged work) asks too. Plain `script`
-stays in memory, `--save-to` writes a copy, and `--stage` defers the prompt
-to `tx stage commit`.
-
 ## Refresh policies
 
 Policies are table child objects, inspected and edited with `get`, `set`, and `rm`:
@@ -554,5 +528,4 @@ The `incremental-refresh` command has been removed.
 Refresh operates on the policy **already saved on the deployed model**. Save or
 deploy local policy edits first. See [refresh](connect.md#refresh-trigger-a-data-refresh)
 for remote targeting, previews, and confirmation. Tomix does not require an
-`--execute` flag and its limited script evaluator does not support TOM's
-`ApplyRefreshPolicy()` method; use `--policy-only` for empty-partition bootstrap.
+`--execute` flag; use `--policy-only` for empty-partition bootstrap.

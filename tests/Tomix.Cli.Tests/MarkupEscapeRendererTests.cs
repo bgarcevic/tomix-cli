@@ -3,7 +3,6 @@ using Tomix.App.Bpa;
 using Tomix.App.Deploy;
 using Tomix.App.Info;
 using Tomix.App.Mutations;
-using Tomix.App.Script;
 using Tomix.App.Test;
 using Tomix.Cli.Output;
 using Tomix.Core.Bpa;
@@ -75,18 +74,6 @@ public sealed partial class MarkupEscapeRendererTests
 
         AssertLiteral(captured.Stderr, "BPA analysis · [Model]");
         AssertLiteral(captured.Stdout, "[Category]", "[Column]", "Synced: [Target]");
-    }
-
-    [Fact]
-    public void Script_UsesLiteralModelAndSyncNames()
-    {
-        var result = ScriptRunResult.Executed(
-            "[Model]", 1, [], [], new MutationOutcome(MutationStatus.Saved, "C:/model", PersistenceKind.File, new SyncOutcome(SyncStatus.Succeeded, "[Target]")));
-
-        var captured = Capture(() => ScriptRenderer.RenderText(result, "text"));
-
-        AssertLiteral(captured.Stderr, "Model: [Model]");
-        AssertLiteral(captured.Stdout, "Synced: [Target]");
     }
 
     [Fact]

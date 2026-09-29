@@ -28,7 +28,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
     internal static readonly (string Heading, string[] Commands)[] RootSections =
     [
         ("Discover", ["ls", "get", "find", "deps", "query"]),
-        ("Modify", ["add", "set", "mv", "rm", "replace", "format", "script"]),
+        ("Modify", ["add", "set", "mv", "rm", "replace", "format"]),
         ("Connect", ["connect", "deploy", "refresh", "load", "save", "auth", "session"]),
         ("Validate", ["bpa", "validate", "test", "vertipaq", "diff", "doctor"]),
         ("Manage", ["config", "profile", "init", "completion", "stage", "update"]),
@@ -109,11 +109,6 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx format",
             "tx format -e \"CALCULATE(sum(sales[amt]))\"",
             "tx format --path \"Table[Measure]\"",
-        ],
-        ["script"] = [
-            "tx script -e \"Model.Tables.Count\"",
-            "tx script transform.csx --save",
-            "tx script -e \"Model.Tables[\\\"Sales\\\"].Name\" --output-format json",
         ],
         ["connect"] = [
             "tx connect",

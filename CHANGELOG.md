@@ -60,6 +60,14 @@ and the API surface that major versions protect.
   3 MB smaller). The `dotnet tool` package now talks to XMLA endpoints uncompressed, as the
   release binaries already did.
 
+### Removed
+
+- **Breaking:** `tx script` is removed. Despite its description it never ran C#: it evaluated a
+  handful of fixed read-only expressions (`Model.Tables.Count`, `Model.Tables[0].Name`, ...) and
+  could not change a model. Use `tx ls`, `tx get`, and `tx find` (with `--output-format json`)
+  to read the same information. The `TOMIX_SCRIPT_FILE_NOT_FOUND` and `TOMIX_SCRIPT_REQUIRED`
+  codes are gone with it.
+
 ## [0.6.0] - 2026-09-29
 
 ### Fixed

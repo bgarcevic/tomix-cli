@@ -43,7 +43,6 @@ public sealed class OutputFormatRejectionTests
             "replace" => new ReplaceCommand(NoProviders, services.State, mutations),
             "rm" => new RmCommand(NoProviders, services.State, mutations),
             "save" => new SaveCommand(NoProviders, services.State),
-            "script" => new ScriptCommand(NoProviders, services.State, mutations),
             "session" => new SessionCommand(services.State),
             "set" => new SetCommand(NoProviders, services.State, mutations),
             "stage" => new StageCommand(NoProviders, services.State, services.Staging),
@@ -92,7 +91,6 @@ public sealed class OutputFormatRejectionTests
     [InlineData("csv", "validate")]
     [InlineData("tmdl", "refresh")]
     [InlineData("tmdl", "save")]
-    [InlineData("tmdl", "script", "-e", "1")]
     [InlineData("tmdl", "vertipaq")]
     public void UnsupportedFormat_ExitsTwoWithMessage(string format, params string[] commandArgs)
     {

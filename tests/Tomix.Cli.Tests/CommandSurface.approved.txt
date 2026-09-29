@@ -465,21 +465,6 @@ Write a model to disk in a chosen format
   opt --supporting-files  Write a {modelName}.SemanticModel/ folder (with .platform and definition.pbism) around the output. Only applies to tmdl/bim written to a bare target.
   opt --no-sync  Skip workspace sync when workspace mode is active
 
-# tx script
-Run C# scripts against a semantic model
-  arg [model]  Model path, Fabric path, or omit to use the active connection
-  opt --file, --script <file>  Script files to run (.cs or .csx). Repeatable.
-  opt --expression, -e <code>  C# expressions to run inline. Pass '-' to read from stdin.
-  opt --save-to <path>  Write the model to this path after the scripts run (implies --save)
-  opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
-  opt --dry-run  Compile the scripts and report errors without running them
-  opt --force, -f  Save despite newly introduced validation errors
-  opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
-  opt --no-sync  Skip workspace sync when workspace mode is active
-
 # tx session
 Inspect this terminal's CLI session
 
