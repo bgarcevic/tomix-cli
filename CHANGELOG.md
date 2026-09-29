@@ -22,8 +22,9 @@ and the API surface that major versions protect.
   into a collapsible section header that drops the `##[error]` styling and leaves stray `8m`
   fragments in the table.
 - `tx validate` no longer warns (`DAX0003`) about columns an expression defines for itself:
-  `[@Name]` added by `ADDCOLUMNS`/`SELECTCOLUMNS`/`SUMMARIZE` with `"@Name"`, and `[Value]`
-  from `GENERATESERIES` or a `{ ... }` table constructor.
+  `[@Name]` when `"@Name"` is a new column's name in `ADDCOLUMNS`, `SELECTCOLUMNS`,
+  `SUMMARIZE`, `SUMMARIZECOLUMNS`, `GROUPBY`, `ROW`, or `DATATABLE`, and `[Value]` from
+  `GENERATESERIES` or a `{ ... }` table constructor (not an `IN { ... }` list).
 
 ## [0.5.0] - 2026-09-29
 

@@ -341,6 +341,16 @@ public sealed class ValidateModelHandlerTests
     [InlineData("SUMX(Sales, [Value])", "Value")]
     // "@Required" in a comment defines nothing.
     [InlineData("SUMX(Sales, [@Required]) // \"@Required\"", "@Required")]
+    [InlineData("SUMX(SELECTCOLUMNS(Sales, \"@A\", 1), [@A])", null)]
+    [InlineData("SUMX(SUMMARIZE(Sales, Sales[Amount], \"@Total\", 1), [@Total])", null)]
+    [InlineData("SUMX(SUMMARIZECOLUMNS(Sales[Amount], \"@Total\", 1), [@Total])", null)]
+    [InlineData("SUMX(ROW(\"@One\", 1), [@One])", null)]
+    // A string that is a value, not a column name, defines nothing.
+    [InlineData("IF([Status] = \"Status\", 1)", "Status")]
+    [InlineData("SUMX(ADDCOLUMNS(Sales, \"@Kind\", \"@Other\"), [@Other])", "@Other")]
+    // IN { ... } is a list and DATATABLE rows are literals, not a [Value] table.
+    [InlineData("IF(1 IN { 1, 2 }, [Value])", "Value")]
+    [InlineData("SUMX(DATATABLE(\"N\", INTEGER, {{1}}), [Value])", "Value")]
     public async Task HandleAsync_AcceptsQueryScopedColumns(string expression, string? warnedName)
     {
         var result = await ValidateAsync(SalesSnapshot(Measure("Total", expression)));
