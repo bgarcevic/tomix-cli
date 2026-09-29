@@ -1,6 +1,4 @@
 using System.CommandLine;
-using System.Globalization;
-using Spectre.Console;
 using Tomix.App.State;
 using Tomix.App.Summary;
 using Tomix.Cli.Output;
@@ -56,43 +54,20 @@ internal sealed class SummaryCommand : ICommandModule
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(formatValue));
 
-            return CommandOutput.Render(result, formatValue, Render, data => data, renderCsv: null, errorFormat: errorFormat);
+            return CommandOutput.Render(
+                result,
+                formatValue,
+                data =>
+                {
+                    SummaryRenderer.Render(data);
+                    if (!quiet)
+                        SummaryRenderer.RenderHint();
+                },
+                data => data,
+                renderCsv: null,
+                errorFormat: errorFormat);
         });
 
         return command;
     }
-
-    internal static void Render(SummaryModelResult result)
-    {
-        AnsiConsole.MarkupLine(Styling.Title(result.Name));
-        Line("source", result.Source);
-        if (result.Database is not null)
-            Line("database", result.Database);
-        if (result.Format is not null)
-            Line("format", result.Format);
-        Line("compatibilityLevel", result.CompatibilityLevel);
-        if (result.Culture is not null)
-            Line("culture", result.Culture);
-        if (result.DefaultMode is not null)
-            Line("defaultMode", result.DefaultMode);
-
-        var counts = result.Counts;
-        Line("tables", counts.Tables);
-        Line("columns", counts.Columns);
-        Line("measures", counts.Measures);
-        Line("relationships", counts.Relationships);
-        Line("roles", counts.Roles);
-        Line("partitions", counts.Partitions);
-        Line("calculationGroups", counts.CalculationGroups);
-        Line("perspectives", counts.Perspectives);
-        Line("cultures", counts.Cultures);
-    }
-
-    private static void Line(string label, int value)
-        => Line(label, value.ToString(CultureInfo.InvariantCulture));
-
-    // Labels are the JSON keys, padded so the values line up. Plain Console output (as in 'get'):
-    // Spectre would wrap a long source path at the console width.
-    private static void Line(string label, string value)
-        => Console.WriteLine($"  {label + ":",-20} {value}");
 }

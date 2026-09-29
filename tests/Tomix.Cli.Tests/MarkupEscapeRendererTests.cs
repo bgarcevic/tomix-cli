@@ -30,7 +30,7 @@ public sealed partial class MarkupEscapeRendererTests
     [Fact]
     public void Summary_UsesLiteralModelAndSourceNames()
     {
-        var captured = Capture(() => SummaryCommand.Render(new SummaryModelResult(
+        var captured = Capture(() => SummaryRenderer.Render(new SummaryModelResult(
             "[Model]", "[Database]", "[Server]", Format: null, 1600, Culture: null, DefaultMode: null,
             new SummaryCounts(1, 1, 1, 0, 0, 1, 0, 0, 0))));
 

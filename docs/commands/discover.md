@@ -18,6 +18,30 @@ storage mode, and object counts (tables, columns, measures, relationships,
 roles, partitions, calculation groups, perspectives, cultures). A good first
 command on an unfamiliar model, and a quick smoke test that it opens.
 
+```
+AdventureWorks Sales  Model
+
+  source              ./samples/AdventureWorks Sales.SemanticModel
+  format              tmdl
+  compatibilityLevel  1606
+  culture             en-US
+  defaultMode         Import
+
+  Contents
+    tables             10
+    columns            62
+    measures           20
+    relationships       9
+    roles               0
+    partitions         10
+    calculationGroups   2
+    perspectives        0
+    cultures            1
+```
+
+The labels are the JSON keys, laid out like the [`get`](#get-properties-of-one-object)
+view; the next-step hint goes to stderr and is hidden by `--quiet`.
+
 ```sh
 tx summary                           # the active connection
 tx summary ./model.tmdl
