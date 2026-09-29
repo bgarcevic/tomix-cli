@@ -97,7 +97,8 @@ jobs:
         env:
           TOMIX_NO_UPDATE_CHECK: "1"
         run: |
-          set -uo pipefail
+          # GitHub runs bash with -e; a crashing command must be recorded, not end the step.
+          set +e -uo pipefail
           aot="artifacts/aot/${{ matrix.exe }}"
           jit="artifacts/jit/${{ matrix.exe }}"
           model=samples/basic-tmdl
