@@ -10,8 +10,43 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
+### Added
+
+- `tx bpa rules add`, `set`, `remove`, and `init` author custom BPA rules from the CLI. They edit
+  your config-dir `bpa-rules.json` (which `bpa run` loads) or the file `--rules-file` names, and
+  keep fields tx does not model. Scope and severity are validated (#232).
+- `tx bpa run --fix` now fixes `DAX_COLUMNS_FULLY_QUALIFIED` and `DAX_MEASURES_UNQUALIFIED`
+  by rewriting the object's DAX, through two new fix expressions:
+  `QualifyColumnReferences()` and `UnqualifyMeasureReferences()`. References that cannot be
+  resolved for certain (a column name in several tables, a name that is also a string literal,
+  a measure qualified with the wrong table) are reported as fix errors and left unchanged (#267).
+- `tx doctor` reports the current session's connection (`current-session`) and, on Windows,
+  warns when you are signed in but the token cache file is missing.
+- `tx doctor --show-details` includes account, server, database, model, profile, and session
+  names and full paths. Without it, the report is safe to paste into a bug report: the home
+  directory is shown as `~` and names are replaced by what kind of thing they are.
+- `tx doctor` suggests `tx session prune` when session files of exited shells are left over.
+
 ### Changed
 
+- `tx doctor` output is shorter and only warns when something needs doing. Optional states
+  (no profiles, not signed in, no update check yet) are reported with the new `Info` status
+  (`INFO`) instead of `WARN`. The `runtime`, `operating-system`, `terminal`, and
+  `model-providers` checks are removed because they could never fail; the runtime, OS, and
+  terminal details are still in the header and in the JSON fields. The `update-cache` message
+  now shows a short UTC time and says to run `tx update`. A source build (`./tx`) or an install
+  `tx update` cannot update reports a newer release as `INFO` without that hint, matching the
+  update notice. The header and JSON (`installKind`) show how tx was installed.
+- `tx doctor` no longer prints the end-of-command "a new version is available" notice (its
+  `update-cache` check already says so) and no longer refreshes the update cache over the
+  network, keeping its promise to stay local.
+- `tx doctor` no longer creates `~/.tomix` on a machine where tx has not run yet; it reports
+  that the directory will be created on first use.
+
+### Changed
+
+- `tx bpa rules list` shows each rule's scope, and lists the rules in your config-dir
+  `bpa-rules.json` (source `user`), matching what `bpa run` loads (#232).
 - Config, profiles, recent connections, session, staging, update-check, auth, BPA, and
   test-snapshot files are now read and written with source-generated JSON instead of runtime
   reflection, as groundwork for a faster-starting Native AOT build. The files' format is
