@@ -10,6 +10,17 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
+### Added
+
+- `tx bpa rules add`, `set`, `remove`, and `init` author custom BPA rules from the CLI. They edit
+  your config-dir `bpa-rules.json` (which `bpa run` loads) or the file `--rules-file` names, and
+  keep fields tx does not model. Scope and severity are validated (#232).
+
+### Changed
+
+- `tx bpa rules list` shows each rule's scope, and lists the rules in your config-dir
+  `bpa-rules.json` (source `user`), matching what `bpa run` loads (#232).
+
 ## [0.6.0] - 2026-09-29
 
 ### Fixed
