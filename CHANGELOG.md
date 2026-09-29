@@ -10,6 +10,13 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
+### Changed
+
+- Config, profiles, recent connections, session, staging, update-check, auth, BPA, and
+  test-snapshot files are now read and written with source-generated JSON instead of runtime
+  reflection, as groundwork for a faster-starting Native AOT build. The files' format is
+  unchanged, so existing ones keep working.
+
 ## [0.6.0] - 2026-09-29
 
 ### Fixed

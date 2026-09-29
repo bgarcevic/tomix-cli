@@ -41,4 +41,21 @@
     <None Include="..\..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
+  <!--
+    Native AOT cannot embed native libraries, so without this the AOT build would ship them
+    next to tx. Both are dead weight for tx, and the single-file release never loads them either:
+    - msasxpress (ADOMD XPress compression) is only looked up next to the ADOMD assembly file,
+      which does not exist in a single-file or AOT build; ADOMD then runs uncompressed.
+    - msalruntime (MSAL broker/WAM) only serves ADOMD's own sign-in, and tx always hands the
+      connection a token from its own MSAL client.
+  -->
+  <Target Name="ExcludeUnusedNativeLibrariesFromAot"
+          AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(PublishAot)' == 'true'">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="@(ResolvedFileToPublish)"
+                             Condition="$([System.String]::Copy('%(Filename)').Contains('msalruntime')) Or '%(Filename)' == 'msasxpress'" />
+    </ItemGroup>
+  </Target>
+
 </Project>

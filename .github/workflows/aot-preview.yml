@@ -8,8 +8,9 @@ name: aot preview
 # set of offline commands against /samples, times them next to the regular
 # single-file build, and reports everything in the job summary.
 #
-# Download: the run's "tx-<rid>-aot" artifact (tx executable plus any native
-# libraries AOT cannot embed).
+# Download: the run's "tx-<rid>-aot" artifact, a single tx executable (the
+# native libraries AOT cannot embed are unused by tx and left out; see
+# ExcludeUnusedNativeLibrariesFromAot in src/Tomix.Cli/Tomix.Cli.csproj).
 on:
   workflow_dispatch:
   pull_request:
@@ -49,10 +50,11 @@ jobs:
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y clang zlib1g-dev
 
-      # TreatWarningsAsErrors is off because the codebase is not AOT-clean yet
-      # (reflection-based System.Text.Json); the warnings are reported below.
-      # JsonSerializerIsReflectionEnabledByDefault keeps that reflection-based
-      # JSON working under AOT until it moves to source-generated contexts.
+      # TreatWarningsAsErrors is off because the codebase is not AOT-clean yet:
+      # persisted files use source-generated JSON, but command output
+      # (--output-format json) still serializes loosely typed projections by
+      # reflection. JsonSerializerIsReflectionEnabledByDefault keeps that
+      # working under AOT; the remaining warnings are reported below.
       - name: Publish (AOT)
         shell: bash
         run: |
@@ -90,6 +92,13 @@ jobs:
             if [[ -f "$dir/Tomix.Cli.exe" ]]; then mv "$dir/Tomix.Cli.exe" "$dir/tx.exe"; fi
             if [[ -f "$dir/Tomix.Cli" ]]; then mv "$dir/Tomix.Cli" "$dir/tx"; fi
           done
+          # The point of AOT here is one self-contained binary: fail if
+          # anything ships beside it.
+          extra="$(ls artifacts/aot | grep -vx '${{ matrix.exe }}' || true)"
+          if [[ -n "$extra" ]]; then
+            echo "::error::AOT output is not a single binary; also found: $extra"
+            exit 1
+          fi
           cp LICENSE README.md artifacts/aot/
 
       - name: Smoke and timing
