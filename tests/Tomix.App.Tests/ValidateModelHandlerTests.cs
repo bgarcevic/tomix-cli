@@ -333,6 +333,25 @@ public sealed class ValidateModelHandlerTests
             Assert.Equal(expectedCode, Assert.Single(result.Data!.Errors).Code);
     }
 
+    [Theory]
+    [InlineData("COUNTROWS(FILTER(ADDCOLUMNS(Sales, \"@Required\", 1, \"@Passed\", 2), [@Required] > 0 && [@Required] = [@Passed]))", null)]
+    [InlineData("SUMX(GENERATESERIES(1, 12), [Value])", null)]
+    [InlineData("SUMX({ (1, 2) }, [Value1] + [Value2])", null)]
+    [InlineData("COUNTROWS(FILTER(ADDCOLUMNS(Sales, \"@Required\", 1), [@Requiredd] > 0))", "@Requiredd")]
+    [InlineData("SUMX(Sales, [Value])", "Value")]
+    // "@Required" in a comment defines nothing.
+    [InlineData("SUMX(Sales, [@Required]) // \"@Required\"", "@Required")]
+    public async Task HandleAsync_AcceptsQueryScopedColumns(string expression, string? warnedName)
+    {
+        var result = await ValidateAsync(SalesSnapshot(Measure("Total", expression)));
+
+        Assert.Empty(result.Data!.Errors);
+        if (warnedName is null)
+            Assert.Empty(result.Data.Warnings);
+        else
+            Assert.Contains($"[{warnedName}]", Assert.Single(result.Data.Warnings).Message);
+    }
+
     [Fact]
     public async Task HandleAsync_ScansSecondaryMeasureExpressions()
     {
