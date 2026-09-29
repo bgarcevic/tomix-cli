@@ -101,6 +101,23 @@ public sealed class PropertyFlagTests
         }
     }
 
+    [Fact]
+    public void SetAssignments_StdinDropsWindowsPowerShellBom()
+    {
+        var original = Console.In;
+        Console.SetIn(new StringReader("﻿\"v2\"\r\n"));
+        try
+        {
+            var assignment = Assert.Single(AddCommand.ParseSetAssignments(["expression=-"]));
+
+            Assert.Equal("\"v2\"", assignment.Value);
+        }
+        finally
+        {
+            Console.SetIn(original);
+        }
+    }
+
     // ── -q collision on get/query (#218) ────────────────────────────────────
 
     [Fact]
