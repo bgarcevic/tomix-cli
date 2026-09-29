@@ -16,6 +16,10 @@ and the API surface that major versions protect.
   test-snapshot files are now read and written with source-generated JSON instead of runtime
   reflection, as groundwork for a faster-starting Native AOT build. The files' format is
   unchanged, so existing ones keep working.
+- Release binaries and the `dotnet tool` package no longer include `msalruntime` and
+  `msasxpress`, two native libraries tx never uses for sign-in (the release binary is about
+  3 MB smaller). The `dotnet tool` package now talks to XMLA endpoints uncompressed, as the
+  release binaries already did.
 
 ## [0.6.0] - 2026-09-29
 
