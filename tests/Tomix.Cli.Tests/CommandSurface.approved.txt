@@ -494,6 +494,10 @@ Change a property on a model object
   opt --strict-refs  Fail when a rename leaves DAX references broken (with fixup on, only unfixable references fail)
   opt --no-fix-refs  Do not rewrite DAX references to the renamed object; warn instead
 
+# tx summary
+Show where a model lives and what it contains
+  arg [model]  Model path, Fabric path, or omit to use the active connection
+
 # tx stage
 Inspect and manage staged (uncommitted) model mutations
 

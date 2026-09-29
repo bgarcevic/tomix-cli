@@ -5,6 +5,25 @@ Read-only commands for exploring a model. All of them work against the
 and all print JSON with `--output-format json`. `ls`, `get`, and `query` also
 print CSV; `get` additionally emits `tmdl`, `bim`, and `tmsl`.
 
+## `summary` — what is this model
+
+```
+tx summary [model]
+```
+
+Prints where the model lives and what it contains: its source (a file path,
+or the workspace endpoint and model name), the on-disk format (`tmdl` or
+`bim`) for local models, the compatibility level, culture, and default
+storage mode, and object counts (tables, columns, measures, relationships,
+roles, partitions, calculation groups, perspectives, cultures). A good first
+command on an unfamiliar model, and a quick smoke test that it opens.
+
+```sh
+tx summary                           # the active connection
+tx summary ./model.tmdl
+tx summary --output-format json      # counts under "counts"
+```
+
 ## `ls` — list model objects
 
 Alias: `list`.
@@ -47,9 +66,8 @@ include their endpoint columns, cardinality, `crossFilteringBehavior`, and
 expressions include `expression`, `kind`, and `remoteParameterName`; DAX
 functions include `expression` and `isHidden`. The model root has its own
 path — `tx get .` reports the compatibility level, `culture`,
-`defaultMode`, and the other model-level scalars, plus object counts (`counts`:
-tables, columns, measures, relationships, roles), which makes it a quick model
-summary or smoke test. Object
+`defaultMode`, and the other model-level scalars (for object counts, see
+[`summary`](#summary-what-is-this-model)). Object
 annotations are appended as `annotation:<name>` entries in text and JSON
 output, followed by translations as `translation:<culture>/<property>`
 (the same token `tx set` takes). CSV keeps the fixed per-kind columns.
@@ -61,7 +79,6 @@ tx get "Sales/Total Sales" --query annotation:PBI_FormatHint
 tx get "Sales/Total Sales" --query translation:da-DK/caption
 tx get "Relationships/rel-customers"
 tx get "Expressions/Environment" --query expression   # a shared M parameter's value
-tx get .                                         # model properties and object counts
 tx get . --query culture                         # a model-level scalar
 tx get Sales --output-format tmdl    # the object as TMDL
 ```

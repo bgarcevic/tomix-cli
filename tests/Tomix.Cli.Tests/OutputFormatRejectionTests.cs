@@ -44,6 +44,7 @@ public sealed class OutputFormatRejectionTests
             "save" => new SaveCommand(NoProviders, services.State),
             "session" => new SessionCommand(services.State),
             "set" => new SetCommand(NoProviders, services.State, mutations),
+            "summary" => new SummaryCommand(NoProviders, services.State),
             "stage" => new StageCommand(NoProviders, services.State, services.Staging),
             "update" => new UpdateCommand("0.0.0-test", FakeReleaseSource.Empty, services.UpdateCheck),
             "validate" => new ValidateCommand(NoProviders, services.State),
@@ -85,6 +86,7 @@ public sealed class OutputFormatRejectionTests
     [InlineData("csv", "session")]
     [InlineData("csv", "set", "tables/T/measures/M")]
     [InlineData("csv", "stage")]
+    [InlineData("csv", "summary")]
     [InlineData("csv", "update", "--check")]
     [InlineData("csv", "validate")]
     [InlineData("tmdl", "refresh")]

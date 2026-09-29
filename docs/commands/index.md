@@ -7,7 +7,7 @@ the version you have installed. Run bare `tx` for just the command list.
 
 | Group | Commands |
 |-------|----------|
-| [Discover](discover.md) | `ls`, `get`, `find`, `deps`, `query` |
+| [Discover](discover.md) | `summary`, `ls`, `get`, `find`, `deps`, `query` |
 | [Modify](modify.md) | `add`, `set`, `mv`, `rm`, `replace`, `format` |
 | [Connect](connect.md) | `connect`, `deploy`, `refresh`, `save`, `auth`, `session` |
 | [Validate](validate.md) | `bpa`, `validate`, `test`, `vertipaq`, `diff`, `doctor` |

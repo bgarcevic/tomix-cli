@@ -27,7 +27,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
 
     internal static readonly (string Heading, string[] Commands)[] RootSections =
     [
-        ("Discover", ["ls", "get", "find", "deps", "query"]),
+        ("Discover", ["summary", "ls", "get", "find", "deps", "query"]),
         ("Modify", ["add", "set", "mv", "rm", "replace", "format"]),
         ("Connect", ["connect", "deploy", "refresh", "save", "auth", "session"]),
         ("Validate", ["bpa", "validate", "test", "vertipaq", "diff", "doctor"]),
@@ -59,11 +59,15 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx ls Sa*",
             "tx ls --paths-only --type measure",
         ],
+        ["summary"] = [
+            "tx summary",
+            "tx summary ./model.tmdl",
+            "tx summary --output-format json",
+        ],
         ["get"] = [
             "tx get \"Table[Measure]\"",
             "tx get Revenue -t measure",
             "tx get Sales/Measures/Revenue --output-format json",
-            "tx get .",
         ],
         ["find"] = [
             "tx find CALCULATE",

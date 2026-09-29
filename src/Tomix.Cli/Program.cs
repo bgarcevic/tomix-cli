@@ -226,6 +226,7 @@ internal static class Program
             new SaveCommand(providers, services.State, httpClient),
             new SessionCommand(services.State),
             new SetCommand(providers, services.State, mutations),
+            new SummaryCommand(providers, services.State),
             new StageCommand(providers, services.State, services.Staging, services.ConfigStore.ValidateOnSaveEnabled),
             new TestCommand(providers, loadCurrentSession),
             new UpdateCommand(version, releaseSource ?? UnavailableReleaseSource.Instance, services.UpdateCheck),

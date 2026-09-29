@@ -67,8 +67,9 @@ and the API surface that major versions protect.
   could not change a model. Use `tx ls`, `tx get`, and `tx find` (with `--output-format json`)
   to read the same information. The `TOMIX_SCRIPT_FILE_NOT_FOUND` and `TOMIX_SCRIPT_REQUIRED`
   codes are gone with it.
-- **Breaking:** `tx load` is removed. `tx get .` now shows the same summary: the model-level
-  properties plus object counts (`counts`: tables, columns, measures, relationships, roles).
+- **Breaking:** `tx load` is replaced by `tx summary`, which is listed under Discover and reports
+  more: the source (path or workspace endpoint), on-disk format, culture, default storage mode,
+  and partition, calculation group, perspective, and culture counts alongside the old ones.
 - **Breaking:** the compatibility `-q <property>`/`-i <value>` options on `tx add` and `tx set`
   are removed. Use `--set <property>=<value>` (repeatable; `<property>=-` reads stdin) and, on
   `add`, `--expression`/`-e` for the new object's value. `-q` now means `--quiet` on every command.

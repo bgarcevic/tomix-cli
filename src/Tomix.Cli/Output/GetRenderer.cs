@@ -71,11 +71,6 @@ internal static class GetRenderer
             else
                 Console.WriteLine($"{key}: {value}");
         }
-
-        if (result.Counts is { } counts)
-            Console.WriteLine(
-                $"counts: {counts.Tables} tables, {counts.Columns} columns, {counts.Measures} measures, "
-                + $"{counts.Relationships} relationships, {counts.Roles} roles");
     }
 
     private static void RenderScalar(object? value)

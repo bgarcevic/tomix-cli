@@ -116,8 +116,8 @@ command and is suppressed in CI and for JSON/CSV output. Opt out entirely with
 
 ## Commands
 
-Discover: `ls`, `get`, `find`, `deps`, `query` (run DAX/DMV queries against
-a live model)
+Discover: `summary` (where a model lives and what it contains), `ls`, `get`,
+`find`, `deps`, `query` (run DAX/DMV queries against a live model)
 Modify: `add`, `set`, `mv`, `rm`, `replace`, `format` (DAX and M, via the
 formatter APIs).
 Refresh policies use `get`/`set`/`rm` with `<table>/RefreshPolicy`;

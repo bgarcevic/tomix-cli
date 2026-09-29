@@ -35,29 +35,6 @@ public sealed class ReadOnlyCommandHandlerTests
     }
 
     [Fact]
-    public async Task Get_ModelRoot_ReportsObjectCounts()
-    {
-        var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
-            new GetModelRequest(new ModelReference("any"), ".", Query: null, Type: null),
-            CancellationToken.None);
-
-        Assert.Equal(new ModelCounts(Tables: 1, Columns: 1, Measures: 2, Relationships: 1, Roles: 0), result.Data!.Counts);
-    }
-
-    [Theory]
-    [InlineData("Sales", null)]
-    [InlineData(".", "culture")]
-    public async Task Get_CountsOnlyForTheWholeModelRoot(string path, string? query)
-    {
-        var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
-            new GetModelRequest(new ModelReference("any"), path, Query: query, Type: null),
-            CancellationToken.None);
-
-        Assert.True(result.Success);
-        Assert.Null(result.Data!.Counts);
-    }
-
-    [Fact]
     public async Task Get_BareContainerKeyword_FailsWithAccurateMessage()
     {
         var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
