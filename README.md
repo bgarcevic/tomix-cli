@@ -124,7 +124,7 @@ Refresh policies use `get`/`set`/`rm` with `<table>/RefreshPolicy`;
 `refresh --policy-only` applies a saved policy without loading data.
 Connect: `connect` (interactive workspace/model pickers with `--remote`,
 reconnect to a previous target with `--recent`), `deploy`, `refresh`,
-`load`, `save`, `auth`, `session`
+`save`, `auth`, `session`
 Validate: `bpa` (Best Practice Analyzer with auto-fix), `validate`, `test`
 (DAX regression tests against a live model), `vertipaq` (storage statistics,
 `.vpax` export/import), `diff`, `doctor`

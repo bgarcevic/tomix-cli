@@ -19,7 +19,7 @@ Staging lets you build up a batch of edits and commit (or abandon) them as a
 unit — useful when a change only makes sense as a whole:
 
 ```sh
-tx set "Sales[Total Sales]" -q "SUM(Sales[Amount])" --stage
+tx set "Sales[Total Sales]" --set expression="SUM(Sales[Amount])" --stage
 tx mv "Sales/Old Name" "Sales/New Name" --stage
 tx rm "Sales/Obsolete" --stage
 

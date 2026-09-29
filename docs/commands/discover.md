@@ -47,7 +47,9 @@ include their endpoint columns, cardinality, `crossFilteringBehavior`, and
 expressions include `expression`, `kind`, and `remoteParameterName`; DAX
 functions include `expression` and `isHidden`. The model root has its own
 path — `tx get .` reports the compatibility level, `culture`,
-`defaultMode`, and the other model-level scalars. Object
+`defaultMode`, and the other model-level scalars, plus object counts (`counts`:
+tables, columns, measures, relationships, roles), which makes it a quick model
+summary or smoke test. Object
 annotations are appended as `annotation:<name>` entries in text and JSON
 output, followed by translations as `translation:<culture>/<property>`
 (the same token `tx set` takes). CSV keeps the fixed per-kind columns.
@@ -59,6 +61,7 @@ tx get "Sales/Total Sales" --query annotation:PBI_FormatHint
 tx get "Sales/Total Sales" --query translation:da-DK/caption
 tx get "Relationships/rel-customers"
 tx get "Expressions/Environment" --query expression   # a shared M parameter's value
+tx get .                                         # model properties and object counts
 tx get . --query culture                         # a model-level scalar
 tx get Sales --output-format tmdl    # the object as TMDL
 ```

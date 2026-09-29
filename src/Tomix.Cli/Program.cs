@@ -216,7 +216,6 @@ internal static class Program
             new FormatCommand(providers, formatter, services.State, mutations),
             new GetCommand(providers, services.State),
             new InitCommand(),
-            new LoadCommand(providers, services.State),
             new LsCommand(providers, services.State),
             new MvCommand(providers, services.State, mutations),
             new ProfileCommand(services.State),

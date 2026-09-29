@@ -2,7 +2,7 @@ namespace Tomix.Cli.Commands;
 
 /// <summary>
 /// Resolves a command input value, honouring the <c>-</c> stdin sentinel and an optional
-/// <c>--file</c> source. Shared by the <c>add</c>, <c>set</c>, <c>format</c>, and <c>script</c>
+/// <c>--file</c> source. Shared by the <c>add</c>, <c>set</c>, and <c>format</c>
 /// commands so the sentinel semantics stay identical across them.
 /// </summary>
 internal static class InputValueResolver

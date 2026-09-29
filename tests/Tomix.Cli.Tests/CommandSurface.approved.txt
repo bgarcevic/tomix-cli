@@ -19,8 +19,6 @@ Create a new object in the model
   arg <path>  Where to create the object, slash-separated: 'Sales/Revenue', 'Products', 'Admin'. DAX form also accepted: "'Sales'[Revenue]". Combine with -t. For relationships, use 'Sales[Key]->Product[Key]' (many side first).
   arg [model]  Optional path to the model; defaults to the active connection
   opt --type, -t <type>  Type of object to create. Supported values: Table, CalcTable, CalcGroup, Measure, CalcColumn, DataColumn, Hierarchy, Level, Calendar, CalcItem, KPI, Partition, MPartition, EntityPartition, PolicyRangePartition, Expression, Function, Perspective, Culture, ProviderDataSource, StructuredDataSource, Role, TablePermission, Member, Relationship. Data sources always require -t (no path keyword infers them).
-  opt -i <value>  Compatibility form of --expression / --set: an unpaired -i is the new object's value; pair each -q with a following -i to set a property. Use '-' to read from stdin.
-  opt -q <property>  Compatibility form of --set: property name to set on the newly-created object; pair each -q with a following -i value. Repeatable.
   opt --expression, -e <expr>  Expression or value for the new object. Use '-' to read from stdin.
   opt --set <name=value>  Set a property on the new object: name=value, e.g. --set formatString="#,0". Repeatable. Names can use dotted paths, bracket indexers, or a DisplayName.
   opt --file <file>  Read the expression from this file
@@ -342,10 +340,6 @@ Start a new empty semantic model
   opt --serialization <format>  How the new model is written: tmdl, bim, or pbip (default: tmdl)
   opt --force  Clear anything already at the target path
 
-# tx load
-Open a semantic model and print a summary
-  arg [model]  Model path, Fabric path, or omit to use the active connection
-
 # tx ls (aliases: list)
 List model objects
   arg [path-filter]  Object-path filter. Bare names match literally ('Sales', 'Sales/Measures'); container keywords pivot ('Tables', 'Measures', 'Sales/Partitions'); '*' is a wildcard ('Sa*', '*/Amount'); quote names with spaces ("'Net Sales'/'Sales Amount'"); inside quotes, '' is a literal apostrophe.
@@ -486,8 +480,6 @@ Print this session's details (ID, file path, active state)
 Change a property on a model object
   arg <path>  The object to change, slash-separated. DAX form works too.
   arg [model]  Optional path to the model; defaults to the active connection
-  opt -q <property>  Compatibility form of --set: the property to set; give its value with -i
-  opt -i <value>  Compatibility form of --set: the value for the preceding -q. Pass '-' to read from stdin.
   opt --set, -p <name=value>  Property assignment as name=value. Repeat to set multiple properties together.
   opt --force, -f  Save despite newly introduced validation errors
   opt --overwrite  Allow --save-to to overwrite an existing target

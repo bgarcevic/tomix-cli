@@ -25,9 +25,21 @@ public sealed class GetModelHandler
 
             // The model root is not a snapshot object: "." synthesizes one from the
             // snapshot's model-level properties so get can read back what set accepts
-            // on the root (culture, compatibility level, and friends).
+            // on the root (culture, compatibility level, and friends). The whole root also
+            // reports object counts, so it doubles as the model's summary.
             if (request.Path.Trim().Trim('/') == ".")
-                return TomixResult<GetModelResult>.Ok(Project(ModelRoot(snapshot), request.Query, measureNames));
+            {
+                var root = Project(ModelRoot(snapshot), request.Query, measureNames);
+                if (!string.IsNullOrWhiteSpace(request.Query))
+                    return TomixResult<GetModelResult>.Ok(root);
+
+                var summary = await session.GetSummaryAsync(cancellationToken);
+                return TomixResult<GetModelResult>.Ok(root with
+                {
+                    Counts = new ModelCounts(
+                        summary.Tables, summary.Columns, summary.Measures, summary.Relationships, summary.Roles)
+                });
+            }
 
             var matches = ModelObjectLookup.Find(snapshot, request.Path, request.Type).ToList();
 

@@ -37,7 +37,6 @@ public sealed class OutputFormatRejectionTests
             "format" => new FormatCommand(NoProviders, new CompositeExpressionFormatterClient([]), services.State, mutations),
             "get" => new GetCommand(NoProviders, services.State),
             "init" => new InitCommand(),
-            "load" => new LoadCommand(NoProviders, services.State),
             "profile" => new ProfileCommand(services.State),
             "refresh" => new RefreshCommand(NoProviders, services.State, services.LoadCurrentSession),
             "replace" => new ReplaceCommand(NoProviders, services.State, mutations),
@@ -80,7 +79,6 @@ public sealed class OutputFormatRejectionTests
     [InlineData("csv", "doctor")]
     [InlineData("csv", "format")]
     [InlineData("csv", "init")]
-    [InlineData("csv", "load")]
     [InlineData("csv", "profile", "list")]
     [InlineData("csv", "replace", "old", "new")]
     [InlineData("csv", "rm", "tables/T/measures/M")]

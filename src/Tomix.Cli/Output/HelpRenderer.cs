@@ -29,7 +29,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
     [
         ("Discover", ["ls", "get", "find", "deps", "query"]),
         ("Modify", ["add", "set", "mv", "rm", "replace", "format"]),
-        ("Connect", ["connect", "deploy", "refresh", "load", "save", "auth", "session"]),
+        ("Connect", ["connect", "deploy", "refresh", "save", "auth", "session"]),
         ("Validate", ["bpa", "validate", "test", "vertipaq", "diff", "doctor"]),
         ("Manage", ["config", "profile", "init", "completion", "stage", "update"]),
     ];
@@ -63,6 +63,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx get \"Table[Measure]\"",
             "tx get Revenue -t measure",
             "tx get Sales/Measures/Revenue --output-format json",
+            "tx get .",
         ],
         ["find"] = [
             "tx find CALCULATE",
@@ -131,10 +132,6 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx refresh --refresh-type full",
             "tx refresh --table Sales --table Customers",
             "tx refresh --partition Sales.FY2024 --dry-run",
-        ],
-        ["load"] = [
-            "tx load ./model.tmdl",
-            "tx load --output-format json",
         ],
         ["save"] = [
             "tx save ./model.tmdl --serialization bim",
@@ -382,7 +379,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             // Untagged options first, then the command's own groups in first-seen order, then the
             // shared save flags, then the compatibility forms.
             foreach (var group in local.GroupBy(o => HelpGroups.Of(o) ?? "")
-                         .OrderBy(g => g.Key switch { "" => 0, HelpGroups.Save => 2, HelpGroups.Compatibility => 3, _ => 1 }))
+                         .OrderBy(g => g.Key switch { "" => 0, HelpGroups.Save => 2, _ => 1 }))
             {
                 AnsiConsole.MarkupLine(Styling.Title($"{(group.Key.Length == 0 ? "Options" : group.Key)}:"));
                 WriteOptionRows(group.Key == HelpGroups.Save
