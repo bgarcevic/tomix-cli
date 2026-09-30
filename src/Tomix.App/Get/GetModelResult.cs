@@ -11,4 +11,4 @@ public sealed record GetModelResult(
     GetMode Mode,
     GetObjectResult? Object = null,
     GetListResult? List = null,
-    DepsModelResult? Deps = null);
+    GetDepsResult? Deps = null);

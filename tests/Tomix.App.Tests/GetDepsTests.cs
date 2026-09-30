@@ -199,7 +199,7 @@ public sealed class GetDepsTests
         Assert.Equal("TOMIX_DEPS_PATH_REQUIRED", result.Diagnostics[0].Code);
     }
 
-    private static async Task<Core.Results.TomixResult<DepsModelResult>> Run(GetModelRequest request)
+    private static async Task<Core.Results.TomixResult<GetDepsResult>> Run(GetModelRequest request)
     {
         var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(request, CancellationToken.None);
         return new(result.Success, result.Data?.Deps, result.Diagnostics, result.ExitCode);

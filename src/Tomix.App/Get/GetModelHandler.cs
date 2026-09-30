@@ -73,7 +73,7 @@ public sealed class GetModelHandler
             return mode switch
             {
                 GetMode.List => List(snapshot, request),
-                GetMode.Unused => Ok(mode, deps: new DepsModelResult(
+                GetMode.Unused => Ok(mode, deps: new GetDepsResult(
                     Path: "",
                     Type: "",
                     Upstream: [],
@@ -125,7 +125,7 @@ public sealed class GetModelHandler
         GetMode mode,
         GetObjectResult? obj = null,
         GetListResult? list = null,
-        DepsModelResult? deps = null)
+        GetDepsResult? deps = null)
         => TomixResult<GetModelResult>.Ok(new GetModelResult(mode, obj, list, deps));
 
     private static TomixResult<GetModelResult> Read(ModelSnapshot snapshot, GetModelRequest request)
@@ -214,7 +214,7 @@ public sealed class GetModelHandler
             ? []
             : request.Deep ? graph.Deep(target, upstream: false, maxDepth) : graph.DirectDownstream(target);
 
-        return Ok(GetMode.Deps, deps: new DepsModelResult(
+        return Ok(GetMode.Deps, deps: new GetDepsResult(
             target.Path,
             ModelObjectProjection.KindLabel(target.Kind),
             upstream,
