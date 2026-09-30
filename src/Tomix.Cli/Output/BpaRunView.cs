@@ -132,6 +132,22 @@ internal static class BpaRunView
         static string Plural(int count, string noun) => $"{count} {noun}{(count == 1 ? "" : "s")}";
     }
 
+    /// <summary>
+    /// "overrides standard" for a listed rule that replaced another source's copy. A preset
+    /// overriding a preset (<c>full</c> over <c>standard</c>) is the same rule and says nothing,
+    /// so it is left out; a team or model rule replacing a built-in one is worth a mention.
+    /// </summary>
+    internal static string OverridesLabel(BpaRuleInfo rule)
+    {
+        if (rule.Overrides is not { Count: > 0 } overrides || IsPreset(rule.Source))
+            return "";
+
+        return $"overrides {string.Join(", ", overrides)}";
+
+        static bool IsPreset(string source)
+            => BpaRuleLoader.KnownRulesets.Contains(source, StringComparer.OrdinalIgnoreCase);
+    }
+
     /// <summary>Which level(s) switched a whole rule off, for <c>bpa run --details</c>.</summary>
     internal static string SuppressionLabel(BpaRuleSuppression suppressedBy)
     {

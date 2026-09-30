@@ -142,7 +142,7 @@ the prompt in scripts.
 
 | Subcommand | Description |
 |------------|-------------|
-| `bpa rules list` | List rules from every source, grouped by category, with each rule's severity, scope, status, and whether it is `fixable`. Includes the rules in your config-dir `bpa-rules.json` (source `user`). With a model (or, when none is named, a local active connection), also lists the model's embedded and external-file rules (remote URLs are reported, not fetched) and any rule-load diagnostics. A rule the model ignores shows as `ignored (model)`, one you ignore with `--user` as `ignored (you)`, and one ignored both ways as `ignored (you, model)`. |
+| `bpa rules list` | List the rules in effect, once per rule ID, grouped by category, with each rule's severity, scope, status, and whether it is `fixable`. Includes the rules in your config-dir `bpa-rules.json` (source `user`). With a model (or, when none is named, a local active connection), also lists the model's embedded and external-file rules (remote URLs are reported, not fetched) and any rule-load diagnostics. A rule the model ignores shows as `ignored (model)`, one you ignore with `--user` as `ignored (you)`, and one ignored both ways as `ignored (you, model)`. |
 | `bpa rules show <rule-id> [model]` | Show one rule in full: description, reference link, source, scope, expression, and fix expression. Accepts `--ruleset` and `--no-defaults` like `list`, and like `list` uses a local active connection when no model is named. An unknown ID fails with `TOMIX_BPA_RULE_NOT_FOUND` and suggests IDs that contain what you typed. |
 | `bpa rules ignore <rule-id> [model]` / `bpa rules unignore <rule-id> [model]` | Add or remove a rule on the model's ignore list. With `--user`, ignore it (or stop) just for you, on this machine, for every model. See [Ignoring rules](#ignoring-rules). |
 | `bpa rules add [model] --id <id> ...` | Add a custom rule to your rules file, or to the model's rules with a model. Needs `--name`, `--scope`, and `--expression`; see [Authoring rules](#authoring-rules). |
@@ -228,6 +228,10 @@ The other commands read the same settings:
   `TOMIX_BPA_RULES` with source `bpa.rules` or `TOMIX_BPA_RULES`. A source that
   can't be loaded is reported as a diagnostic, and the listing still shows
   every other source.
+- `bpa rules list` shows each rule ID once, from the source that wins by the
+  same order as `bpa run`. A team or model rule that replaces another source's
+  copy says so (`overrides standard`; JSON `overrides`). `bpa rules show` still
+  prints every source's copy, so you can compare an override with the original.
 - `bpa rules ignore` accepts IDs from their local files.
 - The `deploy` BPA gate checks the `standard` ruleset, then `bpa.rules`,
   `TOMIX_BPA_RULES`, and `--bpa-rules`, with the same override order. It

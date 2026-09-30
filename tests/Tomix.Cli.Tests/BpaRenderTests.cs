@@ -340,6 +340,19 @@ public class BpaRenderTests
     public void IgnoredLine_CountsRulesPerLevelThenFindings(int byUser, int byModel, int findings, string expected)
         => Assert.Equal(expected, BpaRunView.IgnoredLine(byUser, byModel, findings));
 
+    [Theory]
+    [InlineData("TOMIX_BPA_RULES", new[] { "standard" }, "overrides standard")]
+    [InlineData("full", new[] { "standard" }, "")]
+    [InlineData("standard", new string[0], "")]
+    public void OverridesLabel_MentionsOnlyARuleThatReplacedAnotherSource(string source, string[] overrides, string expected)
+    {
+        var rule = new BpaRuleInfo(source, "active", "R", "R", "c", BpaSeverity.Warning, "Table",
+            Description: null, Expression: null, FixExpression: null, Enabled: true,
+            Overrides: overrides.Length > 0 ? overrides : null);
+
+        Assert.Equal(expected, BpaRunView.OverridesLabel(rule));
+    }
+
     [Fact]
     public void RulesLoadedLine_NoSources_SaysNoRulesWereLoaded()
         => Assert.Equal("Rules loaded: none", BpaRunView.RulesLoadedLine([]));

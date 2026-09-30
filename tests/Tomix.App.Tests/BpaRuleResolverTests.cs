@@ -134,4 +134,31 @@ public sealed class BpaRuleResolverTests
 
         Assert.Equal([("shadowed.json", 0, 1), ("model-embedded", 1, 0)], resolved.Sources.Select(s => (s.Name, s.Rules, s.Overridden)));
     }
+
+    [Fact]
+    public void ResolveEffective_KeepsTheWinnerAndNamesWhatItOverrode()
+    {
+        var standard = new BpaRuleCollection(BpaRuleSourceKind.Machine, "standard", [Rule("A", "m"), Rule("DUP", "m")]);
+        var team = new BpaRuleCollection(BpaRuleSourceKind.User, "team.json", [Rule("DUP", "u")], BpaRuleOrigin.Environment);
+
+        var effective = BpaRuleResolver.ResolveEffective([standard, team]);
+
+        Assert.Equal(["A", "DUP"], effective.Select(e => e.Rule.Id).Order());
+        var dup = Assert.Single(effective, e => e.Rule.Id == "DUP");
+        Assert.Same(team, dup.Source);
+        Assert.Same(standard, Assert.Single(dup.Overrides));
+        Assert.Empty(Assert.Single(effective, e => e.Rule.Id == "A").Overrides);
+    }
+
+    [Fact]
+    public void ResolveEffective_External_EarlierEntryWins()
+    {
+        var first = new BpaRuleCollection(BpaRuleSourceKind.External, "first.json", [Rule("DUP", "1")], BpaRuleOrigin.Model);
+        var second = new BpaRuleCollection(BpaRuleSourceKind.External, "second.json", [Rule("DUP", "2")], BpaRuleOrigin.Model);
+
+        var dup = Assert.Single(BpaRuleResolver.ResolveEffective([first, second]));
+
+        Assert.Same(first, dup.Source);
+        Assert.Same(second, Assert.Single(dup.Overrides));
+    }
 }

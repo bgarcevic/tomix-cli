@@ -141,6 +141,44 @@ public sealed class BpaRuleSourceChainTests
     }
 
     [Fact]
+    public async Task List_CombinedPresets_ShowEachRuleOnce()
+    {
+        // `--ruleset standard,full`: every standard rule is also in full, so listing both copies
+        // doubled the count.
+        using var configDir = new TempConfigDir();
+        var state = new BpaUserRuleState(configDir.Path);
+        var full = await new BpaRulesListHandler(null, state)
+            .HandleAsync(new BpaRulesListRequest(Ruleset: "full"), CancellationToken.None);
+        var combined = await new BpaRulesListHandler(null, state)
+            .HandleAsync(new BpaRulesListRequest(Ruleset: "standard,full"), CancellationToken.None);
+
+        Assert.Equal(full.Data!.Summary.Total, combined.Data!.Summary.Total);
+        Assert.Equal(combined.Data.Rules.Count, combined.Data.Rules.Select(r => r.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+        Assert.All(combined.Data.Rules, r => Assert.Equal("full", r.Source));
+    }
+
+    [Fact]
+    public async Task List_TeamRuleOverridingABuiltIn_ShowsOnceFromTheTeamFile_ShowKeepsBoth()
+    {
+        using var configDir = new TempConfigDir();
+        using var root = new TempDir();
+        var env = root.WriteFile("team.json",
+            "[{\"ID\":\"HIDE_FOREIGN_KEYS\",\"Name\":\"Team keys\",\"Category\":\"c\",\"Severity\":3,\"Scope\":\"DataColumn\",\"Expression\":\"true\"}]");
+        var handler = new BpaRulesListHandler(
+            null, new BpaUserRuleState(configDir.Path), configDirectory: configDir.Path,
+            environment: name => name == BpaRuleSources.EnvironmentVariable ? env : null);
+
+        var list = await handler.HandleAsync(new BpaRulesListRequest(), CancellationToken.None);
+        var show = await handler.HandleAsync(new BpaRulesListRequest(RuleId: "HIDE_FOREIGN_KEYS"), CancellationToken.None);
+
+        var rule = Assert.Single(list.Data!.Rules, r => r.Id == "HIDE_FOREIGN_KEYS");
+        Assert.Equal(BpaRuleSources.EnvironmentVariable, rule.Source);
+        Assert.Equal("Team keys", rule.Name);
+        Assert.Equal(["standard"], rule.Overrides!);
+        Assert.Equal(["standard", BpaRuleSources.EnvironmentVariable], show.Data!.Rules.Select(r => r.Source));
+    }
+
+    [Fact]
     public async Task List_UnloadableConfiguredSource_IsReportedNotFatal()
     {
         using var configDir = new TempConfigDir();

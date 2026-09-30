@@ -168,6 +168,7 @@ internal static class BpaRulesRenderer
         segments.Add(BpaRunView.SeverityWord(rule.Severity).ToLowerInvariant());
         segments.Add(rule.Scope);
         if (showSource) segments.Add(rule.Source);
+        segments.Add(BpaRunView.OverridesLabel(rule));
         segments.Add(status);
         segments.Add(fixable);
 
@@ -483,6 +484,10 @@ internal static class BpaRulesRenderer
             ["severityLabel"] = rule.Severity.ToString(),
             ["scope"] = rule.Scope
         };
+
+        // The other sources that define this id; `list` shows the winning copy once (additive).
+        if (rule.Overrides is { Count: > 0 })
+            json["overrides"] = rule.Overrides;
 
         AddIfNotEmpty(json, "description", rule.Description);
         AddIfNotEmpty(json, "expression", rule.Expression);
