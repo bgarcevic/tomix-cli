@@ -147,11 +147,11 @@ public sealed class SessionHandlerTests
     {
         WithStore((_, handler) =>
         {
-            var result = handler.Prune(all: false, dryRun: false);
+            var result = handler.Prune(all: false, preview: false);
 
             Assert.True(result.Success);
             Assert.Equal(0, result.Data!.Removed);
-            Assert.False(result.Data.DryRun);
+            Assert.False(result.Data.Preview);
         });
     }
 
@@ -165,7 +165,7 @@ public sealed class SessionHandlerTests
             var livePid = AddSessionFile(store, $"pid-{Environment.ProcessId}");
             var deadPid = AddSessionFile(store, $"pid-{int.MaxValue}");
 
-            var result = handler.Prune(all: false, dryRun: false);
+            var result = handler.Prune(all: false, preview: false);
 
             Assert.Equal(1, result.Data!.Removed);
             Assert.False(File.Exists(deadPid));
@@ -184,7 +184,7 @@ public sealed class SessionHandlerTests
             var missing = AddSessionFile(store, "pid-");
             var negative = AddSessionFile(store, "pid--1");
 
-            var result = handler.Prune(all: false, dryRun: false);
+            var result = handler.Prune(all: false, preview: false);
 
             Assert.Equal(0, result.Data!.Removed);
             Assert.True(File.Exists(nonNumeric));
@@ -203,7 +203,7 @@ public sealed class SessionHandlerTests
             AddSessionFile(store, $"pid-{Environment.ProcessId}");
             AddSessionFile(store, $"pid-{int.MaxValue}");
 
-            var result = handler.Prune(all: true, dryRun: false);
+            var result = handler.Prune(all: true, preview: false);
 
             Assert.Equal(3, result.Data!.Removed);
             Assert.True(File.Exists(store.CurrentSessionFile));
@@ -212,7 +212,7 @@ public sealed class SessionHandlerTests
     }
 
     [Fact]
-    public void Prune_DryRun_CountsWhatDefaultPruneWouldRemove_WithoutDeleting()
+    public void Prune_Preview_CountsWhatDefaultPruneWouldRemove_WithoutDeleting()
     {
         WithStore((store, handler) =>
         {
@@ -221,16 +221,16 @@ public sealed class SessionHandlerTests
             AddSessionFile(store, $"pid-{Environment.ProcessId}");
             AddSessionFile(store, $"pid-{int.MaxValue}");
 
-            var result = handler.Prune(all: false, dryRun: true);
+            var result = handler.Prune(all: false, preview: true);
 
             Assert.Equal(1, result.Data!.Removed);
-            Assert.True(result.Data.DryRun);
+            Assert.True(result.Data.Preview);
             Assert.Equal(4, store.ListSessions().Count);
         });
     }
 
     [Fact]
-    public void Prune_DryRunAll_CountsAllNonCurrent_WithoutDeleting()
+    public void Prune_PreviewAll_CountsAllNonCurrent_WithoutDeleting()
     {
         WithStore((store, handler) =>
         {
@@ -238,10 +238,10 @@ public sealed class SessionHandlerTests
             AddSessionFile(store, "named");
             AddSessionFile(store, $"pid-{Environment.ProcessId}");
 
-            var result = handler.Prune(all: true, dryRun: true);
+            var result = handler.Prune(all: true, preview: true);
 
             Assert.Equal(2, result.Data!.Removed);
-            Assert.True(result.Data.DryRun);
+            Assert.True(result.Data.Preview);
             Assert.Equal(3, store.ListSessions().Count);
         });
     }

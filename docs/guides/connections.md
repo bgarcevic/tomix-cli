@@ -99,8 +99,9 @@ tx session prune    # delete session files for dead shells
 
 The default prune is conservative: only dead, well-formed `pid-<number>`
 sessions are removed. Directory, named, malformed-PID, live-PID, and current
-sessions are kept. Use `--all` to remove every non-current session; add
-`--dry-run` to inspect the exact candidate count without deleting anything.
+sessions are kept. Use `--all` to remove every non-current session. Prune shows
+the exact candidate count and asks before deleting anything; `--yes` skips the
+preview.
 
 ## Authentication
 

@@ -127,8 +127,8 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ],
         ["deploy"] = [
             "tx deploy ./model.tmdl",
-            "tx deploy ./model.tmdl --dry-run",
-            "tx deploy ./model.tmdl --profile prod --dry-run",
+            "tx deploy ./model.tmdl --yes",
+            "tx deploy ./model.tmdl --profile prod",
             "tx deploy ./model.bim --skip-bpa",
             "tx deploy ./model.tmdl --bpa-fail-on warning",
         ],
@@ -136,7 +136,8 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx refresh",
             "tx refresh --refresh-type full",
             "tx refresh --table Sales --table Customers",
-            "tx refresh --partition Sales.FY2024 --dry-run",
+            "tx refresh --partition Sales.FY2024",
+            "tx refresh --refresh-type clearvalues --yes",
         ],
         ["save"] = [
             "tx save ./model.tmdl --serialization bim",
@@ -177,7 +178,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["bpa run"] = [
             "tx bpa run",
             "tx bpa run --errors --details",
-            "tx bpa run --fix --dry-run",
+            "tx bpa run --fix",
             "tx bpa run --fix --save",
             "tx bpa run --ci github --fail-on warning",
         ],
@@ -312,7 +313,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
 
     /// <summary>The save flags in the order a reader weighs them, whatever order a command declares them in.</summary>
     private static readonly string[] SaveOrder =
-        ["--save", "--save-to", "--stage", "--revert", "--dry-run", "--serialization", "--overwrite", "--force", "--no-sync"];
+        ["--save", "--save-to", "--stage", "--revert", "--serialization", "--overwrite", "--force", "--no-sync"];
 
     private readonly record struct Row(string Label, string StyledLabel, string Description);
 

@@ -18,4 +18,4 @@ public sealed record SessionListResult(IReadOnlyList<SessionFileInfo> Sessions);
 
 public sealed record SessionClearResult(bool Cleared);
 
-public sealed record SessionPruneResult(int Removed, bool DryRun);
+public sealed record SessionPruneResult(int Removed, bool Preview);

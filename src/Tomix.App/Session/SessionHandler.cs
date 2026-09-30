@@ -32,12 +32,12 @@ public sealed class SessionHandler
         return TomixResult<SessionClearResult>.Ok(new SessionClearResult(existed));
     }
 
-    public TomixResult<SessionPruneResult> Prune(bool all, bool dryRun)
+    public TomixResult<SessionPruneResult> Prune(bool all, bool preview)
     {
         var candidates = _store.SelectPruneCandidates(all);
-        if (dryRun)
-            return TomixResult<SessionPruneResult>.Ok(new SessionPruneResult(candidates.Count, DryRun: true));
+        if (preview)
+            return TomixResult<SessionPruneResult>.Ok(new SessionPruneResult(candidates.Count, Preview: true));
 
-        return TomixResult<SessionPruneResult>.Ok(new SessionPruneResult(CliStateStore.PruneSessions(candidates), DryRun: false));
+        return TomixResult<SessionPruneResult>.Ok(new SessionPruneResult(CliStateStore.PruneSessions(candidates), Preview: false));
     }
 }

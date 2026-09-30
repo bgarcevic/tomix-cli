@@ -116,7 +116,7 @@ public sealed partial class MarkupEscapeRendererTests
     [Fact]
     public void Deploy_UsesLiteralDiffError()
     {
-        var result = new DeployModelResult("[Server]", "[Database]", "dry-run", null, null, null,
+        var result = new DeployModelResult("[Server]", "[Database]", "preview", null, null, null,
             DiffError: "[Diff error]");
 
         var captured = Capture(() => DeployRenderer.Render(result, SampleModel.Locate()));

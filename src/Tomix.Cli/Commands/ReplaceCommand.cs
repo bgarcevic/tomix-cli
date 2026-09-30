@@ -56,10 +56,6 @@ internal sealed class ReplaceCommand : ICommandModule
         {
             Description = "Match text exactly, including letter case"
         };
-        var dryRunOption = new Option<bool>("--dry-run")
-        {
-            Description = "Preview changes without applying"
-        };
         var forceOption = LifecycleOptions.Force();
         var overwriteOption = LifecycleOptions.Overwrite();
         var stageOption = LifecycleOptions.Stage();
@@ -78,7 +74,6 @@ internal sealed class ReplaceCommand : ICommandModule
             typeOption,
             regexOption,
             caseSensitiveOption,
-            dryRunOption,
             forceOption,
             overwriteOption,
             stageOption,
@@ -96,7 +91,6 @@ internal sealed class ReplaceCommand : ICommandModule
                 return 2;
 
             var pattern = parseResult.GetValue(patternArgument) ?? "";
-            var dryRun = parseResult.GetValue(dryRunOption);
 
             ModelObjectKind? type = null;
             var typeValue = parseResult.GetValue(typeOption);
@@ -109,7 +103,11 @@ internal sealed class ReplaceCommand : ICommandModule
                 type = parsed;
             }
 
-            if (!dryRun && !ConfirmationHelper.ConfirmOrAbort(
+            // Without --save/--save-to/--stage the replace is only previewed, so it asks nothing.
+            var persists = parseResult.GetValue(revertOption)
+                || LifecycleOptions.Persists(
+                    parseResult.GetValue(saveOption), parseResult.GetValue(saveToOption), parseResult.GetValue(stageOption));
+            if (persists && !ConfirmationHelper.ConfirmOrAbort(
                 "Replace", $"'{pattern}'", parseResult, formatValue))
                 return 1;
 
@@ -131,7 +129,6 @@ internal sealed class ReplaceCommand : ICommandModule
                         parseResult.GetValue(inOption) ?? "all",
                         parseResult.GetValue(regexOption),
                         parseResult.GetValue(caseSensitiveOption),
-                        dryRun,
                         parseResult.GetValue(saveOption),
                         parseResult.GetValue(saveToOption),
                         parseResult.GetValue(serializationOption) ?? "",
@@ -153,12 +150,9 @@ internal sealed class ReplaceCommand : ICommandModule
     private static void Render(ReplaceModelTextResult result)
     {
         AnsiConsole.MarkupLine(Styling.Value($"Changes: {result.ChangeCount}"));
-        if (result.DryRun is true)
-        {
+        if (result.Status == MutationStatus.Preview)
             foreach (var preview in result.Previews ?? [])
                 AnsiConsole.WriteLine($"{preview.ObjectPath}.{preview.Property}: {preview.Before} -> {preview.After}");
-            return;
-        }
 
         MutationOutput.RenderPersistence(result.Outcome);
     }

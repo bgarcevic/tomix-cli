@@ -41,6 +41,7 @@ Fields:
 | 0    | Success. |
 | 1    | General failure (most errors). |
 | 2    | Usage/argument error, IO failure, or pre-condition violation. |
+| 3    | Preview only: `deploy`, a partition-risky `refresh`, or `session prune` ran without `--yes` where it could not prompt, so it showed the preview and applied nothing. Pass `--yes` to apply. |
 
 Handlers override the default via `TomixResult.Fail(..., exitCode: 2)`. If no exit code
 is specified, the default is `1`. Command-line parse errors (unknown option, missing
@@ -82,7 +83,6 @@ Emitted by `get`, `deps`, and `format --path` when a model object path fails to 
 
 | Code | Exit | Trigger |
 |------|------|---------|
-| `TOMIX_BPA_DRY_RUN_REQUIRES_FIX` | 2 | `bpa run --dry-run` was passed without `--fix`, or together with `--revert`. `--dry-run` previews fixes, so it needs `--fix`. |
 | `TOMIX_BPA_INVALID_FAIL_ON` | 2 | Invalid `--fail-on` or `--bpa-fail-on` value (expected: error, warning). |
 | `TOMIX_BPA_RULE_EXISTS` | 2 | `bpa rules add` was given an ID the rules file (or the model's `BestPracticeAnalyzer` annotation) already has. Change it with `bpa rules set`, or remove it first. |
 | `TOMIX_BPA_RULE_FIELD_REQUIRED` | 2 | `bpa rules add` is missing `--name`, `--scope`, or `--expression` (the message names which); `bpa rules set` was given no field to change; or a name or expression was set to an empty value. |

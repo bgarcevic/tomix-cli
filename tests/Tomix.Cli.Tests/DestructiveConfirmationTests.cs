@@ -1,4 +1,5 @@
 using System.CommandLine;
+using Tomix.App;
 using Tomix.Cli.Commands;
 using Tomix.Core.Models;
 
@@ -8,10 +9,11 @@ namespace Tomix.Cli.Tests;
 /// Destructive commands must refuse to run without confirmation when prompting is impossible,
 /// and <c>--yes</c> must bypass the prompt for scripts. Confirmation goes through the single
 /// gate-aware <see cref="ConfirmationHelper.ConfirmOrAbort"/> overload, so this covers every
-/// caller: <c>session clear</c>/<c>prune</c>, <c>stage commit</c>/<c>discard</c>, <c>rm</c>,
-/// <c>replace</c>, <c>deploy</c>, <c>refresh --policy-only</c>, the <c>connect</c> workspace
-/// overwrite, the partition-risky <c>refresh</c> variants, <c>mv --save</c>/<c>--revert</c>,
-/// and <c>bpa run --fix --allow-delete</c>/<c>--revert</c>.
+/// caller: <c>session clear</c>, <c>stage commit</c>/<c>discard</c>, the persisting forms of
+/// <c>rm</c>, <c>replace</c>, <c>mv</c> and <c>bpa run --fix --allow-delete</c>, their
+/// <c>--revert</c>, and the <c>connect</c> workspace overwrite. The preview-first commands
+/// (<c>deploy</c>, <c>refresh</c>, <c>session prune</c>) go through <see cref="PreviewGate"/>
+/// instead: without <c>--yes</c> they preview, then prompt or stop.
 /// </summary>
 [Collection(ConsoleStateCollection.Name)]
 public sealed class DestructiveConfirmationTests
@@ -49,21 +51,18 @@ public sealed class DestructiveConfirmationTests
 
     [Theory]
     [InlineData("session", "clear")]
-    [InlineData("session", "prune")]
-    [InlineData("session", "prune", "--all")]
     [InlineData("stage", "discard")]
     [InlineData("stage", "discard", "--all")]
     [InlineData("stage", "commit", "--model", "SomeModel")]
-    [InlineData("rm", "SomeTable")]
-    [InlineData("replace", "foo", "bar")]
-    [InlineData("deploy", "model.bim")]
-    [InlineData("refresh", "--policy-only", "--table", "Sales", "-s", RemoteEndpoint, "-d", "Sales")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--refresh-type", "clearvalues")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--skip-refresh-policy")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--effective-date", "2026-01-01")]
+    [InlineData("rm", "SomeTable", "--save")]
+    [InlineData("rm", "SomeTable", "--stage")]
+    [InlineData("rm", "SomeTable", "--revert")]
+    [InlineData("replace", "foo", "bar", "--save")]
+    [InlineData("replace", "foo", "bar", "--save-to", "out.bim")]
     [InlineData("mv", "Sales/Old", "Sales/New", "--model", "SomeModel", "--save")]
     [InlineData("mv", "Sales/Old", "Sales/New", "--model", "SomeModel", "--revert")]
-    [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete")]
+    [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete", "--save")]
+    [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete", "--stage")]
     [InlineData("bpa", "run", "--model", "SomeModel", "--revert")]
     public void WithoutYes_NonInteractive_AbortsWithGuidance(params string[] args)
     {
@@ -77,34 +76,22 @@ public sealed class DestructiveConfirmationTests
     // not just --non-interactive — must fail fast instead of blocking on a prompt.
     [Theory]
     [InlineData("session", "clear", "--quiet")]
-    [InlineData("session", "prune", "--quiet")]
     [InlineData("stage", "discard", "--quiet")]
     [InlineData("stage", "commit", "--model", "SomeModel", "--quiet")]
-    [InlineData("rm", "SomeTable", "--quiet")]
-    [InlineData("replace", "foo", "bar", "--quiet")]
-    [InlineData("deploy", "model.bim", "--quiet")]
-    [InlineData("refresh", "--policy-only", "--table", "Sales", "-s", RemoteEndpoint, "-d", "Sales", "--quiet")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--refresh-type", "clearvalues", "--quiet")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--skip-refresh-policy", "--quiet")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--effective-date", "2026-01-01", "--quiet")]
+    [InlineData("rm", "SomeTable", "--save", "--quiet")]
+    [InlineData("replace", "foo", "bar", "--save", "--quiet")]
     [InlineData("mv", "Sales/Old", "Sales/New", "--model", "SomeModel", "--save", "--quiet")]
     [InlineData("mv", "Sales/Old", "Sales/New", "--model", "SomeModel", "--revert", "--quiet")]
-    [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete", "--quiet")]
+    [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete", "--save", "--quiet")]
     [InlineData("bpa", "run", "--model", "SomeModel", "--revert", "--quiet")]
     [InlineData("session", "clear", "--output-format", "json")]
-    [InlineData("session", "prune", "--output-format", "json")]
     [InlineData("stage", "discard", "--output-format", "json")]
     [InlineData("stage", "commit", "--model", "SomeModel", "--output-format", "json")]
-    [InlineData("rm", "SomeTable", "--output-format", "json")]
-    [InlineData("replace", "foo", "bar", "--output-format", "json")]
-    [InlineData("deploy", "model.bim", "--output-format", "json")]
-    [InlineData("refresh", "--policy-only", "--table", "Sales", "-s", RemoteEndpoint, "-d", "Sales", "--output-format", "json")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--refresh-type", "clearvalues", "--output-format", "json")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--skip-refresh-policy", "--output-format", "json")]
-    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--effective-date", "2026-01-01", "--output-format", "json")]
+    [InlineData("rm", "SomeTable", "--save", "--output-format", "json")]
+    [InlineData("replace", "foo", "bar", "--save", "--output-format", "json")]
     [InlineData("mv", "Sales/Old", "Sales/New", "--model", "SomeModel", "--save", "--output-format", "json")]
     [InlineData("mv", "Sales/Old", "Sales/New", "--model", "SomeModel", "--revert", "--output-format", "json")]
-    [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete", "--output-format", "json")]
+    [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete", "--save", "--output-format", "json")]
     [InlineData("bpa", "run", "--model", "SomeModel", "--revert", "--output-format", "json")]
     public void WithoutYes_NonPromptableContext_AbortsWithGuidance(params string[] args)
     {
@@ -166,13 +153,62 @@ public sealed class DestructiveConfirmationTests
     }
 
     [Fact]
-    public void SessionPrune_DryRun_NeedsNoConfirmation()
+    public void SessionPrune_NothingToRemove_PreviewsAndExitsZero()
     {
-        var (exitCode, stdout, _) = Invoke(
-            "session", "prune", "--dry-run", "--non-interactive", "--output-format", "json");
+        var (exitCode, stdout, stderr) = Invoke(
+            "session", "prune", "--non-interactive", "--output-format", "json");
 
         Assert.Equal(0, exitCode);
-        Assert.Contains("\"dryRun\": true", stdout);
+        Assert.Contains("\"preview\": true", stdout);
+        Assert.DoesNotContain("Pass --yes", stderr);
+    }
+
+    // Preview is the default: without --yes a non-promptable prune shows what it would remove,
+    // removes nothing, and exits 3 so a script can tell the preview from a real run.
+    [Theory]
+    [InlineData("--non-interactive")]
+    [InlineData("--quiet")]
+    [InlineData("--output-format", "json")]
+    public void SessionPrune_WithoutYes_NonPromptableContext_PreviewsAndExitsThree(params string[] contextArgs)
+    {
+        var services = TestServices.Create();
+        var other = AddSessionFile(services, "other");
+
+        var (exitCode, stdout, _) = Invoke(
+            TestRoot.With(new SessionCommand(services.State).Build()),
+            ["session", "prune", "--all", .. contextArgs]);
+
+        Assert.Equal(PreviewGate.PreviewExitCode, exitCode);
+        Assert.True(File.Exists(other));
+        if (contextArgs.Contains("json"))
+        {
+            Assert.Contains("\"preview\": true", stdout);
+            Assert.Contains("\"removed\": 1", stdout);
+        }
+    }
+
+    [Fact]
+    public void SessionPrune_WithYes_RemovesWithoutPreview()
+    {
+        var services = TestServices.Create();
+        var other = AddSessionFile(services, "other");
+
+        var (exitCode, stdout, _) = Invoke(
+            TestRoot.With(new SessionCommand(services.State).Build()),
+            ["session", "prune", "--all", "--yes", "--output-format", "json"]);
+
+        Assert.Equal(0, exitCode);
+        Assert.Contains("\"preview\": false", stdout);
+        Assert.Contains("\"removed\": 1", stdout);
+        Assert.False(File.Exists(other));
+    }
+
+    private static string AddSessionFile(AppServices services, string sessionId)
+    {
+        Directory.CreateDirectory(services.State.SessionsDirectory);
+        var path = Path.Combine(services.State.SessionsDirectory, $"{sessionId}.json");
+        File.WriteAllText(path, "{}");
+        return path;
     }
 
     [Fact]
@@ -200,31 +236,60 @@ public sealed class DestructiveConfirmationTests
         Assert.DoesNotContain("Pass --yes to confirm", stderr);
     }
 
-    // Routine refreshes never prompt — only the partition-risky variants do — so a plain
-    // refresh reaches the handler (and fails there, since no provider can open the endpoint).
-    [Fact]
-    public void Refresh_WithoutRiskyFlags_NeedsNoConfirmation()
+    // Routine refreshes run straight away; only the partition-risky variants preview first and
+    // stop (exit 3) where they cannot prompt, without ever calling the engine.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(false, "--refresh-type", "full")]
+    [InlineData(false, "--table", "Sales")]
+    [InlineData(true, "--refresh-type", "clearvalues")]
+    [InlineData(true, "--skip-refresh-policy")]
+    [InlineData(true, "--effective-date", "2026-01-01")]
+    [InlineData(true, "--policy-only", "--table", "Sales")]
+    public void Refresh_OnlyPartitionRiskyVariants_PreviewFirst(bool risky, params string[] args)
     {
-        var (exitCode, _, stderr) = Invoke(
-            "refresh", "-s", RemoteEndpoint, "-d", "Sales", "--non-interactive", "--output-format", "json");
+        var session = new StubRefreshSession();
+        var services = TestServices.Create();
+        var root = TestRoot.With(new RefreshCommand(
+            [new StubRefreshProvider(session)], services.State, services.LoadCurrentSession).Build());
+
+        var (exitCode, stdout, _) = Invoke(
+            root, ["refresh", "-s", RemoteEndpoint, "-d", "Sales", .. args, "--non-interactive", "--output-format", "json"]);
+
+        Assert.Equal(risky ? PreviewGate.PreviewExitCode : 0, exitCode);
+        Assert.Equal(!risky, session.RefreshCalled || session.PolicyApplied);
+        Assert.NotEmpty(stdout);
+    }
+
+    // Deploy and refresh preview before they ask, so a target no provider can open fails in
+    // the preview with the provider's error, never with a confirmation error.
+    [Theory]
+    [InlineData("deploy", "model.bim")]
+    [InlineData("refresh", "-s", RemoteEndpoint, "-d", "Sales", "--refresh-type", "clearvalues")]
+    [InlineData("refresh", "--policy-only", "--table", "Sales", "-s", RemoteEndpoint, "-d", "Sales")]
+    public void PreviewFirstCommands_PreviewBeforeAsking(params string[] args)
+    {
+        var (exitCode, _, stderr) = Invoke([.. args, "--non-interactive", "--output-format", "json"]);
 
         Assert.Equal(2, exitCode);
         Assert.DoesNotContain("Pass --yes to confirm", stderr);
     }
 
-    [Fact]
-    public void Refresh_DryRun_ClearValues_NeedsNoConfirmation()
+    // Only the persisting forms ask: without --save/--save-to/--stage/--revert a mutation is a
+    // preview that stays in memory.
+    [Theory]
+    [InlineData("rm", "SomeTable")]
+    [InlineData("replace", "foo", "bar")]
+    [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete")]
+    public void Mutation_Preview_NeedsNoConfirmation(params string[] args)
     {
-        var (exitCode, _, stderr) = Invoke(
-            "refresh", "-s", RemoteEndpoint, "-d", "Sales", "--refresh-type", "clearvalues",
-            "--dry-run", "--non-interactive", "--output-format", "json");
+        var (exitCode, _, stderr) = Invoke([.. args, "--non-interactive", "--output-format", "json"]);
 
         Assert.Equal(2, exitCode);
         Assert.DoesNotContain("Pass --yes to confirm", stderr);
     }
 
-    // Only the persisting forms ask: without --save/--save-to/--stage/--revert the mutation
-    // stays in memory, and --stage defers the gate to 'stage commit'.
+    // mv additionally skips the gate for --stage, which defers it to 'stage commit'.
     [Fact]
     public void Mv_WithoutSaveOrRevert_NeedsNoConfirmation()
     {
@@ -243,6 +308,56 @@ public sealed class DestructiveConfirmationTests
 
         Assert.Equal(2, exitCode);
         Assert.DoesNotContain("Pass --yes to confirm", stderr);
+    }
+
+    private sealed class StubRefreshProvider(StubRefreshSession session) : IModelProvider
+    {
+        public bool CanOpen(ModelReference reference) => reference.IsRemote;
+
+        public Task<IModelSession> OpenAsync(ModelReference _, CancellationToken ct)
+            => Task.FromResult<IModelSession>(session);
+    }
+
+    private sealed class StubRefreshSession : IModelSession, IModelRefreshSession, IRefreshPolicyApplySession, IRefreshPolicyMutationSession
+    {
+        public bool RefreshCalled { get; private set; }
+        public bool PolicyApplied { get; private set; }
+        public string SourcePath => "";
+
+        public Task<ModelSummary> GetSummaryAsync(CancellationToken _)
+            => Task.FromResult(new ModelSummary("stub", 1601, 0, 0, 0, 0, 0));
+
+        public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken _)
+            => Task.FromResult(new ModelSnapshot("stub", 1601, []));
+
+        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+
+        public Task<ModelRefreshResult> RefreshAsync(
+            ModelRefreshRequest request, IProgress<RefreshProgress>? progress, TextWriter? traceWriter, CancellationToken cancellationToken)
+        {
+            RefreshCalled = true;
+            return Task.FromResult(new ModelRefreshResult(
+                "stub-server", request.Database ?? "stub", request.RefreshType, DurationMs: 1,
+                Tables: [new RefreshTableResult("Sales", 100, 5, 5, 10)],
+                Totals: new RefreshTableResult("Total", 100, 5, 5, 10)));
+        }
+
+        public string GenerateRefreshScript(ModelRefreshRequest request)
+            => "{\"refresh\":{\"type\":\"" + request.RefreshType + "\"}}";
+
+        public RefreshPolicyInfo? GetRefreshPolicy(string table)
+            => new(table, "Import", "Year", 10, "Day", 3, 0, "", "RangeStart RangeEnd", [], []);
+
+        public RefreshPolicySetResult SetRefreshPolicy(RefreshPolicySetRequest request) => throw new NotSupportedException();
+
+        public ModelObjectMutationResult RemoveRefreshPolicy(string table, bool ifExists = false) => throw new NotSupportedException();
+
+        public Task<RefreshPolicyApplyResult> ApplyRefreshPolicyAsync(RefreshPolicyApplyRequest request, CancellationToken cancellationToken)
+        {
+            PolicyApplied = true;
+            return Task.FromResult(new RefreshPolicyApplyResult(
+                "server", "Sales", request.Table, request.EffectiveDate!.Value, request.Refresh, [], 1));
+        }
     }
 
     private sealed class OpenAnythingProvider : IModelProvider

@@ -98,7 +98,7 @@ public static class TomModelDeployer
     }
 
     /// <summary>
-    /// Reads the target once and returns the two sides a dry run compares: the target's current
+    /// Reads the target once and returns the two sides a deploy preview compares: the target's current
     /// model and the model this deploy would leave behind under the request's options. Unlike
     /// <see cref="GenerateScriptAsync"/> this always connects — even for a full deploy — because
     /// the target snapshot is one half of the answer.
@@ -130,7 +130,7 @@ public static class TomModelDeployer
 
     /// <summary>
     /// Pure plan construction, mirroring <c>BuildScript(forExecution: false)</c>: the same merge
-    /// produces the deployed model, so what the dry run reports and what the deploy sends cannot
+    /// produces the deployed model, so what the preview reports and what the deploy sends cannot
     /// drift. Restricted information stays out on both sides — the plan feeds a diff, not a
     /// server — and the merged node is round-tripped back through TOM so the planned model is
     /// summarized by exactly the same projection as the target.

@@ -74,14 +74,9 @@ internal sealed class SessionCommand : ICommandModule
         {
             Description = "Also remove named and live process sessions. The current session is kept."
         };
-        var dryRunOption = new Option<bool>("--dry-run")
-        {
-            Description = "Preview what prune would remove"
-        };
         var command = new Command("prune", "Remove session files whose shell has exited")
         {
-            allOption,
-            dryRunOption
+            allOption
         };
 
         command.SetAction(parseResult =>
@@ -91,24 +86,32 @@ internal sealed class SessionCommand : ICommandModule
                 return 2;
 
             var all = parseResult.GetValue(allOption);
-            var dryRun = parseResult.GetValue(dryRunOption);
-            if (!dryRun && !ConfirmationHelper.ConfirmOrAbort(
-                "Prune",
-                all ? "all sessions except the current one" : "sessions whose shell is no longer running",
-                parseResult,
-                format))
-                return 1;
+            if (PreviewGate.PreviewFirst(parseResult))
+            {
+                var preview = new SessionHandler(_state).Prune(all, preview: true);
+                var previewExit = CommandOutput.Render(parseResult, preview, format, RenderPrune);
+                // Nothing to remove: there is nothing to confirm either.
+                if (!preview.Success || previewExit != 0 || preview.Data!.Removed == 0)
+                    return previewExit;
 
-            return CommandOutput.Render(
-                parseResult,
-                new SessionHandler(_state).Prune(all, dryRun),
-                format,
-                result => AnsiConsole.MarkupLine(result.DryRun
-                    ? Styling.Warning($"Would remove {result.Removed} session(s).")
-                    : Styling.Success($"Removed {result.Removed} session(s).")));
+                var decision = PreviewGate.Decide(
+                    "Prune",
+                    all ? "all sessions except the current one" : "sessions whose shell is no longer running",
+                    parseResult,
+                    format);
+                if (decision != PreviewDecision.Apply)
+                    return PreviewGate.ExitCode(decision);
+            }
+
+            return CommandOutput.Render(parseResult, new SessionHandler(_state).Prune(all, preview: false), format, RenderPrune);
         });
         return command;
     }
+
+    private static void RenderPrune(SessionPruneResult result)
+        => AnsiConsole.MarkupLine(result.Preview
+            ? Styling.Warning($"Would remove {result.Removed} session(s).")
+            : Styling.Success($"Removed {result.Removed} session(s)."));
 
     private int RenderShow(ParseResult parseResult)
     {

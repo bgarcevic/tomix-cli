@@ -35,13 +35,11 @@ internal static class LifecycleOptions
     }.In(HelpGroups.Save);
 
     /// <summary>
-    /// The uniform mutation preview: the change is applied to the in-memory model and its result
-    /// is rendered, but nothing is written — no save, no stage, no workspace sync.
+    /// True when the mutation will be written (--save, --save-to, or --stage). Without any of them
+    /// a mutation is a preview, so it never needs a confirmation prompt.
     /// </summary>
-    public static Option<bool> DryRun() => new Option<bool>("--dry-run")
-    {
-        Description = "Preview: show the change without saving, staging, or syncing"
-    }.In(HelpGroups.Save);
+    public static bool Persists(bool save, string? saveTo, bool stage)
+        => save || stage || !string.IsNullOrWhiteSpace(saveTo);
 
     public static Option<bool> Save(string? description = null) => new Option<bool>("--save")
     {
