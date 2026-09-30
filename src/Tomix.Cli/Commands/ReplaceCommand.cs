@@ -41,11 +41,12 @@ internal sealed class ReplaceCommand : ICommandModule
         };
         var inOption = new Option<string?>("--in")
         {
-            Description = "Scope: names, expressions, descriptions, displayFolders, formatStrings, annotations, all. 'all' covers every scope except annotations (explicit-only: values are often tool-generated JSON)."
+            Description = "Where to look: names, expressions, descriptions, displayFolders, formatStrings, annotations, or all " +
+                          "(default: all, which skips annotations; name them explicitly to include them)"
         };
         var typeOption = new Option<string?>("--type")
         {
-            Description = $"Only replace in objects of this kind: {ModelObjectTypeCatalog.DiscoveryListText}"
+            Description = $"Only replace in objects of this kind, {TypeValidation.KindsHint}"
         };
         typeOption.Aliases.Add("-t");
         var regexOption = new Option<bool>("--regex")

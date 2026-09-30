@@ -130,7 +130,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null),
             CancellationToken.None);
 
@@ -168,7 +167,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null),
             CancellationToken.None);
 
@@ -192,7 +190,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null,
                 DeployOptions: new ModelDeployOptions(DeployRoleMembers: true)),
             CancellationToken.None);
@@ -217,7 +214,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null,
                 DeployOptions: new ModelDeployOptions(DeployPolicyPartitions: true)),
             CancellationToken.None);
@@ -242,7 +238,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null,
                 DeployOptions: ModelDeployOptions.Full),
             CancellationToken.None);
@@ -390,7 +385,6 @@ public sealed class DeployModelHandlerTests
             FixBpa: false,
             BpaRules: null,
             XmlaOutput: null,
-            Force: false,
             Ci: null,
             Preview: true);
 
@@ -445,7 +439,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null),
             CancellationToken.None);
 
@@ -468,7 +461,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null),
             CancellationToken.None);
 
@@ -491,7 +483,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: "-",
-                Force: false,
                 Ci: null),
             CancellationToken.None);
 
@@ -519,7 +510,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: scriptPath,
-                Force: false,
                 Ci: null),
             CancellationToken.None);
 
@@ -549,7 +539,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: true,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null),
             CancellationToken.None);
 
@@ -578,7 +567,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null),
             CancellationToken.None);
 
@@ -609,7 +597,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null),
             CancellationToken.None);
         var preview = await operation.PreviewAsync(CancellationToken.None);
@@ -643,7 +630,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null,
                 BpaFailOn: failOn),
             CancellationToken.None);
@@ -777,7 +763,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: [rulesPath],
                 XmlaOutput: null,
-                Force: false,
                 Ci: null,
                 BpaFailOn: bpaFailOn),
             CancellationToken.None);
@@ -816,7 +801,6 @@ public sealed class DeployModelHandlerTests
                 FixBpa: false,
                 BpaRules: null,
                 XmlaOutput: null,
-                Force: false,
                 Ci: null),
             CancellationToken.None));
     }

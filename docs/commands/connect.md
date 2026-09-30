@@ -93,7 +93,6 @@ script, so it neither previews nor asks.
 | `--bpa-fail-on <error\|warning>` | Severity threshold for the BPA gate: error (default) or warning. Applies before the deploy and again after `--fix-bpa` fixes. Rules that cannot be evaluated count as error-severity findings. |
 | `-p, --profile <name>` | Use a saved remote profile for this deploy only. List profiles with `tx profile list`; create one with `tx profile set <name> -s <workspace> -d <database>`. |
 | `--ci <github\|vsts>` | Print CI log-group commands to stderr. |
-| `--force` | Bypass validation checks. |
 
 The preview diff ignores engine-derived calculated-table column data types, including
 type differences when a column exists on both the processed target and the planned

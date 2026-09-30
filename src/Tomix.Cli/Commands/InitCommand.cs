@@ -39,7 +39,7 @@ internal sealed class InitCommand : ICommandModule
 
         var forceOption = new Option<bool>("--force")
         {
-            Description = "Clear anything already at the target path"
+            Description = "Overwrite anything already at the target path"
         };
 
         var command = new Command("init", "Start a new empty semantic model")

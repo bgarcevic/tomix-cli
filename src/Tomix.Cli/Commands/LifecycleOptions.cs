@@ -22,7 +22,7 @@ internal static class LifecycleOptions
     {
         var option = new Option<bool>("--force")
         {
-            Description = description ?? "Save despite newly introduced validation errors"
+            Description = description ?? "Save even if the change adds validation errors"
         };
         option.Aliases.Add("-f");
         return option.In(HelpGroups.Save);

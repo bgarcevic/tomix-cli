@@ -60,6 +60,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx ls",
             "tx ls --type table",
             "tx ls Sa*",
+            "tx ls \"'Net Sales'/Measures\"",
             "tx ls --paths-only --type measure",
         ],
         ["summary"] = [

@@ -146,7 +146,7 @@ public sealed class DeployModelHandler
                 server,
                 database,
                 request.CreateOnly,
-                request.Force,
+                Force: false,
                 deployOptions);
 
             return new DeployOperation(session, deployer, deployRequest, request, server, database, warnings);

@@ -77,7 +77,7 @@ internal sealed class ConnectCommand : ICommandModule
         };
         var forceOption = new Option<bool>("--force")
         {
-            Description = "Allow workspace mode to initialize over a folder that already has content"
+            Description = "Start workspace mode even if the folder already has content"
         };
         var workspaceFormatOption = new Option<string?>("--workspace-format")
         {

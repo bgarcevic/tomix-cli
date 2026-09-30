@@ -68,10 +68,6 @@ internal sealed class DeployCommand : ICommandModule
         {
             Description = "Severity that blocks the deploy: error or warning (default: error). Rules that cannot be evaluated count as errors."
         }.In("BPA gate options");
-        var forceOption = new Option<bool>("--force")
-        {
-            Description = "Force deployment, bypassing validation checks"
-        };
         var ciOption = new Option<string?>("--ci")
         {
             Description = "Print CI log-group commands to stderr for the given system: vsts or github"
@@ -115,7 +111,6 @@ internal sealed class DeployCommand : ICommandModule
             fixBpaOption,
             bpaRulesOption,
             bpaFailOnOption,
-            forceOption,
             ciOption,
             deployConnectionsOption,
             deployPartitionsOption,
@@ -239,7 +234,6 @@ internal sealed class DeployCommand : ICommandModule
                         parseResult.GetValue(fixBpaOption),
                         parseResult.GetValue(bpaRulesOption),
                         xmla,
-                        parseResult.GetValue(forceOption),
                         parseResult.GetValue(ciOption),
                         Preview: previewFirst,
                         deployOptions,

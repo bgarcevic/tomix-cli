@@ -17,7 +17,7 @@ errors and warnings do not. A blocked save exits 1 and lists the new errors.
 bypasses its dependent-reference guard. Set `validateOnSave` to `false` with
 `tx config set validateOnSave false` to disable this gate; it is on by default.
 Staged edits are checked when you run `tx stage commit`. The `--force` flags on
-`init`, `connect`, `deploy`, and `config init` retain their command-specific uses.
+`init`, `connect`, and `config init` retain their command-specific uses.
 
 A TMDL save rewrites only the files whose content changed, so a small edit gives
 a small git diff. Untouched files keep their bytes, line endings (CRLF checkouts

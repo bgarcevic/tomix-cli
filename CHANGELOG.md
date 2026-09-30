@@ -60,6 +60,8 @@ and the API surface that major versions protect.
   `format`, `bpa run`, `deploy`, `refresh`, `session prune`). Model edits already preview unless
   you pass `--save` or `--stage`, and the commands that change a target now preview by default.
   The `TOMIX_BPA_DRY_RUN_REQUIRES_FIX` code is gone with it.
+- **Breaking:** `tx deploy --force` is removed. It never had an effect: no deploy check read it.
+  Use `--skip-bpa` to bypass the BPA gate.
 
 ## [0.7.0] - 2026-09-29
 

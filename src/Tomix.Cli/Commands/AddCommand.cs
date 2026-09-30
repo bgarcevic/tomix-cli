@@ -36,8 +36,8 @@ internal sealed class AddCommand : ICommandModule
         };
         var typeOption = new Option<string?>("--type")
         {
-            Description = $"Type of object to create. Supported values: {ModelObjectTypeCatalog.CreationListText}. " +
-                          "Data sources always require -t (no path keyword infers them)."
+            Description = "Kind of object to create, for example Measure, Table, CalcColumn, or Relationship; " +
+                          "an invalid value lists them all. Data sources always need -t."
         };
         typeOption.Aliases.Add("-t");
         var expressionOption = new Option<string?>("--expression")

@@ -32,7 +32,7 @@ internal sealed class ConfigCommand : ICommandModule
 
     private Command BuildInit()
     {
-        var forceOption = new Option<bool>("--force") { Description = "Replace an existing config file" };
+        var forceOption = new Option<bool>("--force") { Description = "Overwrite an existing config file" };
 
         var command = new Command("init", "Write a default config.json")
         {

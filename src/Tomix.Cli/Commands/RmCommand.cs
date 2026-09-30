@@ -35,7 +35,7 @@ internal sealed class RmCommand : ICommandModule
         };
         var forceOption = new Option<bool>("--force")
         {
-            Description = "Remove despite DAX dependents and save despite newly introduced validation errors"
+            Description = "Remove even if DAX still references the object, and save even if the change adds validation errors"
         };
         forceOption.Aliases.Add("-f");
         var overwriteOption = LifecycleOptions.Overwrite();
