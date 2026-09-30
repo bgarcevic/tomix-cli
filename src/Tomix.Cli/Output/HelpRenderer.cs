@@ -41,7 +41,9 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
     internal static readonly Dictionary<string, string> CommandNotes = new(StringComparer.Ordinal)
     {
         ["bpa rules add"] = "Edits your config-dir bpa-rules.json, which bpa run loads, unless --rules-file names another file.",
+        ["bpa rules ignore"] = "Writes the model's ignore annotation (shared with everyone who uses the model). --user ignores the rule only for you, on this machine, for every model.",
         ["bpa rules init"] = "Creates your config-dir bpa-rules.json, or the file --rules-file names.",
+        ["bpa rules unignore"] = "Removes the rule from the model's ignore annotation. --user undoes 'ignore --user'; a rule runs only when neither level ignores it.",
         ["connect"] = "With no arguments, shows the active connection. --recent reconnects to a recently used model.",
         ["diff"] = "Exit codes: 0 = identical, 1 = differences found, 2 = error.",
         ["format"] = "Formats an inline expression (--expression), one object (--path), or every expression in the model.",
@@ -172,6 +174,14 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ],
         ["bpa rules remove"] = [
             "tx bpa rules remove NO_DOUBLE",
+        ],
+        ["bpa rules ignore"] = [
+            "tx bpa rules ignore HIDE_FOREIGN_KEYS --save",
+            "tx bpa rules ignore HIDE_FOREIGN_KEYS --user",
+        ],
+        ["bpa rules unignore"] = [
+            "tx bpa rules unignore HIDE_FOREIGN_KEYS --save",
+            "tx bpa rules unignore HIDE_FOREIGN_KEYS --user",
         ],
         ["bpa rules init"] = [
             "tx bpa rules init",

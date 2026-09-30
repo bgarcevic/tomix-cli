@@ -103,4 +103,35 @@ public sealed class BpaRuleResolverTests
 
         Assert.Equal(["KEEP"], rules.Select(r => r.Id));
     }
+
+    [Fact]
+    public void ResolveWithSources_CountsTheRulesEachSourceContributes()
+    {
+        // #233: the attribution line counts effective rules per source, so a rule a later source
+        // overrides is credited to the source that won, not to both.
+        var resolved = BpaRuleResolver.ResolveWithSources(
+        [
+            new BpaRuleCollection(BpaRuleSourceKind.Machine, "standard", [Rule("A", "m"), Rule("DUP", "m")], BpaRuleOrigin.Ruleset),
+            new BpaRuleCollection(BpaRuleSourceKind.User, "team.json", [Rule("DUP", "u"), Rule("B", "u")], BpaRuleOrigin.Environment)
+        ]);
+
+        Assert.Equal(3, resolved.Rules.Count);
+        Assert.Equal(
+            [("standard", BpaRuleOrigin.Ruleset, 1, 1), ("team.json", BpaRuleOrigin.Environment, 2, 0)],
+            resolved.Sources.Select(s => (s.Name, s.Origin, s.Rules, s.Overridden)));
+    }
+
+    [Fact]
+    public void ResolveWithSources_KeepsASourceWhoseRulesWereAllOverridden()
+    {
+        // A configured source that contributes nothing is still named (as overridden), so a CI log never
+        // hides that a file was loaded and lost every id to a higher-precedence source.
+        var resolved = BpaRuleResolver.ResolveWithSources(
+        [
+            new BpaRuleCollection(BpaRuleSourceKind.User, "shadowed.json", [Rule("DUP", "u")], BpaRuleOrigin.Config),
+            new BpaRuleCollection(BpaRuleSourceKind.ModelEmbedded, "model-embedded", [Rule("DUP", "e")], BpaRuleOrigin.Model)
+        ]);
+
+        Assert.Equal([("shadowed.json", 0, 1), ("model-embedded", 1, 0)], resolved.Sources.Select(s => (s.Name, s.Rules, s.Overridden)));
+    }
 }

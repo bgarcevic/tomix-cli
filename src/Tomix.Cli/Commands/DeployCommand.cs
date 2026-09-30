@@ -16,17 +16,20 @@ internal sealed class DeployCommand : ICommandModule
     private readonly CliStateStore _state;
     private readonly HttpClient? _httpClient;
     private readonly BpaUserRuleState? _bpaRules;
+    private readonly string? _configDirectory;
 
     public DeployCommand(
         IReadOnlyList<IModelProvider> providers,
         CliStateStore state,
         HttpClient? httpClient = null,
-        BpaUserRuleState? bpaRules = null)
+        BpaUserRuleState? bpaRules = null,
+        string? configDirectory = null)
     {
         _providers = providers;
         _state = state;
         _httpClient = httpClient;
         _bpaRules = bpaRules;
+        _configDirectory = configDirectory;
     }
 
     public Command Build()
@@ -233,7 +236,7 @@ internal sealed class DeployCommand : ICommandModule
             var spinnerLabel = dryRun ? "Previewing deployment..." : "Deploying model...";
             var result = await CliSpinner.RunAsync(
                 spinnerLabel,
-                () => new DeployModelHandler(_providers, _state, httpClient: _httpClient, bpaRules: _bpaRules).HandleAsync(
+                () => new DeployModelHandler(_providers, _state, httpClient: _httpClient, bpaRules: _bpaRules, configDirectory: _configDirectory).HandleAsync(
                     new DeployModelRequest(
                         reference,
                         server,
