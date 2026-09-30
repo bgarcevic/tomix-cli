@@ -10,6 +10,16 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
+### Added
+
+- `tx get` is now the single read command. A path naming one object shows its properties; a
+  wildcard (`"Sa*"`), a container (`Sales/Measures`), or no path lists every match. New options
+  select and analyze over the same path resolution: `--ls`, `--where Prop=Value`
+  (case-insensitive, `*` wildcard, repeat to AND), `--deps [upstream|downstream]` with `--deep`
+  and `--max-depth`, `--unused` with `--hidden`, `--paths-only`, and `--no-multiline`. `tx ls`
+  and `tx deps` keep their flags and are now shortcuts for `get --ls` and `get --deps` /
+  `get --unused`, with identical output (#335).
+
 ### Changed
 
 - **Breaking:** `tx deploy`, the partition-risky `tx refresh` variants (`--refresh-type
@@ -33,6 +43,9 @@ and the API surface that major versions protect.
   instead of `dryRun`, `deploy` reports `status: "preview"` instead of `"dry-run"`, and
   `session prune` reports `preview` instead of `dryRun`. The `refresh --policy-only` preview's
   CSV column `dry_run` is now `preview`.
+- `tx get Measures` and other bare container paths now list the container instead of failing
+  with `TOMIX_OBJECT_NOT_FOUND`, and `tx get ./model` lists the model's tables. `--query` or
+  `--deps` on a path that selects a set fails with `TOMIX_SINGLE_OBJECT_REQUIRED` (#335).
 
 ### Removed
 
