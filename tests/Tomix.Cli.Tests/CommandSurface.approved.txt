@@ -247,7 +247,7 @@ Set or show the active connection
   opt --list  List without connecting: with <server>, the semantic models on that workspace or endpoint; with --local, running Power BI Desktop instances (report, endpoint, database)
   opt --profile, -p <name>  Connect through this saved profile (list them with 'tx profile list')
   opt --clear  Forget the active connection
-  opt --force  Start workspace mode even if the folder already has content
+  opt --overwrite  Replace the workspace folder's contents and overwrite an existing workspace database without asking
   opt --workspace-format <format>  How a local workspace is stored on disk (tmdl or bim); detected from the path when omitted
   opt --workspace-auth <method>  How to authenticate the remote side of workspace mode (default: --auth when set, otherwise auto)
 

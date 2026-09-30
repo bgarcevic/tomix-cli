@@ -25,7 +25,7 @@ argument can be a workspace name, an endpoint, or a local model path.
 | `-w, --workspace [target]` | Enable workspace mode: mirror saves between the primary source and a secondary target. No value = pick interactively. |
 | `--workspace-format <fmt>` | How a local workspace is stored on disk (`tmdl` or `bim`); detected from the path when omitted. |
 | `--workspace-auth <auth>` | How to authenticate the remote side of workspace mode. |
-| `--force` | Allow workspace mode to initialize over a folder that already has content. |
+| `--overwrite` | With `-w`, delete the workspace folder's contents before exporting the model into it, and overwrite an existing workspace database without asking. |
 
 ```sh
 tx connect                          # show current
