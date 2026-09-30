@@ -47,6 +47,13 @@ and the API surface that major versions protect.
   with `TOMIX_OBJECT_NOT_FOUND`, and `tx get ./model` lists the model's tables. `--query` or
   `--deps` on a path that selects a set fails with `TOMIX_SINGLE_OBJECT_REQUIRED` (#335).
 
+### Fixed
+
+- `tx deploy` without `-d` now previews the database it would actually write (named after the
+  model) instead of skipping the diff and showing the model path as the target. A model with no
+  name of its own, such as a bare TMDL folder, fails with `TOMIX_DEPLOY_NO_TARGET` asking for
+  `-d` instead of a serializer error.
+
 ### Removed
 
 - **Breaking:** `--dry-run` is removed from every command (`add`, `set`, `mv`, `rm`, `replace`,

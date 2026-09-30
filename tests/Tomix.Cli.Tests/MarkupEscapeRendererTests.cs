@@ -121,7 +121,7 @@ public sealed partial class MarkupEscapeRendererTests
 
         var captured = Capture(() => DeployRenderer.Render(result, SampleModel.Locate()));
 
-        AssertLiteral(captured.Stderr, "Diff unavailable: [Diff error]");
+        AssertLiteral(captured.Stderr, "Cannot preview changes: [Diff error]");
     }
 
     [Fact]

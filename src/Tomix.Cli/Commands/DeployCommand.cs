@@ -66,7 +66,7 @@ internal sealed class DeployCommand : ICommandModule
         }.In("BPA gate options");
         var bpaFailOnOption = new Option<string?>("--bpa-fail-on")
         {
-            Description = "Severity threshold for the BPA gate: error or warning (default: error). Applies before the deploy and again after --fix-bpa fixes. Rules that cannot be evaluated count as error-severity findings."
+            Description = "Severity that blocks the deploy: error or warning (default: error). Rules that cannot be evaluated count as errors."
         }.In("BPA gate options");
         var forceOption = new Option<bool>("--force")
         {

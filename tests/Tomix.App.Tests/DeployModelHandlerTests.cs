@@ -337,6 +337,28 @@ public sealed class DeployModelHandlerTests
     }
 
     /// <summary>
+    /// Without -d the deploy writes a database named after the source model. The preview must
+    /// diff that database and name it, not skip the diff and show the model path as the target.
+    /// </summary>
+    [Fact]
+    public async Task HandleAsync_Preview_WithoutDatabase_DiffsTheDatabaseTheDeployWouldWrite()
+    {
+        var source = SnapshotWithMeasure(includeMeasure: true);
+        var provider = new DirectionalDeployProvider(
+            _ => source,
+            () => new ModelDeployPlan(TargetExists: true, Target: SnapshotWithMeasure(includeMeasure: false), Planned: source,
+                TargetName: "Sales Model"));
+
+        var handler = new DeployModelHandler([provider], TestState);
+        var result = await handler.HandleAsync(PreviewRequest() with { Database = null }, CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal("Sales Model", result.Data!.Database);
+        Assert.NotNull(result.Data.Diff);
+        Assert.True(result.Data.Diff!.HasChanges);
+    }
+
+    /// <summary>
     /// An unreadable target degrades the preview instead of failing the command: it
     /// still succeeds, reporting why the diff is missing.
     /// </summary>

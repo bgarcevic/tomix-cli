@@ -162,6 +162,27 @@ public sealed class TomModelDeployPlanTests
 
     // -- Helpers ---------------------------------------------------------------------------------
 
+    [Theory]
+    [InlineData("Prod", "Model", "Prod")]   // -d wins
+    [InlineData(null, "Model", "Model")]    // otherwise the model's own name
+    [InlineData(null, "", "id-1")]          // a blank name is no name: fall back to the ID
+    public void ResolveTargetName_PrefersRequestThenNameThenId(string? requested, string name, string expected)
+    {
+        var source = new Database { Name = name, ID = "id-1" };
+
+        Assert.Equal(expected, TomModelDeployer.ResolveTargetName(source, Request() with { Database = requested }));
+    }
+
+    [Fact]
+    public void ResolveTargetName_WithoutAnyName_AsksForDatabase()
+    {
+        // A bare TMDL folder: deploying it as "" used to fail deep in the serializer.
+        var source = new Database { Name = "", ID = "" };
+
+        Assert.Throws<DeployTargetNameRequiredException>(
+            () => TomModelDeployer.ResolveTargetName(source, Request() with { Database = null }));
+    }
+
     private static ModelDeployRequest Request(ModelDeployOptions? options = null)
         => new("localhost:59962", "Prod", CreateOnly: false, Force: false, options);
 

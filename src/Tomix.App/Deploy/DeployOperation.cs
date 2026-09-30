@@ -66,36 +66,41 @@ public sealed class DeployOperation : IAsyncDisposable
         string? diffError = null;
         bool? createsDatabase = null;
 
-        if (!string.IsNullOrWhiteSpace(database))
+        // Without -d the deploy writes a database named after the source model, and the plan
+        // resolves that name the same way, so the preview diffs the database the deploy would hit.
+        try
         {
-            try
-            {
-                // The plan reads the target once and returns both the target's current model
-                // and the model this deploy would leave behind under the same options a real
-                // deploy uses, so preserved objects never surface as changes.
-                var plan = await _deployer!.GeneratePlanAsync(_deployRequest!, cancellationToken);
+            // The plan reads the target once and returns both the target's current model
+            // and the model this deploy would leave behind under the same options a real
+            // deploy uses, so preserved objects never surface as changes.
+            var plan = await _deployer!.GeneratePlanAsync(_deployRequest!, cancellationToken);
+            database ??= plan.TargetName;
 
-                if (!plan.TargetExists)
-                    // Nothing to compare against: the deploy creates the database and ships
-                    // the full source model.
-                    createsDatabase = true;
-                else
-                    // Target first: the preview answers "what will this deploy change on the
-                    // target", so added/removed/old→new read in the deploy's direction. The
-                    // target is a processed database, so engine-computed state is ignored.
-                    diff = DiffModelHandler.Diff(
-                        plan.Target!, plan.Planned, ignoreEngineComputedState: true);
-            }
-            // Keep the reason: "not authenticated" and "target unreachable" are different
-            // situations and the preview should not conflate them.
-            catch (AuthenticationRequiredException ex)
-            {
-                diffError = ex.Message;
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException and not ModelLoadException)
-            {
-                diffError = $"Cannot read target '{server}': {ex.InnerException?.Message ?? ex.Message}";
-            }
+            if (!plan.TargetExists)
+                // Nothing to compare against: the deploy creates the database and ships
+                // the full source model.
+                createsDatabase = true;
+            else
+                // Target first: the preview answers "what will this deploy change on the
+                // target", so added/removed/old→new read in the deploy's direction. The
+                // target is a processed database, so engine-computed state is ignored.
+                diff = DiffModelHandler.Diff(
+                    plan.Target!, plan.Planned, ignoreEngineComputedState: true);
+        }
+        // The deploy itself cannot run either, so this fails the preview rather than degrading it.
+        catch (DeployTargetNameRequiredException ex)
+        {
+            return NoTargetName(ex);
+        }
+        // Keep the reason: "not authenticated" and "target unreachable" are different
+        // situations and the preview should not conflate them.
+        catch (AuthenticationRequiredException ex)
+        {
+            diffError = ex.Message;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException and not ModelLoadException)
+        {
+            diffError = $"Cannot read target '{server}': {ex.InnerException?.Message ?? ex.Message}";
         }
 
         return Ok(new DeployModelResult(
@@ -121,6 +126,10 @@ public sealed class DeployOperation : IAsyncDisposable
                 // Preservation options require reading the target so the script matches what a
                 // real deploy would execute; a full deploy is scripted offline.
                 script = await _deployer!.GenerateScriptAsync(_deployRequest!, cancellationToken);
+            }
+            catch (DeployTargetNameRequiredException ex)
+            {
+                return NoTargetName(ex);
             }
             catch (AuthenticationRequiredException ex)
             {
@@ -158,6 +167,10 @@ public sealed class DeployOperation : IAsyncDisposable
             return Ok(new DeployModelResult(
                 result.Server, result.Database, result.Status, result.DurationMs, null, null));
         }
+        catch (DeployTargetNameRequiredException ex)
+        {
+            return NoTargetName(ex);
+        }
         catch (AuthenticationRequiredException ex)
         {
             return TomixResult<DeployModelResult>.Fail("TOMIX_AUTH_REQUIRED", ex.Message, exitCode: 1,
@@ -176,6 +189,10 @@ public sealed class DeployOperation : IAsyncDisposable
                 hint: "Check that the target workspace exists and you have deploy permissions.");
         }
     }
+
+    private static TomixResult<DeployModelResult> NoTargetName(DeployTargetNameRequiredException ex)
+        => TomixResult<DeployModelResult>.Fail("TOMIX_DEPLOY_NO_TARGET", ex.Message, exitCode: 2,
+            hint: "Pass -d/--database to name the target database.");
 
     /// <summary>A success carrying the gate warnings, the first time only.</summary>
     private TomixResult<DeployModelResult> Ok(DeployModelResult data)

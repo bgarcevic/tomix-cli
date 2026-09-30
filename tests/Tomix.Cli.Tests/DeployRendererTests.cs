@@ -60,8 +60,8 @@ public sealed class DeployRendererTests
     {
         var output = Render(Preview(diffError: "not authenticated"), stderr: true);
 
-        Assert.Contains("Diff unavailable: not authenticated", output);
-        Assert.Contains("Showing deploy plan only.", output);
+        Assert.Contains("Cannot preview changes: not authenticated", output);
+        Assert.DoesNotContain("deploy plan", output);
     }
 
     // -- Helpers ---------------------------------------------------------------------------------

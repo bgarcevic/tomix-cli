@@ -25,9 +25,7 @@ public static class TomModelDeployer
         {
             await ConnectAsync(server, request.Server, tokenProvider, cancellationToken).ConfigureAwait(false);
 
-            var targetName = string.IsNullOrWhiteSpace(request.Database)
-                ? sourceDatabase.Name ?? sourceDatabase.ID
-                : request.Database;
+            var targetName = ResolveTargetName(sourceDatabase, request);
 
             var existing = server.Databases.FindByName(targetName);
             if (existing is not null && request.CreateOnly)
@@ -75,9 +73,7 @@ public static class TomModelDeployer
         IAccessTokenProvider? tokenProvider,
         CancellationToken cancellationToken)
     {
-        var targetName = string.IsNullOrWhiteSpace(request.Database)
-            ? sourceDatabase.Name ?? sourceDatabase.ID
-            : request.Database;
+        var targetName = ResolveTargetName(sourceDatabase, request);
 
         if (!request.EffectiveOptions.RequiresTargetRead)
             return BuildScript(sourceDatabase, existing: null, targetName, request, forExecution: false);
@@ -98,6 +94,22 @@ public static class TomModelDeployer
     }
 
     /// <summary>
+    /// The database a deploy writes: the requested name, otherwise the source model's own name
+    /// (or ID). A model with neither, such as a bare TMDL folder, has nothing to deploy as, so it
+    /// fails with a request for <c>-d</c> instead of targeting a database named "".
+    /// </summary>
+    internal static string ResolveTargetName(Database sourceDatabase, ModelDeployRequest request)
+    {
+        if (!string.IsNullOrWhiteSpace(request.Database))
+            return request.Database;
+        if (!string.IsNullOrWhiteSpace(sourceDatabase.Name))
+            return sourceDatabase.Name;
+        if (!string.IsNullOrWhiteSpace(sourceDatabase.ID))
+            return sourceDatabase.ID;
+        throw new DeployTargetNameRequiredException();
+    }
+
+    /// <summary>
     /// Reads the target once and returns the two sides a deploy preview compares: the target's current
     /// model and the model this deploy would leave behind under the request's options. Unlike
     /// <see cref="GenerateScriptAsync"/> this always connects — even for a full deploy — because
@@ -109,9 +121,7 @@ public static class TomModelDeployer
         IAccessTokenProvider? tokenProvider,
         CancellationToken cancellationToken)
     {
-        var targetName = string.IsNullOrWhiteSpace(request.Database)
-            ? sourceDatabase.Name ?? sourceDatabase.ID
-            : request.Database;
+        var targetName = ResolveTargetName(sourceDatabase, request);
 
         var server = new TabularServer();
         try
@@ -179,7 +189,7 @@ public static class TomModelDeployer
         var planned = TabularJsonSerializer.DeserializeDatabase(merged.ToJsonString());
         var plannedSnapshot = TomModelSummarizer.Snapshot(planned, deployName);
 
-        return new ModelDeployPlan(existing is not null, targetSnapshot, plannedSnapshot);
+        return new ModelDeployPlan(existing is not null, targetSnapshot, plannedSnapshot, targetName);
     }
 
     /// <param name="forExecution">True when the script goes straight to the server, false when

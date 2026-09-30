@@ -84,7 +84,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ],
         ["deps"] = [
             "tx deps \"Table[Measure]\"",
-            "tx deps tables/Sales --downstream",
+            "tx deps Sales --downstream",
         ],
         ["query"] = [
             "tx query \"EVALUATE Sales\"",
@@ -105,15 +105,15 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["set"] = [
             "tx set \"Table[Measure]\" --set expression=\"CALCULATE(SUM(Sales[Amount]))\"",
             "tx set \"Sales[Total Sales]\" --set displayFolder=KPIs --save",
-            "tx set tables/Sales --set name=Sales_v2",
+            "tx set Sales --set name=Sales_v2",
         ],
         ["mv"] = [
-            "tx mv tables/Sales/measures/OldName tables/Sales/measures/NewName",
-            "tx mv tables/Sales tables/SalesData",
+            "tx mv \"Sales/Old Name\" \"Sales/New Name\" --save",
+            "tx mv Sales SalesData",
         ],
         ["rm"] = [
-            "tx rm tables/Sales/measures/ObsoleteMeasure",
-            "tx rm tables/Staging --save",
+            "tx rm Sales/Obsolete",
+            "tx rm Staging --save",
         ],
         ["replace"] = [
             "tx replace \"[OrderDate]\" \"[ShipDate]\"",

@@ -47,15 +47,7 @@ internal static class DeployRenderer
             }
             else if (result.DiffError is not null)
             {
-                var err = StdErr.Console();
-                err.MarkupLine(Styling.Warning(
-                    $"Diff unavailable: {result.DiffError}"));
-                err.MarkupLine(Styling.Muted("Showing deploy plan only."));
-            }
-            else
-            {
-                StdErr.MarkupLine(Styling.Muted(
-                    "No remote target specified — showing deploy plan only."));
+                StdErr.MarkupLine(Styling.Warning($"Cannot preview changes: {result.DiffError}"));
             }
 
             return;

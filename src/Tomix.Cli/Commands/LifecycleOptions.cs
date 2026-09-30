@@ -44,7 +44,7 @@ internal static class LifecycleOptions
     public static Option<bool> Save(string? description = null) => new Option<bool>("--save")
     {
         Description = description ??
-            "Write this command's change back to the model's source. Cannot be combined with --revert or --stage."
+            "Write the change to the model's source (default: preview only, nothing is written)"
     }.In(HelpGroups.Save);
 
     public static Option<string?> SaveTo(string? description = null) => new Option<string?>("--save-to")
@@ -64,12 +64,12 @@ internal static class LifecycleOptions
 
     public static Option<bool> Stage() => new Option<bool>("--stage")
     {
-        Description = "Stage this command's mutation instead of saving it (commit with 'tx stage commit')"
+        Description = "Stage the change instead of saving it (commit with 'tx stage commit')"
     }.In(HelpGroups.Save);
 
     public static Option<bool> Revert() => new Option<bool>("--revert")
     {
-        Description = "Revert a staged mutation"
+        Description = "Discard this model's staged changes"
     }.In(HelpGroups.Save);
 
     public static Option<bool> NoSync() => new Option<bool>("--no-sync")

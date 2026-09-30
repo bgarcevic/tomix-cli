@@ -172,9 +172,12 @@ public sealed class DeployModelHandler
                 new TomixDiagnostic(
                     "TOMIX_BPA_VERTIPAQ_STATS_MISSING",
                     DiagnosticSeverity.Warning,
-                    $"BPA gate did not check {notChecked.Count} rule(s) that need VertiPaq statistics, which this model does not have: "
+                    $"BPA gate skipped {notChecked.Count} rule(s) that need VertiPaq statistics: "
                         + string.Join(", ", notChecked.Select(r => r.RuleId)) + ".",
-                    Hint: $"Statistics come from a deployed model: run '{BpaEngine.VertipaqAnnotateCommand}' against it, or for a model file, {BpaEngine.VertipaqFileModelGuidance}.")
+                    // A plain model file cannot collect statistics itself; it reads them from a
+                    // deployed copy through workspace mode.
+                    Hint: $"Run '{BpaEngine.VertipaqAnnotateCommand}' on a deployed model. For a model file, "
+                        + $"connect it to a deployed copy in workspace mode first ({BpaEngine.VertipaqWorkspaceConnectCommand}).")
             ];
 
     private async Task<(TomixResult<DeployModelResult>? Failure, IReadOnlyList<BpaResult> NotChecked)> RunBpaGate(

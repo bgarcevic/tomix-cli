@@ -27,9 +27,9 @@ Create a new object in the model
   opt --overwrite  Allow --save-to to overwrite an existing target
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
   opt --mode <mode>  Storage mode for the partition: Import, DirectQuery, Dual, DirectLake, Push, or Default
   opt --source <provider>  Provider name for a ProviderDataSource (e.g. System.Data.SqlClient)
@@ -80,11 +80,11 @@ Add a custom rule to a rules file or a model
   arg [model]  Model whose BestPracticeAnalyzer annotation to edit (default: the rules file)
   opt --id <id>  Rule ID
   opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
   opt --force, -f  Save despite newly introduced validation errors
   opt --name <name>  Rule name shown in results
@@ -109,11 +109,11 @@ Put a rule on the model's ignore list
   arg <rule-id>  Rule ID
   arg [model]  Path to model
   opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
   opt --force, -f  Save despite newly introduced validation errors
   opt --allow-unknown  Accept a rule ID that no loaded rule has (for example, one from a remote rule file)
@@ -136,11 +136,11 @@ Delete a custom rule from a rules file or a model
   arg <rule-id>  Rule ID
   arg [model]  Model whose BestPracticeAnalyzer annotation to edit (default: the rules file)
   opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
   opt --force, -f  Save despite newly introduced validation errors
 
@@ -149,11 +149,11 @@ Change a custom rule in a rules file or a model
   arg <rule-id>  Rule ID
   arg [model]  Model whose BestPracticeAnalyzer annotation to edit (default: the rules file)
   opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
   opt --force, -f  Save despite newly introduced validation errors
   opt --name <name>  Rule name shown in results
@@ -176,11 +176,11 @@ Take a rule off the model's ignore list
   arg <rule-id>  Rule ID
   arg [model]  Path to model
   opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
   opt --force, -f  Save despite newly introduced validation errors
 
@@ -196,7 +196,7 @@ Run best-practice rules against a model
   opt --allow-delete  With --fix: also apply destructive Delete() fixes that remove model objects
   opt --force, -f  Save despite newly introduced validation errors
   opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
   opt --rule <id>  Run only this rule. Repeatable.
@@ -210,8 +210,8 @@ Run best-practice rules against a model
   opt --errors  Show only error-severity rules (combinable with --warnings/--info)
   opt --warnings  Show only warning-severity rules (combinable with --errors/--info)
   opt --info  Show only info-severity rules (combinable with --errors/--warnings)
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
 
 # tx completion
@@ -260,7 +260,7 @@ Deploy a semantic model to a workspace
   opt --skip-bpa  Skip the BPA gate check for this deploy
   opt --fix-bpa  Apply BPA rule fixes to the model before deploying, where a rule provides one
   opt --bpa-rules <file>  Additional BPA rule files to enforce for this deploy, alongside the built-in ruleset
-  opt --bpa-fail-on <level>  Severity threshold for the BPA gate: error or warning (default: error). Applies before the deploy and again after --fix-bpa fixes. Rules that cannot be evaluated count as error-severity findings.
+  opt --bpa-fail-on <level>  Severity that blocks the deploy: error or warning (default: error). Rules that cannot be evaluated count as errors.
   opt --force  Force deployment, bypassing validation checks
   opt --ci <system>  Print CI log-group commands to stderr for the given system: vsts or github
   opt --deploy-connections  Overwrite the target's data sources (default: keep the target's connection strings)
@@ -313,11 +313,11 @@ Pretty-print DAX and M expressions
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --lang <language>  Expression language: dax or m
   opt --type, -t <type>  Type to pick when the path matches several objects under a table
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --force, -f  Save despite newly introduced validation errors
   opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
 
 # tx get
@@ -362,10 +362,10 @@ Move or rename a model object or display folder
   opt --overwrite  Allow --save-to to overwrite an existing target
   opt --force, -f  Save despite newly introduced validation errors
   opt --type, -t <type>  Type to pick when the path matches several objects under a table
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
   opt --strict-refs  Fail when a rename or move leaves DAX references broken (with fixup on, only unfixable references fail)
@@ -428,10 +428,10 @@ Replace text across model objects
   opt --case-sensitive  Match text exactly, including letter case
   opt --force, -f  Save despite newly introduced validation errors
   opt --overwrite  Allow --save-to to overwrite an existing target
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
 
@@ -445,9 +445,9 @@ Delete an object from the model
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
   opt --type, -t <type>  Type to pick when the path matches several objects under a table
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
 
 # tx save
@@ -485,11 +485,11 @@ Change a property on a model object
   opt --force, -f  Save despite newly introduced validation errors
   opt --overwrite  Allow --save-to to overwrite an existing target
   opt --type, -t <type>  Type to pick when the path matches several objects (e.g. a measure and a partition sharing a name)
-  opt --save  Write this command's change back to the model's source. Cannot be combined with --revert or --stage.
+  opt --save  Write the change to the model's source (default: preview only, nothing is written)
   opt --save-to <path>  Write the saved model to this path instead of its source (implies --save)
   opt --serialization <format>  How the model is written: tmdl or bim (tmsl and auto also accepted)
-  opt --stage  Stage this command's mutation instead of saving it (commit with 'tx stage commit')
-  opt --revert  Revert a staged mutation
+  opt --stage  Stage the change instead of saving it (commit with 'tx stage commit')
+  opt --revert  Discard this model's staged changes
   opt --no-sync  Skip workspace sync when workspace mode is active
   opt --strict-refs  Fail when a rename leaves DAX references broken (with fixup on, only unfixable references fail)
   opt --no-fix-refs  Do not rewrite DAX references to the renamed object; warn instead
