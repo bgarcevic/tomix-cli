@@ -3,7 +3,7 @@
 - **Status:** Proposed
 - **Date:** 2026-09-30
 - **Issue:** [#342](https://github.com/bgarcevic/tomix-cli/issues/342), part of epic [#341](https://github.com/bgarcevic/tomix-cli/issues/341)
-- **Unblocks:** #343 (core abstraction), #344 (TOM live session), #345 (handler refactor), #346 (undo/redo), #348 (protocol), #350 (notifications), #351 (external changes), #370 (change sets)
+- **Unblocks:** #343 (core abstraction), #344 (TOM live session), #345 (handler refactor), #346 (undo/redo), #348 (protocol), #350 (notifications), #351 (external changes), #370 (change sets), #374 (merge)
 
 ## Context
 
@@ -52,7 +52,7 @@ A live session goes through these states:
                       │  └──────── save (ok) ────────────┤
                       │                                  │
                       │         external change          ▼
-                      ├───────────────────────────────► Stale ── reload / keep mine ──► Clean | Dirty
+                      ├───────────────────────────────► Stale ── reload / keep mine / merge ──► Clean | Dirty
                       │
           close ──────┴──► Closed   (from Dirty: only with save or discard)
 ```
@@ -60,11 +60,18 @@ A live session goes through these states:
 - **Open.** A provider opens the model once. The session gets a version counter starting at `0`, an empty undo stack and a save point at version `0`.
 - **Dirty** means the current undo position is not the save point. It is not "something changed since open". Undoing back to the save point makes the session **Clean** again, as in any editor. Redo past the save point makes it Dirty.
 - **Save** persists to the session's source (see §6) and moves the save point to the current position. The undo stack is kept. Undoing after a save makes the session Dirty again, and a further save writes the undone state.
-- **Stale** means the source changed underneath the session: a file was edited, the server version moved, or someone edited in Desktop. The session reports this and never merges. The client picks one of:
-  - reload: discard in-memory changes and re-read;
-  - keep mine: the next save overwrites, which needs `force`.
+- **Stale** means the source changed underneath the session: a file was edited, the server version moved, or someone edited in Desktop. The session never merges on its own. The client picks one of:
+  - **reload**: discard in-memory changes and re-read;
+  - **keep mine**: the next save overwrites, which needs `force`;
+  - **merge** (#374, after v1): reload the source, then replay the unsaved transactions on top of it, like `git rebase`. Replayed edits that apply cleanly stay separate undo steps. Edits that don't become conflicts in a pending change set:
+    - both sides changed the same property;
+    - modified here, deleted there;
+    - both sides added an object at the same path;
+    - references that break after the merge, found by DAX validation.
 
-  Detection is #351. This ADR only reserves the state.
+    The session stays Stale until every conflict is resolved or the merge is aborted.
+
+  Detection is #351. This ADR reserves the state and the three choices, and §4 makes the journal replayable so merge can be added without reworking it. The protocol (#348) reserves `session.merge`.
 - **Close.** Closing a Dirty session fails with `TOMIX_SESSION_DIRTY` unless the caller passes `save` or `discard`. A session belongs to its host process (`tx shell`, `tx serve` or `tx ui`). Clients such as the browser and `tx mcp` attach and detach without closing it. The host closes it when its process exits. If it is Dirty at that point, the shell asks first, and non-interactive hosts refuse to exit unless they received `--discard-on-exit`.
 
 **Interaction with `--stage` and one-shot commands.** A live session registers itself in a per-user session registry. #369 needs this registry anyway for discovery: model key, process id, port and token file. The rules are:
@@ -105,11 +112,13 @@ Undo uses **inverse operations recorded at the TOM level**, not snapshots of the
   - `Detach(parent, collection, obj, index)`
   - `Rebind(old, new)`
 
-  Undo replays a transaction's entries backwards and applies each inverse. Redo replays them forwards. A detached object stays in the journal, so undoing a remove re-attaches a clone of it and rebinds its ID (§2). Cascades are just more entries in the same transaction: relationships, hierarchy levels, perspective and translation entries, and M expressions created on add.
+  Undo replays a transaction's entries backwards and applies each inverse. Redo replays them forwards.
+- **Entries are replayable on a different model instance.** Each entry holds the live TOM reference, which undo and redo use. It also records the object's `ObjectId`, its path at the time of the edit, its `LineageTag` where the object kind has one, and the operation in provider-neutral form: the property name and before/after values, or the add or remove request. Merge (#374) uses this to replay unsaved transactions onto a freshly loaded source, resolving each object by `LineageTag` first and then by path. Adding these fields now costs a few fields per entry. Retrofitting them later would mean reworking the journal. A detached object stays in the journal, so undoing a remove re-attaches a clone of it and rebinds its ID (§2). Cascades are just more entries in the same transaction: relationships, hierarchy levels, perspective and translation entries, and M expressions created on add.
 - **Transactions are the undo unit.** Each top-level request is one transaction and one undo step, whatever it expands to: one CLI command in the shell, or one RPC call. For example, a rename is the rename plus every `RenameFixup` expression rewrite, and `replace` is all its matches. If a request throws partway, its transaction rolls back, so a failed command leaves the model untouched. One-shot commands do not have this guarantee today. They rely on not saving.
 - **Explicit grouping.** `transaction.begin` / `commit` / `rollback`, shown as `begin` / `commit` / `rollback` in the shell, groups several requests into one undo step. Transactions are flat: a nested `begin` is an error. While a transaction is open, only the client that opened it can mutate. Other clients' mutations wait in the queue, and their reads see the last committed version.
 - **Change sets (#370) build on the same mechanism.** A proposed change set is a list of requests that has not been applied. Previewing it applies them in a transaction on the actor, captures the snapshot diff and rolls back. Approving it applies them as one transaction, so it undoes as one step. The shell's `--preview` flag does the same preview through the same path.
-- **Limits.** The undo stack keeps 500 transactions or about 64 MB of journal, whichever comes first, and drops the oldest. A new mutation after an undo clears the redo stack. Reload clears both stacks.
+- **Limits.** The undo stack keeps 500 transactions or about 64 MB of journal, whichever comes first, and drops the oldest. A new mutation after an undo clears the redo stack. Reload clears both stacks. A merge replaces them with the rebased transactions.
+- **The save-point snapshot is kept.** The `ModelSnapshot` at the last save point stays in memory. Save validation uses it as its baseline, and merge uses it as the common base for three-way conflict detection.
 - **Guarding against direct TOM writes.** A write that bypasses the journal would make undo silently incomplete. The following make that failure visible:
   - Golden tests from #341: for every mutation kind, apply then undo, and the saved TMDL is byte-identical to the original.
   - A test-only check that serializes the database before the operation and after its undo, and compares the two.
@@ -165,6 +174,7 @@ Considered and not chosen:
 
 - "Save to somewhere else" is a separate operation: `export`, or `save --to <path>`. It never moves the save point or changes where the session saves to.
 - Save runs on the actor as a normal work item. It is not a transaction and not an undo step.
+- A merge (#374) is one exclusive actor work item. For server sources it ends with the session holding the server's current model plus the rebased local edits, so the next `SaveChanges()` sends only those edits.
 
 ### 7. Event model and granularity
 
@@ -216,6 +226,7 @@ Considered and not chosen:
   - Snapshot rebuild cost (#352).
   - Journal completeness (golden tests).
   - Desktop's partial support for some write operations over `localhost`. This already exists for one-shot `--save` and is not made worse here.
+- **Merging external changes is deferred to #374**, but it is designed for here: a Stale session offers three choices, journal entries can be replayed on a freshly loaded model, and the save-point snapshot serves as the merge base. v1 ships reload and keep mine.
 
 ## Status of this document
 

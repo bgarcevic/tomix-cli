@@ -38,6 +38,8 @@ TMDL, `.bim` and XMLA sources (`Tomix.Provider.Tmdl` reuses it):
   `Rebind`). Undo, redo, rollback and change events all come from it. **Every TOM write in the
   mutator collaborators must go through the journal**. A direct write leaves undo silently
   incomplete, and the apply-then-undo golden tests are there to catch it.
+  Entries also carry the object's ID, path and `LineageTag` plus a provider-neutral form of the
+  operation, so unsaved transactions can be replayed onto a reloaded model (merge, #374).
 - `TomObjectIdMap` maps TOM instances to session `ObjectId`s. TOM cannot re-attach a removed
   object, so any operation that replaces an instance (move, undo of a remove) must `Rebind` the
   new instance to the old ID.
