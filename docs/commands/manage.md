@@ -34,7 +34,7 @@ explicit `--output-format` always overrides `defaultFormat`; the legacy value `h
 
 Unknown legacy entries are preserved when another setting is changed and are
 shown with `(unsupported)` by `config show`. If `config.json` is corrupt,
-`--help`, `--version`, `doctor`, `config paths`, and `config init --force`
+`--help`, `--version`, `doctor`, `config paths`, and `config init --overwrite`
 remain available; other commands fail with `TOMIX_CONFIG_CORRUPT`.
 
 ## `profile` — named connection profiles
@@ -82,7 +82,7 @@ tx init [output-path] [options]
 | `--serialization <tmdl\|bim\|pbip>` | On-disk format (default: `tmdl`). |
 | `--compatibility-mode <mode>` | `PowerBI` (default) or `AnalysisServices`. |
 | `--compat <level>` | Compatibility level (default: 1702 for PowerBI, 1500 otherwise). |
-| `--force` | Replace anything already at the target path. |
+| `--overwrite` | Replace anything already at the target path. |
 
 ```sh
 tx init ./my-model

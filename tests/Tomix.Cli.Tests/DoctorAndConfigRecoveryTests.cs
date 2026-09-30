@@ -46,9 +46,9 @@ public sealed class DoctorAndConfigRecoveryTests : IDisposable
     }
 
     [Fact]
-    public void ConfigInitForce_RepairsCorruptConfig()
+    public void ConfigInitOverwrite_RepairsCorruptConfig()
     {
-        var invocation = Invoke("config", "init", "--force");
+        var invocation = Invoke("config", "init", "--overwrite");
 
         Assert.Equal(0, invocation.ExitCode);
         using var json = JsonDocument.Parse(File.ReadAllText(Path.Combine(_directory, "config.json")));
@@ -58,7 +58,7 @@ public sealed class DoctorAndConfigRecoveryTests : IDisposable
     [Fact]
     public void OtherCommands_KeepStructuredConfigCorruptFailure()
     {
-        var invocation = Invoke("session", "--error-format", "json");
+        var invocation = Invoke("connect", "--error-format", "json");
 
         Assert.Equal(2, invocation.ExitCode);
         Assert.Contains("\"code\": \"TOMIX_CONFIG_CORRUPT\"", invocation.Stderr);

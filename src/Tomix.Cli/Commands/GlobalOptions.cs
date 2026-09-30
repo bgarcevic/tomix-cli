@@ -66,7 +66,7 @@ internal static class GlobalOptions
 
     public static readonly Option<bool> Yes = new("--yes")
     {
-        Description = "Skip confirmation prompts for destructive operations",
+        Description = "Skip confirmation prompts; deploy and risky refreshes apply instead of previewing",
         Recursive = true
     };
 
@@ -84,9 +84,6 @@ internal static class GlobalOptions
         Database.Aliases.Add("-d");
         Yes.Aliases.Add("-y");
         Quiet.Aliases.Add("-q");
-        // add and set declare a local -q (the bare compatibility property form, retired at
-        // 1.0); the local option shadows the global alias there, so -q keeps its documented
-        // compat meaning on exactly those two commands and means quiet everywhere else.
         OutputFormat.Recursive = true;
     }
 

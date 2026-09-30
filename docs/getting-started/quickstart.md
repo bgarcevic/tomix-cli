@@ -30,8 +30,13 @@ tx ls                          # everything, as a table
 tx ls --type table --paths-only
 tx ls Sales/Measures           # children of a container
 tx get "Sales/Total Sales"     # all properties of one object
-tx get "Sales/Total Sales" -q expression
+tx get "Sales/Total Sales" --query expression
+tx get Measures --where "Name=*margin*"   # filter any list by a property
 ```
+
+`get` is the one read command: a path naming one object shows its properties,
+and a wildcard or container path lists every match. `ls` and `deps` are
+shortcuts for `get --ls` and `get --deps`.
 
 Object paths are slash-separated (`Sales/Total Sales`); DAX-style forms like
 `'Sales'[Total Sales]` are accepted too. Quote names with spaces.
@@ -50,10 +55,10 @@ Mutations preview by default; nothing touches disk until you say so:
 
 ```sh
 # Preview: shows the result without saving
-tx add "Sales/Net Sales" -t Measure -i "SUM(Sales[Amount]) - SUM(Sales[Discount])"
+tx add "Sales/Net Sales" -t Measure -e "SUM(Sales[Amount]) - SUM(Sales[Discount])"
 
 # Persist it
-tx add "Sales/Net Sales" -t Measure -i "SUM(Sales[Amount]) - SUM(Sales[Discount])" --save
+tx add "Sales/Net Sales" -t Measure -e "SUM(Sales[Amount]) - SUM(Sales[Discount])" --save
 ```
 
 For multi-step edits, stage mutations and commit them as a batch — see
@@ -74,8 +79,9 @@ tx deploy --server MyWorkspace --database basic-tmdl
 tx refresh --refresh-type full
 ```
 
-Deploys run the BPA gate first (`--skip-bpa` to bypass), and `--dry-run`
-previews what would change on the remote target.
+Deploys run the BPA gate first (`--skip-bpa` to bypass), then preview what
+would change on the remote target and ask before deploying (`--yes` skips the
+preview, for CI).
 
 ## Where next
 

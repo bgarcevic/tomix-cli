@@ -98,7 +98,7 @@ internal static class Program
                     "TOMIX_CONFIG_CORRUPT",
                     DiagnosticSeverity.Error,
                     configLoadError.Message,
-                    "Run 'tx config init --force' to reset the file, or repair it manually.")],
+                    "Run 'tx config init --overwrite' to reset the file, or repair it manually.")],
                 GlobalOptions.ErrorFormatValue(parseResult));
             return 2;
         }
@@ -216,7 +216,6 @@ internal static class Program
             new FormatCommand(providers, formatter, services.State, mutations),
             new GetCommand(providers, services.State),
             new InitCommand(),
-            new LoadCommand(providers, services.State),
             new LsCommand(providers, services.State),
             new MvCommand(providers, services.State, mutations),
             new ProfileCommand(services.State),
@@ -225,9 +224,8 @@ internal static class Program
             new ReplaceCommand(providers, services.State, mutations),
             new RmCommand(providers, services.State, mutations),
             new SaveCommand(providers, services.State, httpClient),
-            new ScriptCommand(providers, services.State, mutations),
-            new SessionCommand(services.State),
             new SetCommand(providers, services.State, mutations),
+            new SummaryCommand(providers, services.State),
             new StageCommand(providers, services.State, services.Staging, services.ConfigStore.ValidateOnSaveEnabled),
             new TestCommand(providers, loadCurrentSession),
             new UpdateCommand(version, releaseSource ?? UnavailableReleaseSource.Instance, services.UpdateCheck),
@@ -257,7 +255,7 @@ internal static class Program
         var isConfig = args.Any(argument => argument.Equals("config", StringComparison.OrdinalIgnoreCase));
         return isConfig &&
                (leaf.Equals("paths", StringComparison.OrdinalIgnoreCase) ||
-                leaf.Equals("init", StringComparison.OrdinalIgnoreCase) && args.Contains("--force"));
+                leaf.Equals("init", StringComparison.OrdinalIgnoreCase) && args.Contains("--overwrite"));
     }
 
     /// <summary>

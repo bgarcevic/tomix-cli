@@ -12,6 +12,69 @@ and the API surface that major versions protect.
 
 ### Added
 
+- `tx get` is now the single read command. A path naming one object shows its properties; a
+  wildcard (`"Sa*"`), a container (`Sales/Measures`), or no path lists every match. New options
+  select and analyze over the same path resolution: `--ls`, `--where Prop=Value`
+  (case-insensitive, `*` wildcard, repeat to AND), `--deps [upstream|downstream]` with `--deep`
+  and `--max-depth`, `--unused` with `--hidden`, `--paths-only`, and `--no-multiline`. `tx ls`
+  and `tx deps` keep their flags and are now shortcuts for `get --ls` and `get --deps` /
+  `get --unused`, with identical output (#335).
+
+### Changed
+
+- **Breaking:** `tx session` is removed; `tx connect` covers it. `tx connect` now names the
+  session holding the connection (JSON: a `session` object with `id`, `kind`, `scope`, `path`),
+  `tx connect --clear` replaces `session clear`, and `tx connect --clear --all` forgets the
+  connection in every session. `session prune` and `session list` have no replacement: each
+  `tx connect <target>` now removes session files whose folder no longer exists (and legacy
+  `pid-*` sessions of exited shells), and `tx doctor` reports any stale ones left.
+- **Breaking:** `tx deploy` and the partition-risky `tx refresh` variants (`--refresh-type
+  clearvalues`, `--skip-refresh-policy`, `--effective-date`, `--policy-only`) preview by
+  default. Each shows its preview (the deploy diff, or the refresh TMSL or policy-only
+  summary), then asks before applying. The preview and the apply share one connection, so
+  the model opens and the deploy BPA gate runs once.
+  Where it cannot prompt (`--non-interactive`, `--quiet`, JSON or CSV output, redirected input)
+  it stops after the preview and exits with the new exit code `3`, instead of failing with
+  `TOMIX_CONFIRMATION_REQUIRED`. Pass `--yes` to apply without the preview. Routine refreshes
+  still run without asking. `deploy --xmla` only writes a script, so it no longer asks.
+- **Breaking:** `tx bpa run --fix` without `--save`, `--save-to`, or `--stage` is a preview: it
+  lists each pending fix with before and after values, reports `fixesApplied: 0`, and judges the
+  exit code on the model as it is.
+- `tx rm`, `tx replace`, and `tx bpa run --fix --allow-delete` ask for confirmation only when
+  they write (`--save`, `--save-to`, `--stage`, or `--revert`). A preview no longer asks. A
+  preview of `rm` on an object that DAX still references reports the dependents and hints
+  `--force` instead of failing.
+- **Breaking:** JSON output says `preview` where it said `dryRun`: mutation results drop the
+  `dryRun` field and the `dryRun` status (`status` is `preview`), `bpa run` reports `preview`
+  instead of `dryRun`, and `deploy` reports `status: "preview"` instead of `"dry-run"`. The `refresh --policy-only` preview's
+  CSV column `dry_run` is now `preview`.
+- `tx get Measures` and other bare container paths now list the container instead of failing
+  with `TOMIX_OBJECT_NOT_FOUND`, and `tx get ./model` lists the model's tables. `--query` or
+  `--deps` on a path that selects a set fails with `TOMIX_SINGLE_OBJECT_REQUIRED` (#335).
+
+### Fixed
+
+- `tx deploy` without `-d` now previews the database it would actually write (named after the
+  model) instead of skipping the diff and showing the model path as the target. A model with no
+  name of its own, such as a bare TMDL folder, fails with `TOMIX_DEPLOY_NO_TARGET` asking for
+  `-d` instead of a serializer error.
+
+### Removed
+
+- **Breaking:** `--dry-run` is removed from every command (`add`, `set`, `mv`, `rm`, `replace`,
+  `format`, `bpa run`, `deploy`, `refresh`, `session prune`). Model edits already preview unless
+  you pass `--save` or `--stage`, and the commands that change a target now preview by default.
+  The `TOMIX_BPA_DRY_RUN_REQUIRES_FIX` code is gone with it.
+- **Breaking:** `tx init`, `tx config init`, `tx bpa rules init`, and `tx connect -w` take
+  `--overwrite` instead of `--force` to replace an existing target, matching `--overwrite` on the
+  save commands. `--force` now only ever bypasses a check. Recover a corrupt config with `tx config init --overwrite`.
+- **Breaking:** `tx deploy --force` is removed. It never had an effect: no deploy check read it.
+  Use `--skip-bpa` to bypass the BPA gate.
+
+## [0.7.0] - 2026-09-29
+
+### Added
+
 - `tx bpa rules add`, `set`, `remove`, and `init` author custom BPA rules from the CLI. They edit
   your config-dir `bpa-rules.json` (which `bpa run` loads) or the file `--rules-file` names, and
   keep fields tx does not model. Scope and severity are validated (#232).
@@ -46,6 +109,14 @@ and the API surface that major versions protect.
   network, keeping its promise to stay local.
 - `tx doctor` no longer creates `~/.tomix` on a machine where tx has not run yet; it reports
   that the directory will be created on first use.
+- `tx get` text output shows only the properties that are set, aligned under the object's path
+  and kind, with annotations and translations in their own sections and multi-line expressions
+  as indented blocks. Unset settable properties fold into one `Not set:` line, followed by a
+  `tx set` hint. The new `--all` option lists every property, with a "N of M set" count, a dim
+  `—` for empty values, and a `read-only` tag. JSON and CSV output are unchanged.
+- `tx get --query` with an unknown property now fails with `TOMIX_PROPERTY_NOT_FOUND` and
+  suggests the closest property name, or lists the valid ones when nothing is close. An unset
+  `annotation:` or `translation:` token reads back as null.
 
 ### Changed
 
@@ -59,6 +130,22 @@ and the API surface that major versions protect.
   `msasxpress`, two native libraries tx never uses for sign-in (the release binary is about
   3 MB smaller). The `dotnet tool` package now talks to XMLA endpoints uncompressed, as the
   release binaries already did.
+
+### Removed
+
+- **Breaking:** `tx script` is removed. Despite its description it never ran C#: it evaluated a
+  handful of fixed read-only expressions (`Model.Tables.Count`, `Model.Tables[0].Name`, ...) and
+  could not change a model. Use `tx ls`, `tx get`, and `tx find` (with `--output-format json`)
+  to read the same information. The `TOMIX_SCRIPT_FILE_NOT_FOUND` and `TOMIX_SCRIPT_REQUIRED`
+  codes are gone with it.
+- **Breaking:** `tx load` is replaced by `tx summary`, which is listed under Discover and reports
+  more: the source (path or workspace endpoint), on-disk format, culture, default storage mode,
+  and partition, calculation group, perspective, and culture counts alongside the old ones.
+- **Breaking:** the compatibility `-q <property>`/`-i <value>` options on `tx add` and `tx set`
+  are removed. Use `--set <property>=<value>` (repeatable; `<property>=-` reads stdin) and, on
+  `add`, `--expression`/`-e` for the new object's value. `-q` now means `--quiet` on every command.
+  The `TOMIX_SET_INPUT_CONFLICT`, `TOMIX_ADD_INPUT_CONFLICT`, and `TOMIX_ADD_VALUE_REQUIRED` codes
+  are gone with them.
 
 ## [0.6.0] - 2026-09-29
 
@@ -1005,7 +1092,8 @@ development that are worth knowing about if you followed `main`.
   nonexistent option; `ls --type` help lists `calculatedcolumn`; the `--output-format`
   description typo "tTomix" is `tmdl` again.
 
-[Unreleased]: https://github.com/bgarcevic/tomix-cli/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/bgarcevic/tomix-cli/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.4.3...v0.5.0
 [0.4.3]: https://github.com/bgarcevic/tomix-cli/compare/v0.4.2...v0.4.3

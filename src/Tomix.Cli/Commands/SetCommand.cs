@@ -34,14 +34,6 @@ internal sealed class SetCommand : ICommandModule
             Description = "Optional path to the model; defaults to the active connection",
             Arity = ArgumentArity.ZeroOrOne
         };
-        var queryOption = new Option<string?>("-q")
-        {
-            Description = "Compatibility form of --set: the property to set; give its value with -i"
-        }.In(HelpGroups.Compatibility);
-        var valueOption = new Option<string?>("-i")
-        {
-            Description = "Compatibility form of --set: the value for the preceding -q. Pass '-' to read from stdin."
-        }.In(HelpGroups.Compatibility);
         var setOption = new Option<string[]>("--set", "-p")
         {
             Description = "Property assignment as name=value. Repeat to set multiple properties together.",
@@ -56,7 +48,6 @@ internal sealed class SetCommand : ICommandModule
         });
         var forceOption = LifecycleOptions.Force();
         var overwriteOption = LifecycleOptions.Overwrite();
-        var dryRunOption = LifecycleOptions.DryRun();
         var typeOption = new Option<string?>("--type")
         {
             Description = "Type to pick when the path matches several objects (e.g. a measure and a partition sharing a name)"
@@ -81,12 +72,9 @@ internal sealed class SetCommand : ICommandModule
         {
             pathArgument,
             modelArgument,
-            queryOption,
-            valueOption,
             setOption,
             forceOption,
             overwriteOption,
-            dryRunOption,
             typeOption,
             saveOption,
             saveToOption,
@@ -116,26 +104,7 @@ internal sealed class SetCommand : ICommandModule
                 type = parsed;
             }
 
-            var query = parseResult.GetValue(queryOption);
-            var rawValue = parseResult.GetValue(valueOption);
-            var sets = parseResult.GetValue(setOption) ?? [];
-            if (sets.Length > 0 && (!string.IsNullOrWhiteSpace(query) || rawValue is not null))
-            {
-                ErrorOutput.Write(
-                    [new TomixDiagnostic(
-                        "TOMIX_SET_INPUT_CONFLICT",
-                        DiagnosticSeverity.Error,
-                        "Pass either --set or -q/-i, not both.",
-                        "Prefer --set name=value; -q/-i remain as the compatibility form.")],
-                    GlobalOptions.ErrorFormatValue(parseResult, formatValue));
-                return 2;
-            }
-
-            IReadOnlyList<ModelPropertyAssignment> assignments = sets.Length > 0
-                ? ParseSetAssignments(sets)
-                : string.IsNullOrWhiteSpace(query)
-                    ? Array.Empty<ModelPropertyAssignment>()
-                    : [new ModelPropertyAssignment(query, InputValueResolver.Resolve(rawValue) ?? "")];
+            var assignments = AddCommand.ParseSetAssignments(parseResult.GetValue(setOption));
             if (!RecentConnections.TryResolveModel(
                     parseResult,
                     GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
@@ -166,7 +135,6 @@ internal sealed class SetCommand : ICommandModule
                         parseResult.GetValue(strictRefsOption),
                         FixRefs: !parseResult.GetValue(noFixRefsOption),
                         Overwrite: parseResult.GetValue(overwriteOption),
-                        DryRun: parseResult.GetValue(dryRunOption),
                         Force: parseResult.GetValue(forceOption)),
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(formatValue));
@@ -176,17 +144,6 @@ internal sealed class SetCommand : ICommandModule
 
         return command;
     }
-
-    // "name=" is an explicit empty value (it clears or removes the property), so only "-" reads
-    // stdin. The implicit read on an empty value would block a script whose stdin is redirected.
-    internal static IReadOnlyList<ModelPropertyAssignment> ParseSetAssignments(IEnumerable<string> sets)
-        => sets.Select(set =>
-        {
-            var value = set[(set.IndexOf('=') + 1)..];
-            return new ModelPropertyAssignment(
-                AddCommand.SplitSetName(set),
-                value == "-" ? InputValueResolver.Resolve(value) ?? "" : value);
-        }).ToArray();
 
     internal static void Render(SetModelPropertyResult result)
     {

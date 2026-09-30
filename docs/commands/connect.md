@@ -10,10 +10,12 @@ model itself — sessions, profiles, workspace mode — is explained in
 tx connect [server] [database] [options]
 ```
 
-No arguments shows the current connection. For a Power BI Desktop session it
-shows the report name, and flags the session as `(not running)` — with the
-last-known report — once that Desktop window has been closed. The first
-argument can be a workspace name, an endpoint, or a local model path.
+No arguments shows the current connection and the
+[session](../guides/connections.md#sessions) that holds it. For a Power BI
+Desktop session it shows the report name, and flags the session as
+`(not running)` — with the last-known report — once that Desktop window has
+been closed. The first argument can be a workspace name, an endpoint, or a
+local model path.
 
 | Option | Description |
 |--------|-------------|
@@ -21,11 +23,11 @@ argument can be a workspace name, an endpoint, or a local model path.
 | `--list` | List without connecting or changing the active connection. With a server (`tx connect <workspace> --list`): the semantic models on that workspace or endpoint, with compatibility level and last update. With `--local`: running Desktop instances (report name, endpoint, database). Works without a TTY; use `--output-format json` for scripts and agents. |
 | `--remote` | Pick a workspace and model interactively from your tenant (requires a TTY; sign in first with `tx auth login`). |
 | `-p, --profile <name>` | Connect through a saved profile. |
-| `--clear` | Forget the active connection. |
+| `--clear` | Forget the active connection. Add `--all` to forget it in every session (every repository, worktree, and `TOMIX_SESSION`); that asks for confirmation, so pass `--yes` in scripts. |
 | `-w, --workspace [target]` | Enable workspace mode: mirror saves between the primary source and a secondary target. No value = pick interactively. |
 | `--workspace-format <fmt>` | How a local workspace is stored on disk (`tmdl` or `bim`); detected from the path when omitted. |
 | `--workspace-auth <auth>` | How to authenticate the remote side of workspace mode. |
-| `--force` | Allow workspace mode to initialize over a folder that already has content. |
+| `--overwrite` | With `-w`, delete the workspace folder's contents before exporting the model into it, and overwrite an existing workspace database without asking. |
 
 ```sh
 tx connect                          # show current
@@ -37,6 +39,7 @@ tx connect MyWorkspace --list       # models on a workspace, no connect
 tx connect --local --list           # running Desktop instances, no connect
 tx connect localhost:56164          # a specific Desktop instance from the list
 tx connect ./model.tmdl -w MyWorkspace Sales
+tx connect --clear --all             # forget the connection everywhere
 ```
 
 A workspace that hosts more than one model cannot be opened without naming one:
@@ -79,9 +82,17 @@ Without `-s/--server`, the target comes from the active connection: a remote con
 deploys to itself, and a local connection with a workspace-mode mirror deploys to the
 mirror.
 
+`deploy` previews first. It shows what the deploy would change on the target (`+` = added
+to the target, `-` = removed from it), then asks before deploying. The preview compares the
+target against the exact model this deploy would leave behind, so anything
+[granular deployment](#granular-deployment) preserves is not reported as a change, and a
+target that does not exist yet is reported as "will be created". Where it cannot prompt
+(`--non-interactive`, `--quiet`, JSON output, or redirected input), it stops after the
+preview and exits `3`. Pass `--yes` to deploy without the preview. `--xmla` only writes a
+script, so it neither previews nor asks.
+
 | Option | Description |
 |--------|-------------|
-| `--dry-run` | Preview what the deploy would change on the target (`+` = added to the target, `-` = removed from it). Compares the target against the exact model this deploy would leave behind, so anything [granular deployment](#granular-deployment) preserves is not reported as a change. A target that does not exist yet is reported as "will be created". |
 | `--xmla <file>` | Write the deployment as a TMSL script to a file instead of deploying (`-` for stdout). |
 | `--create-only` | Create the target model only if it does not exist; fail when it does. |
 | `--skip-bpa` / `--fix-bpa` | Skip the BPA gate, or apply rule fixes before deploying. |
@@ -89,15 +100,14 @@ mirror.
 | `--bpa-fail-on <error\|warning>` | Severity threshold for the BPA gate: error (default) or warning. Applies before the deploy and again after `--fix-bpa` fixes. Rules that cannot be evaluated count as error-severity findings. |
 | `-p, --profile <name>` | Use a saved remote profile for this deploy only. List profiles with `tx profile list`; create one with `tx profile set <name> -s <workspace> -d <database>`. |
 | `--ci <github\|vsts>` | Print CI log-group commands to stderr. |
-| `--force` | Bypass validation checks. |
 
-The dry-run diff ignores engine-derived calculated-table column data types, including
+The preview diff ignores engine-derived calculated-table column data types, including
 type differences when a column exists on both the processed target and the planned
 model. Other column property changes remain visible.
 
 ```sh
-tx deploy ./model.tmdl --dry-run
-tx deploy ./model.tmdl --profile prod --dry-run
+tx deploy ./model.tmdl                          # preview, then confirm
+tx deploy ./model.tmdl --profile prod --yes     # deploy without the preview (CI)
 tx deploy --server MyWorkspace --database Sales
 tx deploy ./model.bim --xmla deploy.xmla
 tx deploy ./model.tmdl --bpa-fail-on warning
@@ -140,7 +150,7 @@ tx deploy ./model.tmdl --deploy-partitions               # push partitions, keep
 tx deploy ./model.tmdl --deploy-full                     # overwrite everything (first-deploy semantics)
 ```
 
-!!! note "`--dry-run` reflects preservation"
+!!! note "The preview reflects preservation"
 
     The preview reads the target once and compares it against the model this deploy would
     actually leave behind, merged with the same rules a real deploy uses. Aspects the flags
@@ -149,7 +159,7 @@ tx deploy ./model.tmdl --deploy-full                     # overwrite everything 
     what the preview reports.
 
     With default flags or `--deploy-roles` alone, a members-only source edit can show "No changes"
-    in `--dry-run` because an existing target's role members are preserved. A real deploy also
+    in the preview because an existing target's role members are preserved. A real deploy also
     leaves those members unchanged; use `--deploy-roles --deploy-role-members` (or `--deploy-full`)
     to preview and deploy member changes.
 
@@ -160,7 +170,7 @@ tx deploy ./model.tmdl --deploy-full                     # overwrite everything 
     the exact TMSL that would be sent:
 
     ```sh
-    tx deploy ./model.tmdl --xmla preview.xmla --yes
+    tx deploy ./model.tmdl --xmla preview.xmla
     ```
 
 ## `refresh` — trigger a data refresh
@@ -178,7 +188,6 @@ tx refresh [options]
 | `--policy-only` | Apply one table's deployed policy without loading data. Requires exactly one `--table`; may remove expired partitions. |
 | `--effective-date <yyyy-MM-dd>` | Evaluate refresh policies as if today were this date. |
 | `--max-parallelism <n>` | Maximum parallel refresh operations. |
-| `--dry-run` | Preview without execution: TMSL for normal refresh, a validated operation summary for `--policy-only`. |
 | `--no-progress` | Turn off live progress tracking (useful in CI and when piping). |
 | `--trace [path]` | Write raw XMLA trace events (stderr, or a log file). |
 
@@ -199,17 +208,20 @@ detail is in `tables[].processMs`, `tables[].partitions`, and `phases`; the CSV 
 unchanged. Power BI / Fabric delivers the trace a few seconds behind the refresh, so the summary
 can appear a little after the refresh itself finishes; the reported duration is the refresh's own.
 
-Routine refreshes run without prompting. The partition-risky variants —
+Routine refreshes run straight away. The partition-risky variants preview first:
 `--refresh-type clearvalues` (wipes partition data), `--skip-refresh-policy` /
 `--apply-refresh-policy false` (refreshes all historical partitions), `--policy-only`, and
-`--effective-date` (shifts policy window boundaries) — ask for confirmation
-first; `--dry-run` never does. Pass `--yes` to skip the prompt in scripts.
+`--effective-date` (shifts policy window boundaries). They print the TMSL the refresh would
+send (a validated operation summary for `--policy-only`), then ask before refreshing, on the
+same connection. Where they cannot prompt (`--non-interactive`, `--quiet`, JSON output, or
+redirected input), they stop after the preview and exit `3`. Pass `--yes` to run them
+without the preview.
 
 Apply a saved policy with data loading, or bootstrap empty partitions:
 
 ```sh
 tx refresh --table Sales --apply-refresh-policy true -s MyWorkspace -d MyModel
-tx refresh --table Sales --policy-only -s MyWorkspace -d MyModel --dry-run
+tx refresh --table Sales --policy-only -s MyWorkspace -d MyModel          # preview, then confirm
 tx refresh --table Sales --policy-only -s MyWorkspace -d MyModel --yes
 ```
 
@@ -229,15 +241,6 @@ ranges without moving the policy window, use:
 tx refresh --table Sales --refresh-type full --skip-refresh-policy -s MyWorkspace -d MyModel --yes
 ```
 
-
-## `load` — load and summarize
-
-```
-tx load [model]
-```
-
-Loads a model and prints a summary — useful as a smoke test or, with
-`--output-format json`, as a machine-readable model inventory.
 
 ## `save` — export a model
 
@@ -289,40 +292,4 @@ tx auth login -u $APP_ID -t $TENANT --password-file ./secret.txt
 
 tx auth status
 tx auth logout
-```
-
-## `session` — active-connection session state
-
-```
-tx session [show|clear|list|prune]
-```
-
-| Subcommand | Description |
-|------------|-------------|
-| `session show` | Print this session's details (ID, kind, scope directory, file path, active state). Sessions are scoped to the git repository or worktree root, else the current folder; `TOMIX_SESSION` names one explicitly. |
-| `session clear` | Clear this session's active marker. |
-| `session list` | List saved session files. |
-| `session prune` | Remove session files whose shell has exited. |
-
-`session prune` options:
-
-| Option | Description |
-|--------|-------------|
-| `--all` | Also remove named and live process sessions. The current session is kept. |
-| `--dry-run` | Preview what prune would remove. |
-
-`session clear` and `session prune` ask for confirmation (`--dry-run` never
-does); pass `--yes` in scripts.
-
-Without `--all`, pruning removes only well-formed `pid-<number>` sessions whose
-process is no longer running. It preserves the current session, named sessions,
-malformed PID names, and live PID sessions. `--all` removes every non-current
-session. `--dry-run` runs the same candidate selection without deleting files,
-so its count exactly matches a subsequent prune against unchanged state.
-
-```sh
-tx session            # current session details
-tx session clear      # clear active state for this session
-tx session prune      # delete session files for dead shells
-tx session prune --all --dry-run
 ```

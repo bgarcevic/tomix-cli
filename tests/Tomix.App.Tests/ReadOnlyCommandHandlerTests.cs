@@ -15,9 +15,9 @@ public sealed class ReadOnlyCommandHandlerTests
             CancellationToken.None);
 
         Assert.True(result.Success);
-        Assert.Equal("Table", result.Data!.Type);
-        Assert.Equal("Sales", result.Data.Path);
-        Assert.Equal(1, result.Data.Properties["partitions"]);
+        Assert.Equal("Table", result.Data!.Object!.Type);
+        Assert.Equal("Sales", result.Data.Object!.Path);
+        Assert.Equal(1, result.Data.Object!.Properties["partitions"]);
     }
 
     [Fact]
@@ -28,17 +28,67 @@ public sealed class ReadOnlyCommandHandlerTests
             CancellationToken.None);
 
         Assert.True(result.Success);
-        Assert.Equal("Model", result.Data!.Type);
-        Assert.Equal(".", result.Data.Path);
-        Assert.Equal(1601, result.Data.Properties["compatibilityLevel"]);
-        Assert.Equal("stub model", result.Data.Properties["description"]);
+        Assert.Equal("Model", result.Data!.Object!.Type);
+        Assert.Equal(".", result.Data.Object!.Path);
+        Assert.Equal(1601, result.Data.Object!.Properties["compatibilityLevel"]);
+        Assert.Equal("stub model", result.Data.Object!.Properties["description"]);
     }
 
     [Fact]
-    public async Task Get_BareContainerKeyword_FailsWithAccurateMessage()
+    public async Task Get_UnknownQueryProperty_FailsWithClosestSuggestion()
+    {
+        var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
+            new GetModelRequest(new ModelReference("any"), "Sales", Query: "partitons", Type: null),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        var diagnostic = result.Diagnostics[0];
+        Assert.Equal("TOMIX_PROPERTY_NOT_FOUND", diagnostic.Code);
+        Assert.Equal("Did you mean 'partitions'?", diagnostic.Hint);
+    }
+
+    [Fact]
+    public async Task Get_UnknownQueryPropertyWithNoCloseMatch_ListsProperties()
+    {
+        var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
+            new GetModelRequest(new ModelReference("any"), "Sales", Query: "zzzzzzzz", Type: null),
+            CancellationToken.None);
+
+        Assert.False(result.Success);
+        Assert.StartsWith("Properties: name, description,", result.Diagnostics[0].Hint);
+    }
+
+    [Theory]
+    [InlineData("annotation:Missing")]
+    [InlineData("translation:da-DK/caption")]
+    public async Task Get_UnsetBagToken_ReadsBackNull(string query)
+    {
+        var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
+            new GetModelRequest(new ModelReference("any"), "Sales", Query: query, Type: null),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Null(Assert.Single(result.Data!.Object!.Properties).Value);
+    }
+
+    [Fact]
+    public async Task Get_BareContainerKeyword_ListsTheContainer()
     {
         var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
             new GetModelRequest(new ModelReference("any"), "measures", Query: null, Type: null),
+            CancellationToken.None);
+
+        Assert.True(result.Success);
+        Assert.Equal(GetMode.List, result.Data!.Mode);
+        Assert.NotEmpty(result.Data.List!.Objects);
+        Assert.All(result.Data.List.Objects, o => Assert.Equal(ModelObjectKind.Measure, o.Kind));
+    }
+
+    [Fact]
+    public async Task Get_MissingObject_FailsWithAccurateMessage()
+    {
+        var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
+            new GetModelRequest(new ModelReference("any"), "Measures/Nope", Query: null, Type: null),
             CancellationToken.None);
 
         Assert.False(result.Success);
@@ -152,24 +202,15 @@ public sealed class ReadOnlyCommandHandlerTests
     [Fact]
     public async Task Deps_FindsColumnReferencesInMeasureExpression()
     {
-        var result = await new DepsModelHandler([new StubModelProvider()]).HandleAsync(
-            new DepsModelRequest(
-                new ModelReference("any"),
-                "Sales/Total Sales",
-                Type: null,
-                UpstreamOnly: false,
-                DownstreamOnly: false,
-                Deep: false,
-                Unused: false,
-                HiddenOnly: false,
-                MaxDepth: 10),
+        var result = await new GetModelHandler([new StubModelProvider()]).HandleAsync(
+            new GetModelRequest(new ModelReference("any"), "Sales/Total Sales", Query: null, Type: null, Mode: GetMode.Deps),
             CancellationToken.None);
 
         Assert.True(result.Success);
-        var dependency = Assert.Single(result.Data!.Upstream);
+        var dependency = Assert.Single(result.Data!.Deps!.Upstream);
         Assert.Equal("Sales/Amount", dependency.Path);
         Assert.Equal("Column", dependency.Type);
-        Assert.Empty(result.Data.Downstream);
+        Assert.Empty(result.Data.Deps.Downstream);
     }
 
     private sealed class StubModelProvider : IModelProvider

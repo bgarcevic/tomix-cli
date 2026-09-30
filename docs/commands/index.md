@@ -7,9 +7,9 @@ the version you have installed. Run bare `tx` for just the command list.
 
 | Group | Commands |
 |-------|----------|
-| [Discover](discover.md) | `ls`, `get`, `find`, `deps`, `query` |
-| [Modify](modify.md) | `add`, `set`, `mv`, `rm`, `replace`, `format`, `script` |
-| [Connect](connect.md) | `connect`, `deploy`, `refresh`, `load`, `save`, `auth`, `session` |
+| [Discover](discover.md) | `summary`, `ls`, `get`, `find`, `deps`, `query` |
+| [Modify](modify.md) | `add`, `set`, `mv`, `rm`, `replace`, `format` |
+| [Connect](connect.md) | `connect`, `deploy`, `refresh`, `save`, `auth`, `session` |
 | [Validate](validate.md) | `bpa`, `validate`, `test`, `vertipaq`, `diff`, `doctor` |
 | [Manage](manage.md) | `config`, `profile`, `init`, `completion`, `stage`, `update` |
 
@@ -28,7 +28,7 @@ pages:
 | `--output-format <format>` | Format for data written to stdout: `text` (default), `json`, `csv`, `tmsl` (alias: `bim`), `tmdl`. Availability varies by command. |
 | `--error-format <format>` | Format for messages written to stderr: `text` (default) or `json`. |
 | `--non-interactive` | Never prompt for input; fail with an error saying what to provide. |
-| `-y, --yes` | Skip confirmation prompts for destructive operations. |
+| `-y, --yes` | Skip confirmation prompts. `deploy` and partition-risky `refresh` variants preview first by default; `--yes` applies them without the preview. |
 | `-q, --quiet` | Suppress non-essential output (spinners, progress, hints). Errors and data still print. |
 | `--debug` | Show the full stack trace on stderr when an unexpected error occurs. |
 

@@ -27,9 +27,9 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
 
     internal static readonly (string Heading, string[] Commands)[] RootSections =
     [
-        ("Discover", ["ls", "get", "find", "deps", "query"]),
-        ("Modify", ["add", "set", "mv", "rm", "replace", "format", "script"]),
-        ("Connect", ["connect", "deploy", "refresh", "load", "save", "auth", "session"]),
+        ("Discover", ["summary", "ls", "get", "find", "deps", "query"]),
+        ("Modify", ["add", "set", "mv", "rm", "replace", "format"]),
+        ("Connect", ["connect", "deploy", "refresh", "save", "auth"]),
         ("Validate", ["bpa", "validate", "test", "vertipaq", "diff", "doctor"]),
         ("Manage", ["config", "profile", "init", "completion", "stage", "update"]),
     ];
@@ -44,9 +44,12 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["bpa rules ignore"] = "Writes the model's ignore annotation (shared with everyone who uses the model). --user ignores the rule only for you, on this machine, for every model.",
         ["bpa rules init"] = "Creates your config-dir bpa-rules.json, or the file --rules-file names.",
         ["bpa rules unignore"] = "Removes the rule from the model's ignore annotation. --user undoes 'ignore --user'; a rule runs only when neither level ignores it.",
-        ["connect"] = "With no arguments, shows the active connection. --recent reconnects to a recently used model.",
+        ["connect"] = "With no arguments, shows the active connection. --recent reconnects to a recently used model. --clear --all forgets the connection in every session.",
+        ["deps"] = "A shortcut for tx get --deps (or --unused); both run the same read pipeline.",
         ["diff"] = "Exit codes: 0 = identical, 1 = differences found, 2 = error.",
+        ["get"] = "One object shows its properties; a wildcard or container path lists every match. --ls, --where, --deps and --unused select and analyze. get returns objects; tx find searches property text and returns match sites (name filtering deliberately overlaps).",
         ["format"] = "Formats an inline expression (--expression), one object (--path), or every expression in the model.",
+        ["ls"] = "A shortcut for tx get --ls; both run the same read pipeline.",
         ["query"] = "The query comes from the positional argument, --query, --file, or stdin.",
         ["refresh"] = "Runs an automatic refresh unless --refresh-type says otherwise.",
         ["test"] = "--update records snapshots; --trx and --ci produce pipeline output.",
@@ -59,12 +62,24 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx ls",
             "tx ls --type table",
             "tx ls Sa*",
+            "tx ls \"'Net Sales'/Measures\"",
             "tx ls --paths-only --type measure",
+        ],
+        ["summary"] = [
+            "tx summary",
+            "tx summary ./model.tmdl",
+            "tx summary --output-format json",
         ],
         ["get"] = [
             "tx get \"Table[Measure]\"",
             "tx get Revenue -t measure",
+            "tx get Sales --all",
             "tx get Sales/Measures/Revenue --output-format json",
+            "tx get \"Sa*\"",
+            "tx get Measures --where \"Name=*margin*\"",
+            "tx get Columns --where DataType=String --where IsHidden=true",
+            "tx get Sales/Revenue --deps downstream --deep",
+            "tx get --unused --hidden",
         ],
         ["find"] = [
             "tx find CALCULATE",
@@ -72,7 +87,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ],
         ["deps"] = [
             "tx deps \"Table[Measure]\"",
-            "tx deps tables/Sales --downstream",
+            "tx deps Sales --downstream",
         ],
         ["query"] = [
             "tx query \"EVALUATE Sales\"",
@@ -93,15 +108,15 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["set"] = [
             "tx set \"Table[Measure]\" --set expression=\"CALCULATE(SUM(Sales[Amount]))\"",
             "tx set \"Sales[Total Sales]\" --set displayFolder=KPIs --save",
-            "tx set tables/Sales --set name=Sales_v2",
+            "tx set Sales --set name=Sales_v2",
         ],
         ["mv"] = [
-            "tx mv tables/Sales/measures/OldName tables/Sales/measures/NewName",
-            "tx mv tables/Sales tables/SalesData",
+            "tx mv \"Sales/Old Name\" \"Sales/New Name\" --save",
+            "tx mv Sales SalesData",
         ],
         ["rm"] = [
-            "tx rm tables/Sales/measures/ObsoleteMeasure",
-            "tx rm tables/Staging --save",
+            "tx rm Sales/Obsolete",
+            "tx rm Staging --save",
         ],
         ["replace"] = [
             "tx replace \"[OrderDate]\" \"[ShipDate]\"",
@@ -112,11 +127,6 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx format -e \"CALCULATE(sum(sales[amt]))\"",
             "tx format --path \"Table[Measure]\"",
         ],
-        ["script"] = [
-            "tx script -e \"Model.Tables.Count\"",
-            "tx script transform.csx --save",
-            "tx script -e \"Model.Tables[\\\"Sales\\\"].Name\" --output-format json",
-        ],
         ["connect"] = [
             "tx connect",
             "tx connect --remote",
@@ -125,11 +135,12 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx connect ./model.tmdl -w",
             "tx connect --local",
             "tx connect ./model.tmdl -w MyWorkspace Sales",
+            "tx connect --clear --all",
         ],
         ["deploy"] = [
             "tx deploy ./model.tmdl",
-            "tx deploy ./model.tmdl --dry-run",
-            "tx deploy ./model.tmdl --profile prod --dry-run",
+            "tx deploy ./model.tmdl --yes",
+            "tx deploy ./model.tmdl --profile prod",
             "tx deploy ./model.bim --skip-bpa",
             "tx deploy ./model.tmdl --bpa-fail-on warning",
         ],
@@ -137,11 +148,8 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx refresh",
             "tx refresh --refresh-type full",
             "tx refresh --table Sales --table Customers",
-            "tx refresh --partition Sales.FY2024 --dry-run",
-        ],
-        ["load"] = [
-            "tx load ./model.tmdl",
-            "tx load --output-format json",
+            "tx refresh --partition Sales.FY2024",
+            "tx refresh --refresh-type clearvalues --yes",
         ],
         ["save"] = [
             "tx save ./model.tmdl --serialization bim",
@@ -152,11 +160,6 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx auth login --auth spn --client-id $SPN_ID",
             "tx auth status",
             "tx auth logout",
-        ],
-        ["session"] = [
-            "tx session",
-            "tx session list",
-            "tx session clear",
         ],
         ["bpa"] = [
             "tx bpa run",
@@ -190,7 +193,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["bpa run"] = [
             "tx bpa run",
             "tx bpa run --errors --details",
-            "tx bpa run --fix --dry-run",
+            "tx bpa run --fix",
             "tx bpa run --fix --save",
             "tx bpa run --ci github --fail-on warning",
         ],
@@ -325,7 +328,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
 
     /// <summary>The save flags in the order a reader weighs them, whatever order a command declares them in.</summary>
     private static readonly string[] SaveOrder =
-        ["--save", "--save-to", "--stage", "--revert", "--dry-run", "--serialization", "--overwrite", "--force", "--no-sync"];
+        ["--save", "--save-to", "--stage", "--revert", "--serialization", "--overwrite", "--force", "--no-sync"];
 
     private readonly record struct Row(string Label, string StyledLabel, string Description);
 
@@ -397,7 +400,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             // Untagged options first, then the command's own groups in first-seen order, then the
             // shared save flags, then the compatibility forms.
             foreach (var group in local.GroupBy(o => HelpGroups.Of(o) ?? "")
-                         .OrderBy(g => g.Key switch { "" => 0, HelpGroups.Save => 2, HelpGroups.Compatibility => 3, _ => 1 }))
+                         .OrderBy(g => g.Key switch { "" => 0, HelpGroups.Save => 2, _ => 1 }))
             {
                 AnsiConsole.MarkupLine(Styling.Title($"{(group.Key.Length == 0 ? "Options" : group.Key)}:"));
                 WriteOptionRows(group.Key == HelpGroups.Save

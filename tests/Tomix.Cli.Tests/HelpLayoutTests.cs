@@ -47,11 +47,11 @@ public sealed partial class HelpLayoutTests
     [Fact]
     public void WrappedDescription_ContinuesUnderItsColumn()
     {
-        var help = Render(Command("ls"), 80);
+        var help = Render(Command("get"), 80);
 
         var lines = help.Split('\n');
         var start = Array.FindIndex(lines, l => l.Contains("-t, --type <type>", StringComparison.Ordinal));
-        var column = lines[start].IndexOf("Filter by type", StringComparison.Ordinal);
+        var column = lines[start].IndexOf("Object kind", StringComparison.Ordinal);
 
         Assert.True(column > 0);
         Assert.Equal(new string(' ', column), lines[start + 1][..column]);
@@ -61,10 +61,10 @@ public sealed partial class HelpLayoutTests
     [Fact]
     public void RedirectedHelp_IsNotWrapped()
     {
-        var help = Render(Command("ls"), int.MaxValue);
+        var help = Render(Command("get"), int.MaxValue);
 
         Assert.Contains(
-            "Filter by type: table, measure, column, calculatedcolumn, hierarchy, level, partition,",
+            "Object kind: picks one when a path matches several objects, or filters a list; for example table,",
             help);
     }
 
@@ -104,16 +104,15 @@ public sealed partial class HelpLayoutTests
     }
 
     [Fact]
-    public void MutationHelp_GroupsSaveFlags_ThenCompatibilityForms()
+    public void MutationHelp_GroupsSaveFlagsLast()
     {
         var help = Render(Command("add"), 100);
 
         var options = help.IndexOf("\nOptions:", StringComparison.Ordinal);
+        var partition = help.IndexOf("\nPartition and data source options:", StringComparison.Ordinal);
         var save = help.IndexOf("\nSave options:", StringComparison.Ordinal);
-        var compat = help.IndexOf("\nCompatibility options:", StringComparison.Ordinal);
-        Assert.True(options >= 0 && options < save && save < compat, help);
-        Assert.Contains("--save-to <path>", help[save..compat]);
-        Assert.Contains("-i <value>", help[compat..]);
+        Assert.True(options >= 0 && options < partition && partition < save, help);
+        Assert.Contains("--save-to <path>", help[save..]);
     }
 
     [Fact]

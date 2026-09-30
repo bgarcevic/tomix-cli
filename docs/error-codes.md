@@ -41,6 +41,7 @@ Fields:
 | 0    | Success. |
 | 1    | General failure (most errors). |
 | 2    | Usage/argument error, IO failure, or pre-condition violation. |
+| 3    | Preview only: `deploy` or a partition-risky `refresh` ran without `--yes` where it could not prompt, so it showed the preview and applied nothing. Pass `--yes` to apply. |
 
 Handlers override the default via `TomixResult.Fail(..., exitCode: 2)`. If no exit code
 is specified, the default is `1`. Command-line parse errors (unknown option, missing
@@ -54,7 +55,7 @@ All diagnostic codes use uppercase `SNAKE_CASE` prefixed with `TOMIX_`. For exam
 ## Mutation Codes (`TOMIX_MUTATION_*`)
 
 Emitted by `MutationRunner` and handlers that participate in the mutation lifecycle
-(`add`, `rm`, `set`, `mv`, `replace`, `format`, `script`, `bpa run --fix`,
+(`add`, `rm`, `set`, `mv`, `replace`, `format`, `bpa run --fix`,
 `bpa rules ignore/unignore`).
 
 | Code | Exit | Trigger |
@@ -62,7 +63,7 @@ Emitted by `MutationRunner` and handlers that participate in the mutation lifecy
 | `TOMIX_MUTATION_UNSUPPORTED_PROVIDER` | 1 | The model provider does not implement `IModelMutationSession`. |
 | `TOMIX_MUTATION_UNSUPPORTED` | 1 | A `NotSupportedException` was thrown during mutation. |
 | `TOMIX_ADD_OPTION_UNSUPPORTED` | 1 | An `add` option was supplied for an object type that cannot consume it (e.g. `--columns` on a CalcGroup). |
-| `TOMIX_RENAME_BREAKS_REFS` | 1 | `--strict-refs` was set and the rename (`set -q name`, `mv`) would leave DAX expressions referencing the old name. By default renames rewrite referencing DAX automatically, so this only fires for references that cannot be rewritten (role RLS filters, or a bare `'Name'` when a table and a calendar share the renamed name) — or, under `--no-fix-refs`, for any reference. Without `--strict-refs` the rename proceeds with a warning listing the objects left broken. |
+| `TOMIX_RENAME_BREAKS_REFS` | 1 | `--strict-refs` was set and the rename (`set --set name=...`, `mv`) would leave DAX expressions referencing the old name. By default renames rewrite referencing DAX automatically, so this only fires for references that cannot be rewritten (role RLS filters, or a bare `'Name'` when a table and a calendar share the renamed name) — or, under `--no-fix-refs`, for any reference. Without `--strict-refs` the rename proceeds with a warning listing the objects left broken. |
 | `TOMIX_RM_BREAKS_REFS` | 1 | The object being removed (`rm`) is still referenced by DAX expressions. Unlike a rename there is nothing to rewrite, so the removal is blocked and the message lists the referencing objects; `--force` removes anyway and reports the now-broken references. Structural references (relationships, sort-by, hierarchy levels, perspective and translation entries, role permissions) never block — they are cascade-removed with the object. |
 | `TOMIX_MUTATION_INVALID_VALUE` | 1 | An `ArgumentException` was thrown — invalid argument value. |
 | `TOMIX_MUTATION_FAILED` | 1 | An `InvalidOperationException` was thrown — generic mutation failure. |
@@ -76,12 +77,12 @@ Emitted by `get`, `deps`, and `format --path` when a model object path fails to 
 |------|------|---------|
 | `TOMIX_OBJECT_NOT_FOUND` | 1 | The object path matched zero objects. Includes a hint. |
 | `TOMIX_OBJECT_AMBIGUOUS` | 1 | The object path matched more than one object. |
+| `TOMIX_PROPERTY_NOT_FOUND` | 1 | `get --query` named a property the object does not have, or no object in a `get --where` scope has the filtered property. The hint suggests the closest property, or lists the valid ones when nothing is close. An `annotation:` or `translation:` token that is simply unset is not an error; it reads back empty. |
 
 ## BPA Codes (`TOMIX_BPA_*`)
 
 | Code | Exit | Trigger |
 |------|------|---------|
-| `TOMIX_BPA_DRY_RUN_REQUIRES_FIX` | 2 | `bpa run --dry-run` was passed without `--fix`, or together with `--revert`. `--dry-run` previews fixes, so it needs `--fix`. |
 | `TOMIX_BPA_INVALID_FAIL_ON` | 2 | Invalid `--fail-on` or `--bpa-fail-on` value (expected: error, warning). |
 | `TOMIX_BPA_RULE_EXISTS` | 2 | `bpa rules add` was given an ID the rules file (or the model's `BestPracticeAnalyzer` annotation) already has. Change it with `bpa rules set`, or remove it first. |
 | `TOMIX_BPA_RULE_FIELD_REQUIRED` | 2 | `bpa rules add` is missing `--name`, `--scope`, or `--expression` (the message names which); `bpa rules set` was given no field to change; or a name or expression was set to an empty value. |
@@ -92,7 +93,7 @@ Emitted by `get`, `deps`, and `format --path` when a model object path fails to 
 | `TOMIX_BPA_RULE_NOT_IN_RULESET` | 0 | Warning, not a failure. `bpa rules unignore --user` stopped ignoring the rule for you, but it isn't in the `standard` ruleset, so `bpa run` checks it only with the `--ruleset` the message names (`full`, or a default-off category preset). Unignoring doesn't add a rule to the ruleset. |
 | `TOMIX_BPA_RULE_STILL_IGNORED_BY_MODEL` | 0 | Warning, not a failure. `bpa rules unignore --user` stopped ignoring the rule for you, but the active model still ignores it, so `bpa run` still skips it for that model. Run the `tx bpa rules unignore` command in the hint. |
 | `TOMIX_BPA_RULE_STILL_IGNORED_BY_USER` | 0 | Warning, not a failure. `bpa rules unignore` removed the rule from the model's ignore list, but you still ignore it with `--user`, so `bpa run` still skips it on this machine. Run `tx bpa rules unignore <rule-id> --user`. |
-| `TOMIX_BPA_RULES_FILE_EXISTS` | 2 | `bpa rules init` found an existing rules file. Pass `--force` to replace it with an empty one. |
+| `TOMIX_BPA_RULES_FILE_EXISTS` | 2 | `bpa rules init` found an existing rules file. Pass `--overwrite` to replace it with an empty one. |
 | `TOMIX_BPA_RULES_FILE_NOT_FOUND` | 2 | `bpa rules set` or `remove` found no rules file. Create one with `bpa rules init` or `bpa rules add`. |
 | `TOMIX_BPA_RULES_FILE_REMOTE` | 2 | `bpa rules add/set/remove/init` was pointed at a remote `--rules-file` URL, which can't be edited. Download it and pass the local path. |
 | `TOMIX_BPA_RULES_LOAD_FAILED` | 2 | Failed to load the BPA rules catalog, or a rules file or model `BestPracticeAnalyzer` annotation being edited is not a JSON array of rules. |
@@ -130,7 +131,7 @@ Emitted by `get`, `deps`, and `format --path` when a model object path fails to 
 
 | Code | Exit | Trigger |
 |------|------|---------|
-| `TOMIX_DEPLOY_NO_TARGET` | 2 | `deploy` called without a target server/database. |
+| `TOMIX_DEPLOY_NO_TARGET` | 2 | `deploy` called without a target server, or without `-d/--database` for a model that has no name of its own (such as a bare TMDL folder). |
 | `TOMIX_DEPLOY_PROFILE_NO_SERVER` | 2 | `deploy --profile` selected an existing profile without a server; deploy requires a remote profile. |
 | `TOMIX_DEPLOY_UNSUPPORTED` | 2 | The source model cannot be deployed (wrong provider/type). |
 | `TOMIX_DEPLOY_FIX_UNSUPPORTED` | 2 | `deploy --fix-bpa` was requested but the provider session does not implement `IModelMutationSession`. |
@@ -154,7 +155,6 @@ Emitted by `get`, `deps`, and `format --path` when a model object path fails to 
 |------|------|---------|
 | `TOMIX_QUERY_REQUIRED` | 2 | `query` called without query text: pass it positionally, via `--query`, `--file`, or piped stdin. |
 | `TOMIX_QUERY_INPUT_CONFLICT` | 2 | More than one query source was passed: the positional text, `--query`, and `--file` are mutually exclusive; choose one. |
-| `TOMIX_SET_INPUT_CONFLICT` | 2 | `--set` and the compatibility `-q`/`-i` pair were passed together; choose one. |
 | `TOMIX_QUERY_FILE_NOT_FOUND` | 2 | The `--file` path does not exist. |
 | `TOMIX_QUERY_BAD_PARAM` | 2 | A `--param` value was not formatted as `name=value`. |
 | `TOMIX_QUERY_OUTPUT_FORMAT` | 2 | `-o`/`--output-file` could not resolve a json or csv format (pass `--output-format json\|csv` or use a `.json`/`.csv` extension). |
@@ -235,13 +235,6 @@ Policy commands also reuse `TOMIX_OBJECT_NOT_FOUND` (table missing), `TOMIX_REFR
 | `TOMIX_AUTH_SECRET_SOURCE_CONFLICT` | 2 | `--password -` and `--password-file` (or the certificate-password equivalents) were combined; choose one. |
 | `TOMIX_AUTH_SECRET_FILE_NOT_FOUND` | 2 | The `--password-file` / `--certificate-password-file` path does not exist. |
 
-## Script Codes (`TOMIX_SCRIPT_*`)
-
-| Code | Exit | Trigger |
-|------|------|---------|
-| `TOMIX_SCRIPT_FILE_NOT_FOUND` | 1 | The script file was not found. |
-| `TOMIX_SCRIPT_REQUIRED` | 2 | `script` called without a script file or inline script. |
-
 ## Config Codes (`TOMIX_CONFIG_*`)
 
 > **Note:** `TOMIX_CONFIG_DIR` is an environment variable, not a diagnostic code. See below.
@@ -298,7 +291,10 @@ come from structural integrity checks.
 | `TOMIX_REMOTE_LIST_FAILED` | 1 | Listing workspaces or models failed (Power BI REST or XMLA error) during an interactive `connect` or `connect <server> --list`. |
 | `TOMIX_DATABASE_NOT_FOUND` | 1 | The database/model name was not found on the server. |
 | `TOMIX_DATABASE_REQUIRED` | 2 | The endpoint hosts more than one database/model and none was named. List them with `tx connect <server> --list`, then pass one with `-d/--database`. |
-| `TOMIX_DEPS_PATH_REQUIRED` | 2 | `deps` called without an object path. |
+| `TOMIX_DEPS_PATH_REQUIRED` | 2 | `get --deps` (or `deps`) called without an object path. |
+| `TOMIX_SINGLE_OBJECT_REQUIRED` | 2 | `get --query` or `get --deps` was given a path that selects a set (a wildcard such as `Sa*`, a container such as `Sales/Measures`, or `--ls`/`--where`). Name one object. |
+| `TOMIX_UNUSED_PATH` | 2 | `get --unused` (or `deps --unused`) was given a path; it scans the whole model. |
+| `TOMIX_INVALID_WHERE` | 2 | A `get --where` value is not `Prop=Value`. |
 | `TOMIX_FIND_INVALID_REGEX` | 2 | `find --regex` called with an invalid regular expression pattern. |
 | `TOMIX_UNKNOWN_OPTION` | 2 | An unrecognized `--option` would have been bound to a positional argument (e.g. a typo'd flag). Put `--` before positional values that must start with `-`. |
 | `TOMIX_UNKNOWN_COMMAND` | 2 | The subcommand name is not one `tx` (or the named command group) has, e.g. `tx lss`. The hint suggests the closest command. A command group run with no subcommand (e.g. `tx bpa`) is not an error: it prints the group's help and exits 0. |
@@ -316,8 +312,6 @@ come from structural integrity checks.
 | `TOMIX_PROFILE_TARGET_REQUIRED` | 2 | A new profile has no usable remote, local-model, Desktop, or active-session target. |
 | `TOMIX_INVALID_OUTPUT_FORMAT` | 2 | `--output-format` value is not one of: auto, text, json, csv, tmsl, bim, tmdl. |
 | `TOMIX_INVALID_TYPE` | 2 | `--type` value is not a known object kind; the hint lists the valid types. |
-| `TOMIX_ADD_VALUE_REQUIRED` | 2 | `tx add -q <property>` has no matching `-i <value>`. Pair each `-q` with a following `-i`. |
-| `TOMIX_ADD_INPUT_CONFLICT` | 2 | `--expression` and an unpaired `-i` were both passed; give the new object's value once. |
 | `TOMIX_CONFIRMATION_REQUIRED` | 1 | A destructive action needed confirmation but prompting was unavailable (`--non-interactive`, `--quiet`, json/csv output, or redirected stdin/stderr). Pass `--yes`. |
 | `TOMIX_OPTION_CONFLICT` | 2 | Mutually-exclusive options were combined (e.g. `--recent` with a model path, `--profile` with an explicit server/database). The message names the pair; which options conflict is command-specific, so branch on the code rather than the wording. |
 | `TOMIX_RECENT_INVALID` | 2 | `--recent` was given a value that is not a positive index (`1` = most recently used). |
@@ -327,7 +321,7 @@ come from structural integrity checks.
 | `TOMIX_WORKSPACE_PRIMARY_REQUIRED` | 2 | `connect -w` was given without enough of a primary connection to mirror from (needs `<server> <database>`, or a local path). A missing value, not a conflict — see `TOMIX_OPTION_CONFLICT` for that. |
 | `TOMIX_WORKSPACE_UNREACHABLE` | 1 | `connect -w` reached the primary model but could not reach the workspace mirror's server. The connection is left unchanged. |
 | `TOMIX_OUTPUT_FORMAT_UNSUPPORTED` | 2 | The command cannot render the requested `--output-format`; the message lists the formats it supports. |
-| `TOMIX_CONFIG_CORRUPT` | 2 | `~/.tomix/config.json` exists but does not parse. Repair it manually or reset it with `tx config init --force`; help, version, doctor, and config recovery paths remain available. |
+| `TOMIX_CONFIG_CORRUPT` | 2 | `~/.tomix/config.json` exists but does not parse. Repair it manually or reset it with `tx config init --overwrite`; help, version, doctor, and config recovery paths remain available. |
 | `TOMIX_UNEXPECTED` | 1 | An unexpected exception reached the top-level handler. The stack trace is only printed under `--debug`; with `--error-format json` it is embedded as a `detail` field in the envelope so stderr stays valid JSON. |
 
 ## Update Codes (`TOMIX_UPDATE_*`)
@@ -379,7 +373,5 @@ Command-specific validation codes (checked before entering `MutationRunner`) are
 
 - `TOMIX_REPLACE_PATTERN_REQUIRED`
 - `TOMIX_SET_PROPERTY_REQUIRED`
-- `TOMIX_SCRIPT_FILE_NOT_FOUND`
-- `TOMIX_SCRIPT_REQUIRED`
 - `TOMIX_BPA_RULE_ID_REQUIRED`
 - `TOMIX_FORMAT_UNSUPPORTED_LANGUAGE`

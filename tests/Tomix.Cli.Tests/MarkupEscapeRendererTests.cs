@@ -3,8 +3,9 @@ using Tomix.App.Bpa;
 using Tomix.App.Deploy;
 using Tomix.App.Info;
 using Tomix.App.Mutations;
-using Tomix.App.Script;
+using Tomix.App.Summary;
 using Tomix.App.Test;
+using Tomix.Cli.Commands;
 using Tomix.Cli.Output;
 using Tomix.Core.Bpa;
 using Tomix.Core.Models;
@@ -24,6 +25,16 @@ public sealed partial class MarkupEscapeRendererTests
             model: null, remoteServer: "[Server]", database: "[Database]", workspace: null));
 
         AssertLiteral(captured.Stdout, "Model: [Model]", "Active: [Server] / [Database]");
+    }
+
+    [Fact]
+    public void Summary_UsesLiteralModelAndSourceNames()
+    {
+        var captured = Capture(() => SummaryRenderer.Render(new SummaryModelResult(
+            "[Model]", "[Database]", "[Server]", Format: null, 1600, Culture: null, DefaultMode: null,
+            new SummaryCounts(1, 1, 1, 0, 0, 1, 0, 0, 0))));
+
+        AssertLiteral(captured.Stdout, "[Model]", "[Server]", "[Database]");
     }
 
     [Fact]
@@ -78,18 +89,6 @@ public sealed partial class MarkupEscapeRendererTests
     }
 
     [Fact]
-    public void Script_UsesLiteralModelAndSyncNames()
-    {
-        var result = ScriptRunResult.Executed(
-            "[Model]", 1, [], [], new MutationOutcome(MutationStatus.Saved, "C:/model", PersistenceKind.File, new SyncOutcome(SyncStatus.Succeeded, "[Target]")));
-
-        var captured = Capture(() => ScriptRenderer.RenderText(result, "text"));
-
-        AssertLiteral(captured.Stderr, "Model: [Model]");
-        AssertLiteral(captured.Stdout, "Synced: [Target]");
-    }
-
-    [Fact]
     public void TestRun_UsesLiteralTestAndFailureText()
     {
         var result = new TestRunResult(
@@ -117,12 +116,12 @@ public sealed partial class MarkupEscapeRendererTests
     [Fact]
     public void Deploy_UsesLiteralDiffError()
     {
-        var result = new DeployModelResult("[Server]", "[Database]", "dry-run", null, null, null,
+        var result = new DeployModelResult("[Server]", "[Database]", "preview", null, null, null,
             DiffError: "[Diff error]");
 
         var captured = Capture(() => DeployRenderer.Render(result, SampleModel.Locate()));
 
-        AssertLiteral(captured.Stderr, "Diff unavailable: [Diff error]");
+        AssertLiteral(captured.Stderr, "Cannot preview changes: [Diff error]");
     }
 
     [Fact]

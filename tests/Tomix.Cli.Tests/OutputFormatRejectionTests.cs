@@ -37,15 +37,13 @@ public sealed class OutputFormatRejectionTests
             "format" => new FormatCommand(NoProviders, new CompositeExpressionFormatterClient([]), services.State, mutations),
             "get" => new GetCommand(NoProviders, services.State),
             "init" => new InitCommand(),
-            "load" => new LoadCommand(NoProviders, services.State),
             "profile" => new ProfileCommand(services.State),
             "refresh" => new RefreshCommand(NoProviders, services.State, services.LoadCurrentSession),
             "replace" => new ReplaceCommand(NoProviders, services.State, mutations),
             "rm" => new RmCommand(NoProviders, services.State, mutations),
             "save" => new SaveCommand(NoProviders, services.State),
-            "script" => new ScriptCommand(NoProviders, services.State, mutations),
-            "session" => new SessionCommand(services.State),
             "set" => new SetCommand(NoProviders, services.State, mutations),
+            "summary" => new SummaryCommand(NoProviders, services.State),
             "stage" => new StageCommand(NoProviders, services.State, services.Staging),
             "update" => new UpdateCommand("0.0.0-test", FakeReleaseSource.Empty, services.UpdateCheck),
             "validate" => new ValidateCommand(NoProviders, services.State),
@@ -81,18 +79,16 @@ public sealed class OutputFormatRejectionTests
     [InlineData("csv", "doctor")]
     [InlineData("csv", "format")]
     [InlineData("csv", "init")]
-    [InlineData("csv", "load")]
     [InlineData("csv", "profile", "list")]
     [InlineData("csv", "replace", "old", "new")]
     [InlineData("csv", "rm", "tables/T/measures/M")]
-    [InlineData("csv", "session")]
     [InlineData("csv", "set", "tables/T/measures/M")]
     [InlineData("csv", "stage")]
+    [InlineData("csv", "summary")]
     [InlineData("csv", "update", "--check")]
     [InlineData("csv", "validate")]
     [InlineData("tmdl", "refresh")]
     [InlineData("tmdl", "save")]
-    [InlineData("tmdl", "script", "-e", "1")]
     [InlineData("tmdl", "vertipaq")]
     public void UnsupportedFormat_ExitsTwoWithMessage(string format, params string[] commandArgs)
     {
@@ -117,7 +113,7 @@ public sealed class OutputFormatRejectionTests
     [Fact]
     public void UnsupportedFormat_UsesJsonEnvelope_WhenErrorFormatJson()
     {
-        var (exitCode, stderr, _) = Invoke("session", "--output-format", "csv", "--error-format", "json");
+        var (exitCode, stderr, _) = Invoke("connect", "--output-format", "csv", "--error-format", "json");
 
         Assert.Equal(2, exitCode);
         Assert.Contains("\"code\": \"TOMIX_OUTPUT_FORMAT_UNSUPPORTED\"", stderr);
@@ -126,7 +122,7 @@ public sealed class OutputFormatRejectionTests
     [Fact]
     public void InvalidFormat_UsesJsonEnvelope_WhenErrorFormatJson()
     {
-        var (exitCode, stderr, _) = Invoke("session", "--output-format", "yaml", "--error-format", "json");
+        var (exitCode, stderr, _) = Invoke("connect", "--output-format", "yaml", "--error-format", "json");
 
         Assert.Equal(2, exitCode);
         Assert.Contains("\"code\": \"TOMIX_INVALID_OUTPUT_FORMAT\"", stderr);

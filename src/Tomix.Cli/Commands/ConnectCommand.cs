@@ -75,9 +75,9 @@ internal sealed class ConnectCommand : ICommandModule
         {
             Description = "Forget the active connection"
         };
-        var forceOption = new Option<bool>("--force")
+        var overwriteOption = new Option<bool>("--overwrite")
         {
-            Description = "Allow workspace mode to initialize over a folder that already has content"
+            Description = "Replace the workspace folder's contents and overwrite an existing workspace database without asking"
         };
         var workspaceFormatOption = new Option<string?>("--workspace-format")
         {
@@ -86,6 +86,10 @@ internal sealed class ConnectCommand : ICommandModule
         var workspaceAuthOption = new Option<string?>("--workspace-auth")
         {
             Description = "How to authenticate the remote side of workspace mode (default: --auth when set, otherwise auto)"
+        };
+        var clearAllOption = new Option<bool>("--all")
+        {
+            Description = "With --clear: forget the connection in every session (every repository, worktree, and TOMIX_SESSION), not just this one"
         };
 
         var command = new Command("connect", "Set or show the active connection")
@@ -98,9 +102,10 @@ internal sealed class ConnectCommand : ICommandModule
             listOption,
             profileOption,
             clearOption,
-            forceOption,
+            overwriteOption,
             workspaceFormatOption,
-            workspaceAuthOption
+            workspaceAuthOption,
+            clearAllOption
         };
 
         command.SetAction(async (parseResult, cancellationToken) =>
@@ -110,6 +115,10 @@ internal sealed class ConnectCommand : ICommandModule
                 return 2;
 
             var errorFormat = GlobalOptions.ErrorFormatValue(parseResult, format);
+
+            var clearAll = parseResult.GetValue(clearAllOption);
+            if (clearAll && !parseResult.GetValue(clearOption))
+                return RenderWorkspaceOptionError(parseResult, "--all requires --clear (e.g. 'tx connect --clear --all').");
 
             var handler = new ConnectHandler(_state);
             if (GlobalOptions.RecentSpecified(parseResult))
@@ -160,13 +169,20 @@ internal sealed class ConnectCommand : ICommandModule
             }
 
             if (parseResult.GetValue(clearOption))
+            {
+                if (clearAll && !ConfirmationHelper.ConfirmOrAbort(
+                    "Clear", "the active connection in every session", parseResult, format))
+                    return 1;
+
                 return CommandOutput.Render(
                     parseResult,
-                    handler.Clear(),
+                    handler.Clear(clearAll),
                     format,
-                    result => AnsiConsole.MarkupLine(result.Cleared
-                        ? Styling.Success("Cleared active connection.")
+                    result => AnsiConsole.MarkupLine(
+                        result.Removed is { } removed ? Styling.Success($"Cleared {removed} session(s).")
+                        : result.Cleared ? Styling.Success("Cleared active connection.")
                         : Styling.Muted("No active connection.")));
+            }
 
             // ArgumentArity.ZeroOrOne surfaces both "absent" and "bare -w" as null from GetValue;
             // gate on GetResult so a valueless -w (present, no value) is distinguishable from absent.
@@ -358,7 +374,7 @@ internal sealed class ConnectCommand : ICommandModule
             var remoteServer = target.RemoteServer;
             var database = target.Database;
             var workspace = target.Workspace;
-            var force = parseResult.GetValue(forceOption);
+            var overwrite = parseResult.GetValue(overwriteOption);
 
             if (target.Validation is { } validation)
             {
@@ -390,7 +406,7 @@ internal sealed class ConnectCommand : ICommandModule
                     {
                         database = probe.ResolvedDatabase;
 
-                        if (!force && !ConfirmationHelper.ConfirmOrAbort(
+                        if (!overwrite && !ConfirmationHelper.ConfirmOrAbort(
                             "Overwrite workspace target", $"'{database}' on {workspace}",
                             parseResult, format))
                         {
@@ -399,7 +415,7 @@ internal sealed class ConnectCommand : ICommandModule
                             // followed by a sentence -- not parseable as either.
                             if (GlobalOptions.ErrorFormatValue(parseResult, format) is not OutputFormats.Json)
                                 ErrConsole().MarkupLine(Styling.Guidance(
-                                    "Aborted; connection unchanged. Re-run without -w to connect without the workspace, or pass --force to overwrite it."));
+                                    "Aborted; connection unchanged. Re-run without -w to connect without the workspace, or pass --overwrite to overwrite it."));
                             return 1;
                         }
                     }
@@ -428,7 +444,7 @@ internal sealed class ConnectCommand : ICommandModule
                 if (target.InitializeWorkspace)
                 {
                     var init = await new ConnectWorkspaceHandler(_providers).InitializeAsync(
-                        new ConnectWorkspaceInitRequest(workspace!, target.WorkspaceFormat, force, validation),
+                        new ConnectWorkspaceInitRequest(workspace!, target.WorkspaceFormat, overwrite, validation),
                         cancellationToken);
 
                     if (init.Initialized && format == OutputFormats.Text)
