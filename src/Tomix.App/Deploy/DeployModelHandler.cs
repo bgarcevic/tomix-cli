@@ -283,7 +283,7 @@ public sealed class DeployModelHandler
 
         var snapshot = await session.GetSnapshotAsync(cancellationToken);
         var engine = new BpaEngine();
-        // Issue #254: user-level disables (`bpa rules disable`) must reach the gate exactly as
+        // Issue #254: user-level disables (`bpa rules ignore --user`) must reach the gate exactly as
         // they reach `bpa run`, so the two agree on the same machine. A handler built without
         // the state disables nothing; the path/rule filters stay empty — a gate evaluates all.
         var userDisabled = _bpaRules?.GetDisabled().ToList();

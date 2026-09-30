@@ -9,7 +9,7 @@ public enum BpaRuleSuppression
 {
     None = 0,
 
-    /// <summary>Disabled for the current user (<c>bpa rules disable</c>), on this machine only.</summary>
+    /// <summary>Disabled for the current user (<c>bpa rules ignore --user</c>), on this machine only.</summary>
     User = 1,
 
     /// <summary>Ignored by the model's <c>BestPracticeAnalyzer_IgnoreRules</c> annotation (<c>bpa rules ignore</c>).</summary>
