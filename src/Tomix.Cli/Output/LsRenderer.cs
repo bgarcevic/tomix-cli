@@ -5,6 +5,7 @@ using Tomix.App.Dax;
 using Tomix.App.Ls;
 using Tomix.App.M;
 using Tomix.Core.Models;
+using Tomix.Core.Properties;
 
 namespace Tomix.Cli.Output;
 
@@ -21,7 +22,7 @@ internal sealed partial class LsRenderer
                 return;
 
             AnsiConsole.MarkupLine(Styling.Muted("No objects found."));
-            StdErr.MarkupLine(Styling.Guidance("  → Try: tx ls, tx ls --type table, or tx ls \"Sa*\""));
+            StdErr.MarkupLine(Styling.Guidance("  → Try: tx get, tx get --type table, or tx get \"Sa*\""));
             return;
         }
 
@@ -45,6 +46,50 @@ internal sealed partial class LsRenderer
             RenderGrouped(data.Objects, noMultiline, data.MeasureNames);
         }
     }
+
+    /// <summary>The JSON contract: one flat row per object, <c>type</c> and <c>path</c> first.</summary>
+    public static IReadOnlyList<IReadOnlyDictionary<string, object?>> ToReferenceJson(LsModelResult data)
+        => data.Objects.Select(ToReferenceJson).ToList();
+
+    private static IReadOnlyDictionary<string, object?> ToReferenceJson(LsObject obj)
+    {
+        var row = new Dictionary<string, object?>
+        {
+            ["type"] = obj.Kind.ToString(),
+            ["path"] = obj.Path
+        };
+        foreach (var (key, value) in obj.Projected)
+            row[key] = value;
+        return row;
+    }
+
+    public static void RenderCsv(LsModelResult data)
+    {
+        var objects = data.Objects;
+
+        // Homogeneous results get their kind's full catalog columns. Mixed kinds fall back to
+        // the generic descriptors; their values come from LsObject's own fields because each
+        // row's Projected dictionary is keyed by its OWN kind's catalog (a Column projection
+        // has "dataType", not "detail").
+        var homogeneous = objects.Count > 0 && objects.All(o => o.Kind == objects[0].Kind);
+
+        PropertyCsvRenderer.Write(
+            homogeneous ? ModelPropertyCatalog.For(objects[0].Kind) : ModelPropertyCatalog.GenericDescriptors,
+            objects.Select(o => (
+                (IReadOnlyList<object?>)[o.Path],
+                homogeneous ? o.Projected : GenericProjection(o))),
+            "Path");
+    }
+
+    private static IReadOnlyDictionary<string, object?> GenericProjection(LsObject obj)
+        => new Dictionary<string, object?>
+        {
+            ["name"] = obj.Name,
+            ["description"] = obj.Description ?? "",
+            ["isHidden"] = obj.Hidden,
+            ["detail"] = obj.Detail ?? "",
+            ["expression"] = obj.Expression ?? ""
+        };
 
     private static void RenderTables(IReadOnlyList<LsObject> objects)
     {
