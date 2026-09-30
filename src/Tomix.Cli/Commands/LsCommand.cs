@@ -1,7 +1,6 @@
 using System.CommandLine;
 using Tomix.App.Get;
 using Tomix.App.State;
-using Tomix.Cli.Output;
 using Tomix.Core.Models;
 
 namespace Tomix.Cli.Commands;
