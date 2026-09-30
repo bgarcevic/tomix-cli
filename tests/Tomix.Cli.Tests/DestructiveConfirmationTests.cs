@@ -9,11 +9,11 @@ namespace Tomix.Cli.Tests;
 /// Destructive commands must refuse to run without confirmation when prompting is impossible,
 /// and <c>--yes</c> must bypass the prompt for scripts. Confirmation goes through the single
 /// gate-aware <see cref="ConfirmationHelper.ConfirmOrAbort"/> overload, so this covers every
-/// caller: <c>session clear</c>, <c>stage commit</c>/<c>discard</c>, the persisting forms of
-/// <c>rm</c>, <c>replace</c>, <c>mv</c> and <c>bpa run --fix --allow-delete</c>, their
+/// caller: <c>connect --clear --all</c>, <c>stage commit</c>/<c>discard</c>, the persisting
+/// forms of <c>rm</c>, <c>replace</c>, <c>mv</c> and <c>bpa run --fix --allow-delete</c>, their
 /// <c>--revert</c>, and the <c>connect</c> workspace overwrite. The preview-first commands
-/// (<c>deploy</c>, <c>refresh</c>, <c>session prune</c>) go through <see cref="PreviewGate"/>
-/// instead: without <c>--yes</c> they preview, then prompt or stop.
+/// (<c>deploy</c> and the partition-risky <c>refresh</c> variants) go through
+/// <see cref="PreviewGate"/> instead: without <c>--yes</c> they preview, then prompt or stop.
 /// </summary>
 [Collection(ConsoleStateCollection.Name)]
 public sealed class DestructiveConfirmationTests
@@ -24,8 +24,7 @@ public sealed class DestructiveConfirmationTests
     {
         var services = TestServices.Create();
         var noProviders = providers ?? Array.Empty<IModelProvider>();
-        var root = TestRoot.With(new SessionCommand(services.State).Build());
-        root.Subcommands.Add(new StageCommand(noProviders, services.State, services.Staging).Build());
+        var root = TestRoot.With(new StageCommand(noProviders, services.State, services.Staging).Build());
         root.Subcommands.Add(new RmCommand(noProviders, services.State, services.Mutations).Build());
         root.Subcommands.Add(new ReplaceCommand(noProviders, services.State, services.Mutations).Build());
         root.Subcommands.Add(new DeployCommand(noProviders, services.State).Build());
@@ -50,7 +49,7 @@ public sealed class DestructiveConfirmationTests
     }
 
     [Theory]
-    [InlineData("session", "clear")]
+    [InlineData("connect", "--clear", "--all")]
     [InlineData("stage", "discard")]
     [InlineData("stage", "discard", "--all")]
     [InlineData("stage", "commit", "--model", "SomeModel")]
@@ -75,7 +74,7 @@ public sealed class DestructiveConfirmationTests
     // Confirmation goes through InteractionGate, so every non-promptable context —
     // not just --non-interactive — must fail fast instead of blocking on a prompt.
     [Theory]
-    [InlineData("session", "clear", "--quiet")]
+    [InlineData("connect", "--clear", "--all", "--quiet")]
     [InlineData("stage", "discard", "--quiet")]
     [InlineData("stage", "commit", "--model", "SomeModel", "--quiet")]
     [InlineData("rm", "SomeTable", "--save", "--quiet")]
@@ -84,7 +83,7 @@ public sealed class DestructiveConfirmationTests
     [InlineData("mv", "Sales/Old", "Sales/New", "--model", "SomeModel", "--revert", "--quiet")]
     [InlineData("bpa", "run", "--model", "SomeModel", "--fix", "--allow-delete", "--save", "--quiet")]
     [InlineData("bpa", "run", "--model", "SomeModel", "--revert", "--quiet")]
-    [InlineData("session", "clear", "--output-format", "json")]
+    [InlineData("connect", "--clear", "--all", "--output-format", "json")]
     [InlineData("stage", "discard", "--output-format", "json")]
     [InlineData("stage", "commit", "--model", "SomeModel", "--output-format", "json")]
     [InlineData("rm", "SomeTable", "--save", "--output-format", "json")]
@@ -135,80 +134,21 @@ public sealed class DestructiveConfirmationTests
     // Success paths assert JSON output on purpose: AnsiConsole-backed text output caches
     // the console writer from the first invoke, so captured text is unreliable across invokes.
     [Fact]
-    public void SessionClear_WithYes_Proceeds()
+    public void ConnectClearAll_WithYes_Proceeds()
     {
-        var (exitCode, stdout, _) = Invoke("session", "clear", "--yes", "--output-format", "json");
-
-        Assert.Equal(0, exitCode);
-        Assert.Contains("\"cleared\": false", stdout);
-    }
-
-    [Fact]
-    public void SessionPrune_WithYes_Proceeds()
-    {
-        var (exitCode, stdout, _) = Invoke("session", "prune", "--yes", "--output-format", "json");
+        var (exitCode, stdout, _) = Invoke("connect", "--clear", "--all", "--yes", "--output-format", "json");
 
         Assert.Equal(0, exitCode);
         Assert.Contains("\"removed\": 0", stdout);
     }
 
     [Fact]
-    public void SessionPrune_NothingToRemove_PreviewsAndExitsZero()
+    public void ConnectClear_WithoutAll_NeedsNoConfirmation()
     {
-        var (exitCode, stdout, stderr) = Invoke(
-            "session", "prune", "--non-interactive", "--output-format", "json");
+        var (exitCode, stdout, _) = Invoke("connect", "--clear", "--non-interactive", "--output-format", "json");
 
         Assert.Equal(0, exitCode);
-        Assert.Contains("\"preview\": true", stdout);
-        Assert.DoesNotContain("Pass --yes", stderr);
-    }
-
-    // Preview is the default: without --yes a non-promptable prune shows what it would remove,
-    // removes nothing, and exits 3 so a script can tell the preview from a real run.
-    [Theory]
-    [InlineData("--non-interactive")]
-    [InlineData("--quiet")]
-    [InlineData("--output-format", "json")]
-    public void SessionPrune_WithoutYes_NonPromptableContext_PreviewsAndExitsThree(params string[] contextArgs)
-    {
-        var services = TestServices.Create();
-        var other = AddSessionFile(services, "other");
-
-        var (exitCode, stdout, _) = Invoke(
-            TestRoot.With(new SessionCommand(services.State).Build()),
-            ["session", "prune", "--all", .. contextArgs]);
-
-        Assert.Equal(PreviewGate.PreviewExitCode, exitCode);
-        Assert.True(File.Exists(other));
-        if (contextArgs.Contains("json"))
-        {
-            Assert.Contains("\"preview\": true", stdout);
-            Assert.Contains("\"removed\": 1", stdout);
-        }
-    }
-
-    [Fact]
-    public void SessionPrune_WithYes_RemovesWithoutPreview()
-    {
-        var services = TestServices.Create();
-        var other = AddSessionFile(services, "other");
-
-        var (exitCode, stdout, _) = Invoke(
-            TestRoot.With(new SessionCommand(services.State).Build()),
-            ["session", "prune", "--all", "--yes", "--output-format", "json"]);
-
-        Assert.Equal(0, exitCode);
-        Assert.Contains("\"preview\": false", stdout);
-        Assert.Contains("\"removed\": 1", stdout);
-        Assert.False(File.Exists(other));
-    }
-
-    private static string AddSessionFile(AppServices services, string sessionId)
-    {
-        Directory.CreateDirectory(services.State.SessionsDirectory);
-        var path = Path.Combine(services.State.SessionsDirectory, $"{sessionId}.json");
-        File.WriteAllText(path, "{}");
-        return path;
+        Assert.Contains("\"cleared\": false", stdout);
     }
 
     [Fact]

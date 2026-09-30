@@ -41,7 +41,7 @@ Fields:
 | 0    | Success. |
 | 1    | General failure (most errors). |
 | 2    | Usage/argument error, IO failure, or pre-condition violation. |
-| 3    | Preview only: `deploy`, a partition-risky `refresh`, or `session prune` ran without `--yes` where it could not prompt, so it showed the preview and applied nothing. Pass `--yes` to apply. |
+| 3    | Preview only: `deploy` or a partition-risky `refresh` ran without `--yes` where it could not prompt, so it showed the preview and applied nothing. Pass `--yes` to apply. |
 
 Handlers override the default via `TomixResult.Fail(..., exitCode: 2)`. If no exit code
 is specified, the default is `1`. Command-line parse errors (unknown option, missing

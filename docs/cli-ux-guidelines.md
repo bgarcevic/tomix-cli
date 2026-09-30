@@ -112,7 +112,7 @@ the bottom for where each concern lives.
   flags. Use standard names where they exist: `-q/--quiet`, `-f/--force`,
   `-o/--output`, `--json`, `--no-color`, `--no-input`, `--version`.
 - Preview by default. Model edits write only with `--save`/`--stage`; commands that act on a
-  remote or local state (`deploy`, partition-risky `refresh`, `session prune`) show their preview, then prompt,
+  remote state (`deploy`, partition-risky `refresh`) show their preview, then prompt,
   and apply without it only with `--yes`. Do not add a `--dry-run` flag.
 - Two positional arguments meaning different things is a smell; more than two is
   a bug. (Multiple args of the *same* kind — file lists — are fine.)
@@ -275,7 +275,7 @@ than a missing-key error. **Scripts wanting a command's own diagnostics must rea
 - [x] Grouped sections + Examples blocks in help
 - [x] Help wraps to the terminal, groups long option lists, and fits 80 columns; `tx help <command>`
 - [x] `NO_COLOR` / `TERM=dumb` handling verified or added
-- [x] Confirmations with `--yes` on `stage commit` and the persisting forms of `rm`, `replace`, `mv`, and `bpa run --fix --allow-delete`; preview-first `deploy`, partition-risky `refresh`, and `session prune` (exit 3 when they cannot prompt)
+- [x] Confirmations with `--yes` on `stage commit` and the persisting forms of `rm`, `replace`, `mv`, and `bpa run --fix --allow-delete`; preview-first `deploy` and partition-risky `refresh` (exit 3 when they cannot prompt)
 - [x] `-q/--quiet` global flag (suppresses spinners, progress, non-essential output)
 - [x] Empty-state messages with next-step hints on `ls`/`find`
 - [x] "Did you mean?" suggestions for unknown subcommands

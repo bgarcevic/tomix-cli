@@ -22,11 +22,17 @@ and the API surface that major versions protect.
 
 ### Changed
 
-- **Breaking:** `tx deploy`, the partition-risky `tx refresh` variants (`--refresh-type
-  clearvalues`, `--skip-refresh-policy`, `--effective-date`, `--policy-only`), and
-  `tx session prune` preview by default. Each shows its preview (the deploy diff, the refresh
-  TMSL or policy-only summary, the sessions to remove), then asks before applying. The preview
-  and the apply share one connection, so the model opens and the deploy BPA gate runs once.
+- **Breaking:** `tx session` is removed; `tx connect` covers it. `tx connect` now names the
+  session holding the connection (JSON: a `session` object with `id`, `kind`, `scope`, `path`),
+  `tx connect --clear` replaces `session clear`, and `tx connect --clear --all` forgets the
+  connection in every session. `session prune` and `session list` have no replacement: each
+  `tx connect <target>` now removes session files whose folder no longer exists (and legacy
+  `pid-*` sessions of exited shells), and `tx doctor` reports any stale ones left.
+- **Breaking:** `tx deploy` and the partition-risky `tx refresh` variants (`--refresh-type
+  clearvalues`, `--skip-refresh-policy`, `--effective-date`, `--policy-only`) preview by
+  default. Each shows its preview (the deploy diff, or the refresh TMSL or policy-only
+  summary), then asks before applying. The preview and the apply share one connection, so
+  the model opens and the deploy BPA gate runs once.
   Where it cannot prompt (`--non-interactive`, `--quiet`, JSON or CSV output, redirected input)
   it stops after the preview and exits with the new exit code `3`, instead of failing with
   `TOMIX_CONFIRMATION_REQUIRED`. Pass `--yes` to apply without the preview. Routine refreshes
@@ -40,8 +46,7 @@ and the API surface that major versions protect.
   `--force` instead of failing.
 - **Breaking:** JSON output says `preview` where it said `dryRun`: mutation results drop the
   `dryRun` field and the `dryRun` status (`status` is `preview`), `bpa run` reports `preview`
-  instead of `dryRun`, `deploy` reports `status: "preview"` instead of `"dry-run"`, and
-  `session prune` reports `preview` instead of `dryRun`. The `refresh --policy-only` preview's
+  instead of `dryRun`, and `deploy` reports `status: "preview"` instead of `"dry-run"`. The `refresh --policy-only` preview's
   CSV column `dry_run` is now `preview`.
 - `tx get Measures` and other bare container paths now list the container instead of failing
   with `TOMIX_OBJECT_NOT_FOUND`, and `tx get ./model` lists the model's tables. `--query` or

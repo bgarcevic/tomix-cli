@@ -8,7 +8,7 @@ internal enum PreviewDecision { Apply, Declined, PreviewOnly }
 
 /// <summary>
 /// Preview-first gate for commands that act on something outside the model file (<c>deploy</c>,
-/// partition-risky <c>refresh</c>, <c>session prune</c>). Without <c>--yes</c> the command renders its preview,
+/// partition-risky <c>refresh</c>). Without <c>--yes</c> the command renders its preview,
 /// then asks here: an interactive terminal is prompted, and every non-promptable context stops
 /// after the preview with <see cref="PreviewExitCode"/>, so a script that forgot <c>--yes</c>
 /// gets a safe preview it can tell apart from a real run.
