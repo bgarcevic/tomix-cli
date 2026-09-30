@@ -9,7 +9,7 @@ namespace Tomix.Cli.Tests;
 /// <summary>
 /// The user-facing half of the rm preview fix (issue #217): rm without --save/--stage renders
 /// "Would remove:" and exits 0 — even when the reference guard would block, where it lists
-/// the dependents and hints <c>--force</c> instead of failing — and never persists anything.
+/// the dependents and the <c>--force --save</c> command instead of failing — and never persists anything.
 /// </summary>
 [Collection(ConsoleStateCollection.Name)]
 public sealed partial class RmCommandTests
@@ -60,7 +60,11 @@ public sealed partial class RmCommandTests
         Assert.Contains("Would remove:", output);
         Assert.Contains("Would break 2 DAX reference(s)", output);
         Assert.Contains("Sales/Total Sales", output);
-        Assert.Contains("Re-run with --force", StripAnsi(captured.Stderr));
+        // One copy-pasteable next step, not "--force" and "--save" as separate half-steps.
+        var stderr = StripAnsi(captured.Stderr);
+        Assert.Contains("To remove anyway: tx rm Sales/Amount -m ", stderr);
+        Assert.Contains(" --force --save", stderr);
+        Assert.DoesNotContain("Not saved yet", stderr);
         Assert.DoesNotContain("Removed:", output);
         Assert.Equal(before, Snapshot(model.Path));
     }
@@ -82,6 +86,15 @@ public sealed partial class RmCommandTests
         Assert.Equal("Sales/Amount", data.GetProperty("wouldRemove").GetString());
         Assert.False(data.TryGetProperty("removed", out _));
         Assert.False(data.GetProperty("saved").GetBoolean());
+    }
+
+    [Theory]
+    [InlineData(new[] { "rm", "Sales/Amount" }, "tx rm Sales/Amount --force --save")]
+    [InlineData(new[] { "rm", "Sales/Total Sales", "-m", "m.bim", "-f" }, "tx rm 'Sales/Total Sales' -m m.bim --force --save")]
+    public void ForceSaveHint_EchoesTheCommandLine(string[] tokens, string expected)
+    {
+        // Quoting is platform-specific only for embedded apostrophes, which these tokens lack.
+        Assert.Equal(expected, RmCommand.ForceSaveHint(tokens));
     }
 
     [System.Text.RegularExpressions.GeneratedRegex("\x1b\\[[0-9;]*m")]

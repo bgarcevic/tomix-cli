@@ -335,8 +335,9 @@ tx rm <path> [model] [options]
 Without `--save` or `--stage`, `rm` previews: it prints
 `Would remove: <path>` and exits 0 without touching the model. When the
 guard would block the removal, the preview lists the dependents
-(`Would break N DAX reference(s) in: ...`) and hints `--force`, so the
-preview is how you discover that `--force` is needed. `rm --save`,
+(`Would break N DAX reference(s) in: ...`) and prints the command that removes
+it anyway (your command line plus `--force --save`), so the preview is how you
+discover that `--force` is needed. `rm --save`,
 `--save-to`, `--stage`, and `--revert` ask for confirmation; pass `--yes`
 to skip the prompt in scripts.
 

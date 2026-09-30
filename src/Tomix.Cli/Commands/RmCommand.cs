@@ -131,13 +131,14 @@ internal sealed class RmCommand : ICommandModule
                     cancellationToken),
                 suppress: quiet || OutputFormats.IsJson(formatValue));
 
-            return CommandOutput.Render(parseResult, result, formatValue, Render);
+            var tokens = parseResult.Tokens.Select(t => t.Value).ToList();
+            return CommandOutput.Render(parseResult, result, formatValue, data => Render(data, tokens));
         });
 
         return command;
     }
 
-    private static void Render(RemoveModelObjectResult result)
+    private static void Render(RemoveModelObjectResult result, IReadOnlyList<string> tokens)
     {
         if (result.Status == MutationStatus.Reverted)
         {
@@ -172,11 +173,14 @@ internal sealed class RmCommand : ICommandModule
                 AnsiConsole.MarkupLine(Styling.Warning(
                     $"Would break {wouldBreak.Count} DAX reference(s) in: "
                     + $"{string.Join(", ", wouldBreak.Select(Styling.MarkupEscape))}."));
-                if (result.Reason == "would_block")
-                    StdErr.MarkupLine(Styling.Guidance("Re-run with --force to remove anyway."));
             }
 
-            MutationOutput.RenderPersistence(result.Outcome);
+            // Blocked: --force alone still only previews and --save alone fails the guard, so
+            // give the one command that removes it instead of two half-steps.
+            if (result.Reason == "would_block")
+                StdErr.MarkupLine(Styling.Guidance("To remove anyway: ") + Styling.Option(ForceSaveHint(tokens)));
+            else
+                MutationOutput.RenderPersistence(result.Outcome);
             return;
         }
 
@@ -192,4 +196,12 @@ internal sealed class RmCommand : ICommandModule
 
         MutationOutput.RenderPersistence(result.Outcome);
     }
+
+    /// <summary>The user's own command line plus <c>--force --save</c>, quoted for the host shell.</summary>
+    internal static string ForceSaveHint(IReadOnlyList<string> tokens)
+        => "tx " + string.Join(" ", tokens
+            .Where(t => t is not ("--force" or "-f"))
+            .Append("--force")
+            .Append("--save")
+            .Select(BpaRunView.QuoteToken));
 }
