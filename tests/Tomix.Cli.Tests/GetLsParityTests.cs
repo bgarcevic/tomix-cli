@@ -80,7 +80,7 @@ public sealed class GetLsParityTests
     {
         // `ls Sales` lists a table's children — a mixed column/measure/partition set. The rows'
         // Projected dictionaries are keyed per-kind ("dataType", not "detail"), so the generic
-        // CSV columns must come from the LsObject fields, not the projections.
+        // CSV columns must come from the GetListObject fields, not the projections.
         var csv = Invoke("ls", "Sales", SampleTmdl, "--output-format", "csv");
         var lines = csv.TrimEnd().Split('\n').Select(l => l.TrimEnd('\r')).ToList();
 

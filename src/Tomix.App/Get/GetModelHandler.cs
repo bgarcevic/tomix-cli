@@ -1,6 +1,6 @@
 using Tomix.App.Dax;
 using Tomix.App.Deps;
-using Tomix.App.Ls;
+using Tomix.App.Get;
 using Tomix.App.ModelObjects;
 using Tomix.App.Models;
 using Tomix.Core.Models;
@@ -124,7 +124,7 @@ public sealed class GetModelHandler
     private static TomixResult<GetModelResult> Ok(
         GetMode mode,
         GetObjectResult? obj = null,
-        LsModelResult? list = null,
+        GetListResult? list = null,
         DepsModelResult? deps = null)
         => TomixResult<GetModelResult>.Ok(new GetModelResult(mode, obj, list, deps));
 
@@ -191,14 +191,14 @@ public sealed class GetModelHandler
         }
 
         var objects = matches
-            .Select(m => new LsObject(
+            .Select(m => new GetListObject(
                 m.Object.Path, m.Object.Name, m.Object.Kind, m.Object.Detail, m.Object.Expression,
                 m.Object.Description, m.Object.Hidden, m.Object.SourceColumn,
                 m.Object.Children.GroupBy(c => c.Kind).ToDictionary(g => g.Key, g => g.Count()),
                 m.Projected))
             .ToList();
 
-        return Ok(GetMode.List, list: new LsModelResult(
+        return Ok(GetMode.List, list: new GetListResult(
             snapshot.Name, snapshot.CompatibilityLevel, objects, DaxModelNames.MeasureNames(snapshot)));
     }
 

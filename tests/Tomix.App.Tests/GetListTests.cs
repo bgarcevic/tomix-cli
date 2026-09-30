@@ -1,5 +1,4 @@
 using Tomix.App.Get;
-using Tomix.App.Ls;
 using Tomix.Core.Models;
 using Tomix.Core.Results;
 
@@ -182,7 +181,7 @@ public sealed class GetListTests
         Assert.Equal("Sales", read.Data.Object!.Path);
     }
 
-    private static async Task<TomixResult<LsModelResult>> List(
+    private static async Task<TomixResult<GetListResult>> List(
         IEnumerable<IModelProvider> providers,
         string? pathFilter,
         ModelObjectKind? type,

@@ -1,5 +1,5 @@
 using Tomix.App.Deps;
-using Tomix.App.Ls;
+using Tomix.App.Get;
 
 namespace Tomix.App.Get;
 
@@ -10,5 +10,5 @@ namespace Tomix.App.Get;
 public sealed record GetModelResult(
     GetMode Mode,
     GetObjectResult? Object = null,
-    LsModelResult? List = null,
+    GetListResult? List = null,
     DepsModelResult? Deps = null);
