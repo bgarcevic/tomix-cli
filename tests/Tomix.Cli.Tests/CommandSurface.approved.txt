@@ -120,7 +120,7 @@ Put a rule on the model's ignore list
 
 # tx bpa rules init
 Create an empty rules file
-  opt --force  Overwrite an existing rules file with an empty one
+  opt --overwrite  Overwrite an existing rules file with an empty one
 
 # tx bpa rules list
 List rules from every source, with each rule's status
@@ -224,7 +224,7 @@ Inspect and change CLI configuration
 
 # tx config init
 Write a default config.json
-  opt --force  Overwrite an existing config file
+  opt --overwrite  Overwrite an existing config file
 
 # tx config paths
 Show resolved paths for local CLI files
@@ -343,7 +343,7 @@ Start a new empty semantic model
   opt --compatibility-mode <mode>  Compatibility mode: AnalysisServices or PowerBI (default: PowerBI)
   opt --name <name>  Name of the new model (default: the directory's name)
   opt --serialization <format>  How the new model is written: tmdl, bim, or pbip (default: tmdl)
-  opt --force  Overwrite anything already at the target path
+  opt --overwrite  Overwrite anything already at the target path
 
 # tx ls (aliases: list)
 List model objects

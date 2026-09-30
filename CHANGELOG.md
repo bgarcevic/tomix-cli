@@ -60,6 +60,9 @@ and the API surface that major versions protect.
   `format`, `bpa run`, `deploy`, `refresh`, `session prune`). Model edits already preview unless
   you pass `--save` or `--stage`, and the commands that change a target now preview by default.
   The `TOMIX_BPA_DRY_RUN_REQUIRES_FIX` code is gone with it.
+- **Breaking:** `tx init`, `tx config init`, and `tx bpa rules init` take `--overwrite` instead of
+  `--force` to replace an existing target, matching `--overwrite` on the save commands. `--force`
+  now only ever bypasses a check. Recover a corrupt config with `tx config init --overwrite`.
 - **Breaking:** `tx deploy --force` is removed. It never had an effect: no deploy check read it.
   Use `--skip-bpa` to bypass the BPA gate.
 

@@ -90,7 +90,7 @@ Emitted by `get`, `deps`, and `format --path` when a model object path fails to 
 | `TOMIX_BPA_RULE_INVALID_SCOPE` | 2 | `bpa rules add/set --scope` named an unknown object type or no type at all. The hint lists the valid scopes. |
 | `TOMIX_BPA_RULE_INVALID_SEVERITY` | 2 | `bpa rules add/set --severity` was not `error`, `warning`, `info`, `3`, `2`, or `1`. |
 | `TOMIX_BPA_RULE_NOT_FOUND` | 2 | `bpa rules show`, `disable`, or `ignore` was given an ID that no loaded rule has. The hint names up to three IDs that contain the input; `disable` and `ignore` accept `--allow-unknown` to use the ID anyway. `bpa rules set` and `remove` fail with it when the edited rules file or model annotation has no rule with that ID; for a built-in rule, the hint points to `bpa rules disable`. |
-| `TOMIX_BPA_RULES_FILE_EXISTS` | 2 | `bpa rules init` found an existing rules file. Pass `--force` to replace it with an empty one. |
+| `TOMIX_BPA_RULES_FILE_EXISTS` | 2 | `bpa rules init` found an existing rules file. Pass `--overwrite` to replace it with an empty one. |
 | `TOMIX_BPA_RULES_FILE_NOT_FOUND` | 2 | `bpa rules set` or `remove` found no rules file. Create one with `bpa rules init` or `bpa rules add`. |
 | `TOMIX_BPA_RULES_FILE_REMOTE` | 2 | `bpa rules add/set/remove/init` was pointed at a remote `--rules-file` URL, which can't be edited. Download it and pass the local path. |
 | `TOMIX_BPA_RULES_LOAD_FAILED` | 2 | Failed to load the BPA rules catalog, or a rules file or model `BestPracticeAnalyzer` annotation being edited is not a JSON array of rules. |
@@ -318,7 +318,7 @@ come from structural integrity checks.
 | `TOMIX_WORKSPACE_PRIMARY_REQUIRED` | 2 | `connect -w` was given without enough of a primary connection to mirror from (needs `<server> <database>`, or a local path). A missing value, not a conflict — see `TOMIX_OPTION_CONFLICT` for that. |
 | `TOMIX_WORKSPACE_UNREACHABLE` | 1 | `connect -w` reached the primary model but could not reach the workspace mirror's server. The connection is left unchanged. |
 | `TOMIX_OUTPUT_FORMAT_UNSUPPORTED` | 2 | The command cannot render the requested `--output-format`; the message lists the formats it supports. |
-| `TOMIX_CONFIG_CORRUPT` | 2 | `~/.tomix/config.json` exists but does not parse. Repair it manually or reset it with `tx config init --force`; help, version, doctor, and config recovery paths remain available. |
+| `TOMIX_CONFIG_CORRUPT` | 2 | `~/.tomix/config.json` exists but does not parse. Repair it manually or reset it with `tx config init --overwrite`; help, version, doctor, and config recovery paths remain available. |
 | `TOMIX_UNEXPECTED` | 1 | An unexpected exception reached the top-level handler. The stack trace is only printed under `--debug`; with `--error-format json` it is embedded as a `detail` field in the envelope so stderr stays valid JSON. |
 
 ## Update Codes (`TOMIX_UPDATE_*`)

@@ -741,13 +741,13 @@ internal sealed class BpaCommand : ICommandModule
 
     private Command BuildRulesInitCommand(Option<string?> rulesFileOption)
     {
-        var forceOption = new Option<bool>("--force") { Description = "Overwrite an existing rules file with an empty one" };
-        var command = new Command("init", "Create an empty rules file") { forceOption };
+        var overwriteOption = new Option<bool>("--overwrite") { Description = "Overwrite an existing rules file with an empty one" };
+        var command = new Command("init", "Create an empty rules file") { overwriteOption };
 
         command.SetAction(parseResult => RenderRulesFile(parseResult, "bpa rules init", () =>
             new BpaRulesInitHandler(_configDirectory).Handle(new BpaRulesInitRequest(
                 parseResult.GetValue(rulesFileOption),
-                parseResult.GetValue(forceOption)))));
+                parseResult.GetValue(overwriteOption)))));
 
         return command;
     }

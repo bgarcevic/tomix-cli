@@ -460,4 +460,4 @@ Each check reports one status:
 `OK`, `INFO`, and `WARN` exit `0`; any failed health check exits `1`.
 
 It remains runnable when `config.json` is corrupt so the report can identify
-the failure and direct recovery with `tx config init --force`.
+the failure and direct recovery with `tx config init --overwrite`.
