@@ -65,7 +65,6 @@ and the API surface that major versions protect.
 - `tx get Measures` and other bare container paths now list the container instead of failing
   with `TOMIX_OBJECT_NOT_FOUND`, and `tx get ./model` lists the model's tables. `--query` or
   `--deps` on a path that selects a set fails with `TOMIX_SINGLE_OBJECT_REQUIRED` (#335).
-
 - `tx bpa rules list` shows each rule ID once, from the source that wins as in `bpa run`, and
   says what a team or model rule overrides (JSON: `overrides`); `bpa rules show` still prints
   every source's copy. Without a model, `list` and `show` use the active local connection (#233).
