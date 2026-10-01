@@ -29,8 +29,9 @@ Adapter around Microsoft Tabular Object Model.
 
 ## Live session (planned)
 
-[ADR 0001](../../docs/design/adr-0001-live-model-session.md) and
-[ADR 0002](../../docs/design/adr-0002-live-session-lease-gate-and-journal-first.md) add
+[ADR 0001](../../docs/design/adr-0001-live-model-session.md),
+[ADR 0002](../../docs/design/adr-0002-live-session-lease-gate-and-journal-first.md) and
+[ADR 0003](../../docs/design/adr-0003-live-session-checkpoint-rollback.md) add
 `TomLiveModelSession`, used for TMDL, `.bim` and XMLA sources (`Tomix.Provider.Tmdl` reuses it):
 
 - A FIFO lease gate serializes all access to the TOM `Database`. TOM is reachable only through a
@@ -38,15 +39,18 @@ Adapter around Microsoft Tabular Object Model.
   dispose without commit rolls back). Snapshot reads are served from an immutable, versioned
   `LiveModelSnapshot`.
 - `TomChangeJournal` records every TOM write as a primitive (`Set`, `Attach`, `Detach`,
-  `Rebind`), made through `TomWriter`. Undo, redo, rollback and change events all come from it.
+  `Rebind`), made through `TomWriter`. Change events come only from it.
   **Every TOM write in the mutator collaborators must go through `TomWriter`**. A direct write
-  leaves undo and events silently incomplete; the event-vs-snapshot-diff and apply-then-undo
-  oracle tests are there to catch it.
+  leaves events silently incomplete; the event-vs-snapshot-diff oracle test is there to catch it.
   Entries also carry the object's ID, path and `LineageTag` plus a provider-neutral form of the
   operation, so unsaved transactions can be replayed onto a reloaded model (merge, #374).
+- Rollback, savepoints and undo restore checkpoints, not inverse journal entries: a writing
+  transaction takes `Database.Clone()` on its first write. File-backed sessions swap the clone
+  in (byte-identical); XMLA sessions restore with `Model.CopyTo` (same content, sibling order may
+  differ). Never cache the `Database` across leases; it can be replaced.
 - `TomObjectIdMap` maps TOM instances to session `ObjectId`s. TOM cannot re-attach a removed
-  object, so any operation that replaces an instance (move, undo of a remove) must `Rebind` the
-  new instance to the old ID.
+  object, so any operation that replaces an instance (move) must `Rebind` the new instance to
+  the old ID; restoring a checkpoint re-maps every object to the ID the checkpoint recorded.
 
 ## Cross-folder dependencies
 
