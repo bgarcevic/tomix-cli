@@ -27,30 +27,42 @@ Adapter around Microsoft Tabular Object Model.
 - `TomMutationPaths` — shared path/name/type normalization and the mutation-path regexes.
 - `TomRemoveCascade` — cascade collection for removals (remove dispatch stays on the facade).
 
-## Live session (planned)
+**Every TOM write in these collaborators goes through `TomWriter`**: `w.Set(obj, o => o.Prop, value)`
+for properties, `Attach`/`Detach` for collection adds and removes, and `Rebind` before attaching a
+replacement instance (TOM cannot re-attach a removed object, so moves and role-member edits swap
+instances). Objects still being built and not yet attached may be written directly. The public
+constructor uses `TomWriter.Untracked`, so one-shot sessions record nothing; a live session passes
+its journal's writer through the internal constructor. `BannedSymbols.txt` rejects direct TOM
+collection `Add`/`Remove` at build time.
+
+## Change journal and live session
 
 [ADR 0001](../../docs/design/adr-0001-live-model-session.md),
 [ADR 0002](../../docs/design/adr-0002-live-session-lease-gate-and-journal-first.md) and
-[ADR 0003](../../docs/design/adr-0003-live-session-checkpoint-rollback.md) add
-`TomLiveModelSession`, used for TMDL, `.bim` and XMLA sources (`Tomix.Provider.Tmdl` reuses it):
+[ADR 0003](../../docs/design/adr-0003-live-session-checkpoint-rollback.md) describe the design.
 
-- A FIFO lease gate serializes all access to the TOM `Database`. TOM is reachable only through a
-  lease's capability view, which dies with the lease; a lease is a transaction (commit publishes,
-  dispose without commit rolls back). Snapshot reads are served from an immutable, versioned
-  `LiveModelSnapshot`.
-- `TomChangeJournal` records every TOM write as a primitive (`Set`, `Attach`, `Detach`,
-  `Rebind`), made through `TomWriter`. Change events come only from it.
-  **Every TOM write in the mutator collaborators must go through `TomWriter`**. A direct write
-  leaves events silently incomplete; the event-vs-snapshot-diff oracle test is there to catch it.
-  Entries also carry the object's ID, path and `LineageTag` plus a provider-neutral form of the
-  operation, so unsaved transactions can be replayed onto a reloaded model (merge, #374).
-- Rollback, savepoints and undo restore checkpoints, not inverse journal entries: a writing
-  transaction takes `Database.Clone()` on its first write. File-backed sessions swap the clone
-  in (byte-identical); XMLA sessions restore with `Model.CopyTo` (same content, sibling order may
-  differ). Never cache the `Database` across leases; it can be replaced.
-- `TomObjectIdMap` maps TOM instances to session `ObjectId`s. TOM cannot re-attach a removed
-  object, so any operation that replaces an instance (move) must `Rebind` the new instance to
-  the old ID; restoring a checkpoint re-maps every object to the ID the checkpoint recorded.
+In place (#379):
+
+- `TomChangeJournal` records every write made through its `Writer` and groups writes into
+  transactions; nested ones are savepoints. Commit folds the entries into `ModelChange`s
+  (`TomChangeEvents`), the only source of change events. Entries also carry the object's ID, path
+  and `LineageTag` plus the property and before/after values as text, so unsaved transactions can
+  be replayed onto a reloaded model (merge, #374).
+- Rollback restores a checkpoint, not inverse entries: a writing transaction takes
+  `Database.Clone()` on its first write. File-backed sessions swap the clone in (byte-identical);
+  databases owned by a `Server` restore with `Model.CopyTo` (same content, sibling order may
+  differ). The `Database` instance can change, so never cache it across leases.
+- `TomObjectIdMap` maps TOM instances to session `ObjectId`s; `TomObjectTree` defines which objects
+  are tracked and their paths, matching `TomModelSummarizer`, which stamps IDs when given the map.
+- `TomChangeJournalOracleTests` runs every mutation kind through two oracles: events equal the
+  ID-keyed snapshot diff, and apply-then-rollback restores the model. A new mutation path gets a
+  row there.
+
+Planned (#344): `TomLiveModelSession`, used for TMDL, `.bim` and XMLA sources
+(`Tomix.Provider.Tmdl` reuses it). A FIFO lease gate serializes all access to the TOM `Database`;
+TOM is reachable only through a lease's capability view, which dies with the lease; a lease is a
+journal transaction (commit publishes, dispose without commit rolls back). Snapshot reads are
+served from an immutable, versioned `LiveModelSnapshot`.
 
 ## Cross-folder dependencies
 

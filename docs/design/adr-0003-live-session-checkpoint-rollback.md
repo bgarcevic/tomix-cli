@@ -52,7 +52,7 @@ Undoing a remove by inverse operations would therefore need a clone of the remov
 
 ## Consequences
 
-- **Every writing transaction pays for a clone.** It is a few milliseconds on the samples and grows linearly, to roughly 150 ms for a model of 5,000 objects. Reads and read-only leases pay nothing.
+- **Every writing transaction pays for a clone.** It is a few milliseconds on the samples and grows linearly, to roughly 150 ms for a model of 5,000 objects. Reads and read-only leases pay nothing. On large models this exceeds the 50 ms edit budget of ADR 0001 §4. #344 can take the next checkpoint right after a commit, before the next request arrives, and #352 measures whether it is needed.
 - **The rollback oracle of #379 has two forms.** File-backed sources must serialize byte-identical after apply-then-rollback. The `CopyTo` path is checked for equal content with sibling order ignored.
 - **The `Database` instance of a file-backed session can change.** Code in the provider must take the `Database` from the session for each lease and never cache it across leases.
 - **#346 shrinks again.** Undo and redo are checkpoint stacks rather than journal inversions.
