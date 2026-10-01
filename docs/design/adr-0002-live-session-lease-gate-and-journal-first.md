@@ -34,7 +34,7 @@ ADR 0001 §4 also has #344 route every TOM write through `TomChangeJournal`, and
 
 ### 2. The journal lands before the live session
 
-- **A journal PR comes between #343 and #344.** It adds `TomWriter`, `TomChangeJournal` and `TomObjectIdMap`, and moves every TOM write in the mutation collaborators onto `TomWriter`. The primitives are those of ADR 0001 §4:
+- **A journal PR ([#379](https://github.com/bgarcevic/tomix-cli/issues/379)) comes between #343 and #344.** It adds `TomWriter`, `TomChangeJournal` and `TomObjectIdMap`, and moves every TOM write in the mutation collaborators onto `TomWriter`. The primitives are those of ADR 0001 §4:
   - `Set`: one generic method for every property, for example `w.Set(measure, m => m.Expression, value)` in place of `measure.Expression = value`.
   - `Attach` and `Detach` for collection adds and removes.
   - `Rebind` wherever TOM replaces an instance.
@@ -74,7 +74,7 @@ Undo, redo and explicit transactions are part of the contract now, and implement
 
 ## Consequences
 
-- **The order of work changes.** It becomes #343 (contracts), then the journal PR (a new sub-issue of #341), then #344 (`TomLiveModelSession`: lease gate, ID map and journal-driven events, save), then #345 and #346.
+- **The order of work changes.** It becomes #343 (contracts), then the journal PR (#379), then #344 (`TomLiveModelSession`: lease gate, ID map and journal-driven events, save), then #345 and #346.
 - **The gate is a provider-internal primitive.** The FIFO async lock and the lease's capability view live in `Tomix.Provider.Tom`, next to `TomLiveModelSession`. Core holds only the contracts.
 - **Long-held leases block other clients.** A slow query or an abandoned explicit transaction holds up everyone else. The idle timeout covers explicit transactions. #352 covers moving query off the gate.
 - **The journal PR touches every mutation collaborator.** Its risk is contained by the mechanical shape of the change and by the two oracles, which run on the existing mutation fixtures.
