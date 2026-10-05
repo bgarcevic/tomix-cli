@@ -38,8 +38,8 @@ public sealed class InteractiveBannerTests
     }
 
     [Theory]
-    [InlineData(70, true, false)]
-    [InlineData(30, false, false)]
+    [InlineData(40, true, false)]
+    [InlineData(18, false, false)]
     [InlineData(120, true, true)]
     public void NarrowTerminals_DropTheTitleBesideTheLogo_ThenTheLogo(int width, bool logo, bool beside)
     {
