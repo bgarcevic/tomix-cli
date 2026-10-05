@@ -213,7 +213,8 @@ internal sealed class ConsoleLineEditor(Func<string, IReadOnlyList<string>> comp
         try
         {
             var start = WritePrompt(promptMarkup);
-            var drawn = 0;
+            var drawn = "";
+            var cursor = 0;
             while (true)
             {
                 var result = buffer.Apply(Console.ReadKey(intercept: true));
@@ -236,12 +237,14 @@ internal sealed class ConsoleLineEditor(Func<string, IReadOnlyList<string>> comp
                         Console.WriteLine();
                         AnsiConsole.MarkupLine(Styling.Muted(string.Join("  ", buffer.Candidates)));
                         start = WritePrompt(promptMarkup);
-                        drawn = 0;
+                        drawn = "";
+                        cursor = 0;
                         break;
                 }
 
-                start = Redraw(start, buffer, drawn);
-                drawn = buffer.Text.Length;
+                start = Render(start, drawn, cursor, buffer);
+                drawn = buffer.Text;
+                cursor = buffer.Cursor;
             }
         }
         finally
@@ -262,22 +265,72 @@ internal sealed class ConsoleLineEditor(Func<string, IReadOnlyList<string>> comp
         return (Console.CursorLeft, Console.CursorTop);
     }
 
-    /// <summary>Rewrites the line after the prompt and places the cursor. Returns the prompt's
-    /// end, which moves up when writing a long line scrolled the window.</summary>
-    private static (int Left, int Top) Redraw((int Left, int Top) start, LineBuffer buffer, int drawn)
+    /// <summary>
+    /// Brings the screen from <paramref name="drawn"/> (cursor at <paramref name="cursor"/>) to the
+    /// buffer's line. Typing or deleting at the end of the line writes only that character, and a
+    /// cursor move only moves the cursor, so the cursor never visibly travels; anything else
+    /// rewrites the line with the cursor hidden. Returns the prompt's end, which moves up when a
+    /// long line scrolled the window.
+    /// </summary>
+    private static (int Left, int Top) Render((int Left, int Top) start, string drawn, int cursor, LineBuffer buffer)
     {
         var text = buffer.Text;
-        Console.SetCursorPosition(start.Left, start.Top);
-        Console.Write(text + new string(' ', Math.Max(0, drawn - text.Length)));
+        var atEnd = cursor == drawn.Length && buffer.Cursor == text.Length;
+        if (text == drawn)
+        {
+            if (buffer.Cursor != cursor)
+                MoveTo(start, buffer.Cursor);
+            return start;
+        }
 
+        if (atEnd && text.Length > drawn.Length && text.StartsWith(drawn, StringComparison.Ordinal))
+            return Write(start, text[drawn.Length..], text.Length);
+
+        if (atEnd && text.Length == drawn.Length - 1 && drawn.StartsWith(text, StringComparison.Ordinal) && Console.CursorLeft > 0)
+        {
+            Console.Write("\b \b");
+            return start;
+        }
+
+        var visible = CursorVisible(false);
+        try
+        {
+            MoveTo(start, 0);
+            start = Write(start, text + new string(' ', Math.Max(0, drawn.Length - text.Length)), Math.Max(text.Length, drawn.Length));
+            MoveTo(start, buffer.Cursor);
+            return start;
+        }
+        finally
+        {
+            CursorVisible(visible);
+        }
+    }
+
+    /// <summary>Writes <paramref name="text"/> where the cursor is, and corrects the prompt's row
+    /// when the line, now <paramref name="length"/> characters, scrolled the window.</summary>
+    private static (int Left, int Top) Write((int Left, int Top) start, string text, int length)
+    {
+        Console.Write(text);
         var width = Math.Max(1, Console.BufferWidth);
-        var written = Math.Max(text.Length, drawn);
-        var expectedTop = start.Top + (start.Left + written) / width;
-        if (Console.CursorTop < expectedTop)
-            start = (start.Left, start.Top - (expectedTop - Console.CursorTop));
+        var expectedTop = start.Top + (start.Left + length) / width;
+        return Console.CursorTop < expectedTop
+            ? (start.Left, start.Top - (expectedTop - Console.CursorTop))
+            : start;
+    }
 
-        MoveTo(start, buffer.Cursor);
-        return start;
+    /// <summary>Shows or hides the cursor where the terminal allows it; returns whether it was visible.</summary>
+    private static bool CursorVisible(bool visible)
+    {
+        try
+        {
+            var was = !OperatingSystem.IsWindows() || Console.CursorVisible;
+            Console.CursorVisible = visible;
+            return was;
+        }
+        catch (Exception ex) when (ex is IOException or PlatformNotSupportedException)
+        {
+            return true;
+        }
     }
 
     private static void MoveTo((int Left, int Top) start, int index)
