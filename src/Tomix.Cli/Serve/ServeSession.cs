@@ -93,6 +93,8 @@ internal sealed class ServeSession : IProtocolMethods
 
         if (_handler is { HasUnsavedWork: true })
         {
+            if (_handler.InTransaction)
+                _log.WriteLine("[tx serve] the client left with a transaction open; it is rolled back");
             await _handler.RollbackOpenTransactionAsync(CancellationToken.None);
             if (_scope.Session.IsDirty)
                 _log.WriteLine($"[tx serve] the client left; unsaved changes to {_scope.Model.Value} are discarded");

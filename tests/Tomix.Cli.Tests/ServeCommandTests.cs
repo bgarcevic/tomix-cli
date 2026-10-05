@@ -94,6 +94,7 @@ public sealed class ServeCommandTests
         Assert.Equal(-32601, (int)run.Error(5)["code"]!);
         Assert.Contains(run.Messages, message => (int?)message["id"] == 6 && message.ContainsKey("result"));
         Assert.Single(run.Errors(id: null), error => (string?)error["message"] == "The frame has no Content-Length header.");
+        Assert.Single(run.Errors(id: null), error => (string?)error["message"] == "Batch requests are not supported in protocol v0.");
     }
 
     [Fact]
@@ -237,6 +238,55 @@ public sealed class ServeCommandTests
         Assert.Equal(false, (bool?)run.Result(4)["data"]!["saved"]);
         Assert.Equal("closed", (string?)run.Notifications("session.state").Last()["state"]);
         Assert.Equal("TOMIX_SESSION_NO_MODEL", (string?)run.Error(5)["data"]!["code"]);
+        Assert.Equal(before, File.ReadAllText(Path.Combine(model.Path, "tables", "Sales.tmdl")));
+    }
+
+    [Fact]
+    public void Open_WithUnsavedChanges_NeedsDiscard()
+    {
+        using var model = SampleModel.CopyToTemp();
+
+        var run = ServeModel(
+            model.Path,
+            Initialize(),
+            Request(2, "object.add", new JsonObject { ["path"] = "Sales/A", ["type"] = "Measure", ["expression"] = "1" }),
+            Request(3, "session.open", new JsonObject { ["model"] = model.Path }),
+            Request(4, "object.get", new JsonObject { ["path"] = "Sales/A" }),
+            Request(5, "session.open", new JsonObject { ["model"] = model.Path, ["discard"] = true }),
+            Request(6, "object.get", new JsonObject { ["path"] = "Sales/A" }));
+
+        Assert.Equal("TOMIX_SESSION_DIRTY", (string?)run.Error(3)["data"]!["code"]);
+        Assert.Equal("Sales/A", (string?)run.Result(4)["data"]!["path"]);
+        Assert.NotNull(run.Result(5));
+        Assert.Equal("TOMIX_OBJECT_NOT_FOUND", (string?)run.Error(6)["data"]!["code"]);
+    }
+
+    [Fact]
+    public void PositionalValues_StartingWithADash_AreNotReadAsOptions()
+    {
+        using var model = SampleModel.CopyToTemp();
+
+        var run = ServeModel(model.Path, Initialize(), Request(2, "object.find", new JsonObject { ["pattern"] = "--regex" }));
+
+        Assert.NotNull(run.Result(2)["data"]);
+    }
+
+    [Fact]
+    public void EndOfInput_WithAnOpenTransaction_RollsItBack()
+    {
+        using var model = SampleModel.CopyToTemp();
+        var before = File.ReadAllText(Path.Combine(model.Path, "tables", "Sales.tmdl"));
+
+        var run = ServeModel(
+            model.Path,
+            Initialize(),
+            Request(2, "transaction.begin", new JsonObject { ["label"] = "left open" }),
+            Request(3, "object.add", new JsonObject { ["path"] = "Sales/A", ["type"] = "Measure", ["expression"] = "1" }));
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.NotNull(run.Result(3));
+        Assert.Contains("rolled back", run.Stderr);
+        Assert.DoesNotContain("unsaved changes", run.Stderr);
         Assert.Equal(before, File.ReadAllText(Path.Combine(model.Path, "tables", "Sales.tmdl")));
     }
 
