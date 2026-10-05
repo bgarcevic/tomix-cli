@@ -56,7 +56,7 @@ internal static class InteractiveBanner
         console.WriteLine();
         var tip = Tips[(random ?? Random.Shared).Next(Tips.Length)];
         console.MarkupLine($"  {Styling.Muted("Tip:")} {Styling.Muted(tip)}");
-        console.Write(new Rule().RuleStyle(new Style(Palette.Sage)));
+        console.Write(new Rule().RuleStyle(new Style(Palette.Harbor)));
     }
 
     /// <summary>The model block the welcome shows.</summary>
@@ -76,7 +76,7 @@ internal static class InteractiveBanner
     }
 
     /// <summary>
-    /// The logo, shaded from sage to harbor blue with its outline muted, and the title beside it.
+    /// The logo, shaded from harbor blue to lavender with its outline muted, and the title beside it.
     /// A narrow terminal gets the title alone.
     /// </summary>
     private static void WriteLogo(IAnsiConsole console, string version, int width)
@@ -88,7 +88,7 @@ internal static class InteractiveBanner
             return;
         }
 
-        string?[] side = [null, Styling.Title("T O M I X"), Styling.Muted(new string('─', 25)), Styling.Muted("Interactive model session"), Styling.Muted($"v{version}"), null];
+        string?[] side = [null, $"[bold {Palette.Harbor.ToMarkup()}]T O M I X[/]", Styling.Muted(new string('─', 25)), Styling.Muted("Interactive model session"), Styling.Muted($"v{version}"), null];
         var beside = width >= logoWidth + 2 + Gap + 25;
         for (var row = 0; row < Logo.Length; row++)
         {
@@ -114,7 +114,7 @@ internal static class InteractiveBanner
                 continue;
             }
 
-            var color = character == '█' ? Between(Palette.Sage, Palette.Harbor, column / (double)(width - 1)) : Palette.Slate;
+            var color = character == '█' ? Between(Palette.Harbor, Palette.Lav, column / (double)(width - 1)) : Palette.Slate;
             markup.Append('[').Append(color.ToMarkup()).Append(']').Append(character).Append("[/]");
         }
 
