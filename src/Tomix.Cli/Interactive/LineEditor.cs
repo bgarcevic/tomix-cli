@@ -30,7 +30,7 @@ internal enum LineEditResult
     /// <summary>Ctrl-C: the line is abandoned.</summary>
     Cancel,
 
-    /// <summary>Ctrl-D on an empty line: no more input.</summary>
+    /// <summary>Ctrl-D (or Ctrl-Z, as on Windows) on an empty line: no more input.</summary>
     EndOfInput,
 
     /// <summary>Tab matched several candidates and could not extend the word; show them.</summary>
@@ -75,6 +75,7 @@ internal sealed class LineBuffer
             case ConsoleKey.C when control:
                 return LineEditResult.Cancel;
             case ConsoleKey.D when control:
+            case ConsoleKey.Z when control:
                 if (_text.Length == 0)
                     return LineEditResult.EndOfInput;
                 Delete();

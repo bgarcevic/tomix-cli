@@ -340,7 +340,7 @@ Start a new empty semantic model
 
 # tx interactive (aliases: shell)
 Edit a model in a session with undo, then save
-  arg [model]  Model to open: a TMDL folder or .bim file; defaults to the active connection
+  arg [model]  Model to open: a TMDL folder or .bim file; defaults to the active connection, else none
   opt --autosave  Save after every command that changes the model, instead of only when you run 'save'
   opt --discard-on-exit  Leave without asking, discarding unsaved changes (so does --yes)
   opt --echo  Print each command before it runs, so a log of a scripted session reads in order

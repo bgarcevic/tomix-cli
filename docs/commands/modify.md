@@ -486,11 +486,20 @@ tx interactive [model] [options]
 ```
 
 Alias: `tx shell`. Opens the model once and keeps it in memory, then reads
-commands until `exit` or the end of input. Every command works as it does on
+commands until `exit` or the end of input. With no model argument it opens the
+active connection's model, or starts with no model open when there is none. Every command works as it does on
 the command line, with its usual flags, and runs against the in-memory model;
 leave out the model argument and it uses the session's. Commands that need
-something other than the model (`deploy`, `refresh`, `query`, `test`, `connect`,
-`stage`, ...) are not available inside a session and say so.
+something other than the model (`deploy`, `refresh`, `query`, `test`, `stage`,
+...) are not available inside a session and say so.
+
+`connect` works inside a session exactly as it does outside, `--recent`,
+`--local` and `--remote` included: it sets the active connection, and the
+session then opens that model in place of the one it has open. Unsaved changes
+are handled as on `exit` (asked about at a terminal, refused in a script unless
+`--discard-on-exit` or `--yes`), and a model that fails to open leaves the
+current one and its changes as they were. `connect` with no arguments,
+`--list` and `--clear` only show or change the connection.
 
 Edits are kept, not previewed: `set`, `add`, `rm` and the other modify commands
 change the session's model, and nothing is written until you run `save`. The
@@ -536,8 +545,13 @@ past failures and exits with the first failure's code. Global options given to
 | `--no-batch` | Keep running a script after a command fails. |
 | `--no-banner` | Start without the welcome lines. |
 
-At a terminal, the prompt has line editing, Up/Down history and Tab completion.
-Ctrl-C cancels the running command, not the session.
+At a terminal the session starts with a welcome screen: the open model's name,
+compatibility level, object counts and where it saves (or how to open one),
+the keys to know, and a tip. `--no-banner` skips it. The prompt names the
+model, `tx [basic-tmdl]>`, adds `*` for unsaved changes, and is `tx>` with no
+model open. It has line editing, Up/Down history and Tab completion. Ctrl-C
+cancels the running command, not the session, and Ctrl-D (or Ctrl-Z on
+Windows) on an empty line leaves.
 
 ```sh
 tx interactive ./model

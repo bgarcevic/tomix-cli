@@ -72,7 +72,7 @@ public sealed partial class InteractiveCommandTests
         var run = Run(model.Path, "add Sales/Margin -t Measure -e \"1\"", flags);
 
         Assert.Equal(exitCode, run.ExitCode);
-        Assert.Equal(exitCode != 0, run.Stderr.Contains("leaving would discard them", StringComparison.Ordinal));
+        Assert.Equal(exitCode != 0, run.Stderr.Contains("'exit' would discard them", StringComparison.Ordinal));
         Assert.Equal(before, SalesTable(model.Path));
     }
 
@@ -88,7 +88,7 @@ public sealed partial class InteractiveCommandTests
             """);
 
         Assert.Equal(1, run.ExitCode);
-        Assert.Contains("leaving would discard them", run.Stderr);
+        Assert.Contains("'exit' would discard them", run.Stderr);
         Assert.DoesNotContain("Sales/Other", run.Stdout);
     }
 
@@ -236,6 +236,73 @@ public sealed partial class InteractiveCommandTests
         Assert.Contains("\"TOMIX_SESSION_MODEL_MISMATCH\"", run.Stderr);
     }
 
+    [Theory]
+    [InlineData("status")]
+    [InlineData("ls")]
+    [InlineData("undo")]
+    public void WithNoModelOpen_ModelCommandsSaySo(string line)
+    {
+        var run = RunAs("interactive", "", line, TestServices.Create(), "--error-format", "json");
+
+        Assert.Equal(2, run.ExitCode);
+        Assert.Contains("\"TOMIX_SESSION_NO_MODEL\"", run.Stderr);
+    }
+
+    [Fact]
+    public void Connect_OpensTheModel_ThatCommandsThenRunOn()
+    {
+        using var model = SampleModel.CopyToTemp();
+
+        var run = RunAs("interactive", "", $"""
+            connect "{model.Path}"
+            add Sales/Margin -t Measure -e "1"
+            save
+            """, TestServices.Create());
+
+        Assert.Equal(0, run.ExitCode);
+        Assert.Contains("tables: 3", run.Stdout);
+        Assert.Contains($"The session now edits {Path.GetFileName(model.Path)}.", run.Stderr);
+        Assert.Contains("measure Margin = 1", SalesTable(model.Path));
+    }
+
+    [Fact]
+    public void Connect_WithUnsavedChanges_KeepsTheOpenModelUnlessToldToDiscard()
+    {
+        using var first = SampleModel.CopyToTemp();
+        using var second = SampleModel.CopyToTemp();
+        var script = $"""
+            add Sales/Margin -t Measure -e "1"
+            connect "{second.Path}"
+            status --output-format json
+            """;
+
+        var strict = Run(first.Path, script, "--no-batch");
+        var discard = Run(first.Path, script, "--discard-on-exit");
+
+        Assert.Contains("'connect to another model' would discard them", strict.Stderr);
+        Assert.Equal(first.Path, (string?)CommandJson.Data(JsonDocuments(strict.Stdout)[^1])["source"]);
+        Assert.Equal(0, discard.ExitCode);
+        Assert.Equal(second.Path, (string?)CommandJson.Data(JsonDocuments(discard.Stdout)[^1])["source"]);
+        Assert.False((bool)CommandJson.Data(JsonDocuments(discard.Stdout)[^1])["dirty"]!);
+    }
+
+    [Fact]
+    public void Connect_ToAModelThatFailsToLoad_KeepsTheOpenOneAndItsChanges()
+    {
+        using var model = SampleModel.CopyToTemp();
+
+        var run = Run(model.Path, """
+            add Sales/Margin -t Measure -e "1"
+            connect ./no-such-model
+            status --output-format json
+            """, "--no-batch", "--discard-on-exit");
+
+        var status = CommandJson.Data(JsonDocuments(run.Stdout)[^1]);
+        Assert.Equal(model.Path, (string?)status["source"]);
+        Assert.True((bool)status["dirty"]!);
+        Assert.Contains("No provider can open model", run.Stderr);
+    }
+
     [Fact]
     public void Autosave_SavesAfterEveryChange()
     {
@@ -320,7 +387,8 @@ public sealed partial class InteractiveCommandTests
         InputValueResolver.TestStdin.Value = new StringReader(script);
         try
         {
-            var captured = ConsoleCapture.InvokeThroughProgram(root.Parse([command, modelPath, .. flags]), captureAnsiConsole: true);
+            string[] args = modelPath.Length == 0 ? [command, .. flags] : [command, modelPath, .. flags];
+            var captured = ConsoleCapture.InvokeThroughProgram(root.Parse(args), captureAnsiConsole: true);
             return captured with { Stdout = StripAnsi(captured.Stdout), Stderr = StripAnsi(captured.Stderr) };
         }
         finally

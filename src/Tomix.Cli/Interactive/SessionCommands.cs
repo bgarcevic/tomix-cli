@@ -10,11 +10,16 @@ namespace Tomix.Cli.Interactive;
 
 /// <summary>
 /// The commands that exist only inside <c>tx interactive</c>: undo and redo, explicit
-/// transactions, status, history and exit. Everything else is the ordinary command tree.
+/// transactions, status and history. <c>exit</c> belongs to the loop, <c>connect</c> switches models, and
+/// everything else is the ordinary command tree.
 /// </summary>
 internal static class SessionCommands
 {
-    public static IEnumerable<Command> Build(LiveSessionHandler handler, Action requestExit)
+    /// <summary>The names <see cref="Build"/> registers, so a session with no model can explain them.</summary>
+    public static readonly IReadOnlySet<string> Names =
+        new HashSet<string>(["undo", "redo", "begin", "commit", "rollback", "status", "history"], StringComparer.Ordinal);
+
+    public static IEnumerable<Command> Build(LiveSessionHandler handler)
     {
         yield return Step("undo", "Revert the last change as one step", handler.UndoAsync);
         yield return Step("redo", "Reapply the last undone change", handler.RedoAsync);
@@ -39,15 +44,6 @@ internal static class SessionCommands
         var history = new Command("history", "List the changes undo can revert and redo can reapply");
         history.SetAction(parseResult => Render(parseResult, "history", handler.History(), RenderHistory));
         yield return history;
-
-        var exit = new Command("exit", "Leave the session; asks first when there are unsaved changes");
-        exit.Aliases.Add("quit");
-        exit.SetAction(_ =>
-        {
-            requestExit();
-            return 0;
-        });
-        yield return exit;
     }
 
     private static Command Step(string name, string description, Func<CancellationToken, Task<TomixResult<SessionStepResult>>> run)

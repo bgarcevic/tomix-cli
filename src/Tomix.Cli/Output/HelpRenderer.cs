@@ -49,7 +49,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["diff"] = "Exit codes: 0 = identical, 1 = differences found, 2 = error.",
         ["get"] = "One object shows its properties; a wildcard or container path lists every match. --ls, --where, --deps and --unused select and analyze. get returns objects; tx find searches property text and returns match sites (name filtering deliberately overlaps).",
         ["format"] = "Formats an inline expression (--expression), one object (--path), or every expression in the model.",
-        ["interactive"] = "Alias: shell. Edits stay in memory until 'save'. Inside the session, 'undo', 'redo', 'begin', 'commit', 'rollback', 'status', 'history' and 'exit' also work. Piped input runs as a script that stops at the first failure.",
+        ["interactive"] = "Alias: shell. Edits stay in memory until 'save'. Inside the session, 'connect' switches models and 'undo', 'redo', 'begin', 'commit', 'rollback', 'status', 'history' and 'exit' also work. Piped input runs as a script that stops at the first failure.",
         ["ls"] = "A shortcut for tx get --ls; both run the same read pipeline.",
         ["query"] = "The query comes from the positional argument, --query, --file, or stdin.",
         ["refresh"] = "Runs an automatic refresh unless --refresh-type says otherwise.",

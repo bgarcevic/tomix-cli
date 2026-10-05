@@ -229,8 +229,9 @@ internal static class Program
                 providers,
                 services.State,
                 services.Staging,
+                version,
                 (session, sessionCommands) => BuildSessionRootCommand(
-                    session, sessionCommands, providers, formatter, services, httpClient)),
+                    session, sessionCommands, providers, formatter, services, httpClient, workspaceCatalog, cachedUsername)),
             new LsCommand(providers, services.State),
             new MvCommand(providers, services.State, mutations),
             new ProfileCommand(services.State),
@@ -257,23 +258,32 @@ internal static class Program
 
     /// <summary>
     /// The command tree of a <c>tx interactive</c> session: the commands that can run on its live
-    /// model, built to lease it, plus the session-only commands.
+    /// model, built to lease it, plus the session's own commands. With no model open, only those.
     /// </summary>
     internal static RootCommand BuildSessionRootCommand(
-        SessionScope session,
+        SessionScope? session,
         IEnumerable<Command> sessionCommands,
         IReadOnlyList<IModelProvider> providers,
         IExpressionFormatterClient formatter,
         AppServices services,
-        HttpClient? httpClient)
+        HttpClient? httpClient,
+        IWorkspaceCatalog? workspaceCatalog = null,
+        Func<string?>? cachedUsername = null)
     {
         var root = new RootCommand("Commands of an interactive session. Each runs on the session's model; 'save' writes it.");
         foreach (var option in GlobalOptions.All())
             root.Options.Add(option);
 
         var mutations = services.Mutations;
-        var modules = new ICommandModule[]
+        // 'connect' works with or without a model open: the session follows the connection it sets.
+        var connect = new ConnectCommand(
+            providers,
+            workspaceCatalog ?? EmptyWorkspaceCatalog.Instance,
+            cachedUsername ?? (() => null),
+            services.State);
+        var modules = session is null ? [connect] : new ICommandModule[]
         {
+            connect,
             new AddCommand(providers, services.State, mutations, session),
             new BpaCommand(providers, services.State, mutations, services.BpaRules, services.ConfigDirectory, httpClient, session),
             new DepsCommand(providers, services.State, session),

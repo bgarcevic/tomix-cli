@@ -125,6 +125,7 @@ Raised when a command runs against an open live session (`tx shell` and the othe
 | `TOMIX_SESSION_STAGE_UNSUPPORTED` | 2 | `--stage` or `--revert` on a live session. Its edits already stay in the session until it saves. |
 | `TOMIX_SESSION_MODEL_MISMATCH` | 2 | The command names a different model from the one the live session holds. |
 | `TOMIX_SESSION_DIRTY` | 1 | `tx interactive` reached `exit` or the end of its input with unsaved changes or an open transaction, and could not ask. Run `save`, or pass `--discard-on-exit` or `--yes`. |
+| `TOMIX_SESSION_NO_MODEL` | 2 | `tx interactive` has no model open for the command. Run `connect <path>` first. |
 | `TOMIX_SESSION_COMMAND_UNAVAILABLE` | 2 | The command does not run inside an interactive session. Run it outside. |
 | `TOMIX_SESSION_SOURCE_UNSUPPORTED` | 2 | `tx interactive` cannot open this model yet; it opens TMDL folders and `.bim` files. |
 | `TOMIX_SESSION_NOTHING_TO_UNDO` | 1 | `undo` with no change to revert. |

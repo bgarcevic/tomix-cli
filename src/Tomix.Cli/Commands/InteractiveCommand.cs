@@ -17,15 +17,19 @@ internal sealed class InteractiveCommand : ICommandModule
     private readonly IReadOnlyList<IModelProvider> _providers;
     private readonly CliStateStore _state;
     private readonly StagingStore _staging;
-    private readonly Func<SessionScope, IEnumerable<Command>, RootCommand> _buildSessionRoot;
+    private readonly Func<SessionScope?, IEnumerable<Command>, RootCommand> _buildSessionRoot;
+    private readonly string _version;
 
-    /// <param name="buildSessionRoot">Builds the command tree a session runs, around its session-only commands.</param>
+    /// <param name="buildSessionRoot">Builds the command tree a session runs around the loop's own commands;
+    /// with no model open, only those.</param>
     public InteractiveCommand(
         IReadOnlyList<IModelProvider> providers,
         CliStateStore state,
         StagingStore staging,
-        Func<SessionScope, IEnumerable<Command>, RootCommand> buildSessionRoot)
+        string version,
+        Func<SessionScope?, IEnumerable<Command>, RootCommand> buildSessionRoot)
     {
+        _version = version;
         _providers = providers;
         _state = state;
         _staging = staging;
@@ -36,7 +40,7 @@ internal sealed class InteractiveCommand : ICommandModule
     {
         var modelArgument = new Argument<string>("model")
         {
-            Description = "Model to open: a TMDL folder or .bim file; defaults to the active connection",
+            Description = "Model to open: a TMDL folder or .bim file; defaults to the active connection, else none",
             Arity = ArgumentArity.ZeroOrOne
         };
         var autosaveOption = new Option<bool>("--autosave")
@@ -78,66 +82,46 @@ internal sealed class InteractiveCommand : ICommandModule
             if (!CommandOutput.TryValidateFormat(parseResult, format, "interactive", OutputFormats.Text, OutputFormats.Json))
                 return 2;
 
-            if (!RecentConnections.TryResolveModel(
-                    parseResult,
-                    GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument),
-                    _state,
-                    out var reference,
-                    out var recentExit))
-                return recentExit;
+            var opener = new SessionOpener(_providers, _state, _staging);
+            var explicitModel = GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument);
+            if (!opener.TryResolve(parseResult, explicitModel, out var reference, out var isImplicit, out var resolveExit))
+                return resolveExit;
 
-            if (_staging.TryLoad(reference) is not null)
-                return Fail(
-                    errorFormat,
-                    "TOMIX_STAGE_PENDING",
-                    $"{reference.Value} has staged changes; a session does not pick them up.",
-                    "Run 'tx stage commit' or 'tx stage discard' first.");
-
-            var provider = _providers.ResolveSingleProvider(reference);
-            if (provider is null)
-                return Fail(
-                    errorFormat,
-                    "TOMIX_NO_PROVIDER",
-                    $"No provider can open model: {reference.Value}",
-                    "Pass a TMDL folder or a .bim file.");
-            if (provider is not ILiveModelProvider live)
-                return Fail(
-                    errorFormat,
-                    "TOMIX_SESSION_SOURCE_UNSUPPORTED",
-                    $"An interactive session cannot open {reference.Value} yet; it opens TMDL folders and .bim files.",
-                    "Save the model locally with 'tx save -o <folder>' and open that.");
+            // A model the command names must open; the active connection is only a default, so a
+            // session starts without a model when there is none or it cannot be opened.
+            ILiveModelSession? session = null;
+            if (!isImplicit || !string.IsNullOrWhiteSpace(reference.Value))
+            {
+                (session, var openExit) = await opener.OpenAsync(parseResult, reference, cancellationToken);
+                if (session is null && !isImplicit)
+                    return openExit;
+            }
 
             var quiet = parseResult.GetValue(GlobalOptions.Quiet);
-            var session = await CliSpinner.RunAsync(
-                "Loading model...",
-                () => live.OpenLiveAsync(reference, cancellationToken),
-                suppress: quiet || OutputFormats.IsJson(format));
-            await using (session)
-            {
-                var testInput = InputValueResolver.TestStdin.Value;
-                var terminal = testInput is null && !Console.IsInputRedirected;
-                var canPrompt = terminal && InteractionGate.CanPrompt(parseResult, format);
-                var scope = new SessionScope(new LiveSessionSource(session, new LiveLeaseOptions(InteractiveLoop.Client)));
-                var oneShot = parseResult.RootCommandResult.Command.Subcommands
-                    .SelectMany(sub => sub.Aliases.Prepend(sub.Name))
-                    .ToHashSet(StringComparer.Ordinal);
-                var loop = new InteractiveLoop(
-                    scope,
-                    sessionCommands => _buildSessionRoot(scope, sessionCommands),
-                    oneShot,
-                    new InteractiveOptions(
-                        Autosave: parseResult.GetValue(autosaveOption),
-                        DiscardOnExit: parseResult.GetValue(discardOption) || parseResult.GetValue(GlobalOptions.Yes),
-                        Echo: parseResult.GetValue(echoOption),
-                        Batch: !parseResult.GetValue(noBatchOption),
-                        Banner: terminal && !quiet && !parseResult.GetValue(noBannerOption) && !OutputFormats.IsJson(format),
-                        CanPrompt: canPrompt,
-                        errorFormat,
-                        InheritedOptions(parseResult)));
+            var testInput = InputValueResolver.TestStdin.Value;
+            var terminal = testInput is null && !Console.IsInputRedirected;
+            var canPrompt = terminal && InteractionGate.CanPrompt(parseResult, format);
+            var oneShot = parseResult.RootCommandResult.Command.Subcommands
+                .SelectMany(sub => sub.Aliases.Prepend(sub.Name))
+                .ToHashSet(StringComparer.Ordinal);
+            await using var loop = new InteractiveLoop(
+                _buildSessionRoot,
+                opener,
+                oneShot,
+                new InteractiveOptions(
+                    Autosave: parseResult.GetValue(autosaveOption),
+                    DiscardOnExit: parseResult.GetValue(discardOption) || parseResult.GetValue(GlobalOptions.Yes),
+                    Echo: parseResult.GetValue(echoOption),
+                    Batch: !parseResult.GetValue(noBatchOption),
+                    Banner: terminal && !quiet && !parseResult.GetValue(noBannerOption) && !OutputFormats.IsJson(format),
+                    CanPrompt: canPrompt,
+                    errorFormat,
+                    InheritedOptions(parseResult)),
+                _version,
+                session);
 
-                ILineReader reader = terminal ? new ConsoleLineEditor(loop.Complete) : new RedirectedLineReader(testInput ?? Console.In);
-                return await loop.RunAsync(reader, cancellationToken);
-            }
+            ILineReader reader = terminal ? new ConsoleLineEditor(loop.Complete) : new RedirectedLineReader(testInput ?? Console.In);
+            return await loop.RunAsync(reader, cancellationToken);
         });
 
         return command;
@@ -157,11 +141,5 @@ internal sealed class InteractiveCommand : ICommandModule
             if (parseResult.GetValue(flag))
                 inherited.Add((flag, [flag.Name]));
         return inherited;
-    }
-
-    private static int Fail(string? errorFormat, string code, string message, string hint)
-    {
-        ErrorOutput.Write([new TomixDiagnostic(code, DiagnosticSeverity.Error, message, hint)], errorFormat);
-        return 2;
     }
 }

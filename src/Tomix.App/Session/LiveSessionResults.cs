@@ -49,3 +49,9 @@ public sealed record SessionStepResult(
     IReadOnlyList<ModelChange> Changes,
     long Version,
     bool Dirty);
+
+/// <summary>The model an interactive session has open: what <c>open</c> reports and the welcome shows.</summary>
+/// <param name="Model">The model as given.</param>
+/// <param name="Source">Where the session saves to.</param>
+/// <param name="Summary">Its name, compatibility level and object counts.</param>
+public sealed record SessionModelInfo(string Model, string Source, ModelSummary Summary);
