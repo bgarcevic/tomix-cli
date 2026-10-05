@@ -49,8 +49,9 @@ CLI entry point for `tx`.
   `WebEndpoint` puts a host on `Tomix.Ui`; `LiveRegistry` writes `~/.tomix/live/*.json` so other
   processes find it. `ServeRelay` lets `tx serve` join a session `tx ui` holds instead of
   opening a second one. `UiLifetime` decides when `tx ui` stops: never with changes unsaved.
-  `tx ui` handles Ctrl+C itself, so `Program.Invoke` turns off the library's termination
-  timeout for it.
+  `tx ui` and `tx interactive` handle Ctrl+C themselves, so `Program.TerminationTimeout` turns
+  off the library's handling for them: every Ctrl+C handler in a process runs, and the library's
+  would end the session two seconds after a Ctrl+C meant for one command.
 - `Output/` - shared output wiring used by every command. See `Output/CONTEXT.md` for details.
   - `OutputFormats` - the canonical `--format` option, aliases, and allowed values.
   - `JsonOutput` - the single JSON serializer (the `--format json` contract).

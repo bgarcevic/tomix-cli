@@ -119,13 +119,10 @@ internal static class Program
     {
         try
         {
-            // 'tx ui' handles Ctrl+C itself, asking twice before it discards unsaved changes; the
-            // library's handling would end the process two seconds after the first press.
-            var ownsCtrlC = parseResult.CommandResult.Command.Name == "ui";
             return parseResult.Invoke(new InvocationConfiguration
             {
                 EnableDefaultExceptionHandler = false,
-                ProcessTerminationTimeout = ownsCtrlC ? null : TimeSpan.FromSeconds(2)
+                ProcessTerminationTimeout = TerminationTimeout(parseResult)
             });
         }
         catch (Exception ex)
@@ -133,6 +130,18 @@ internal static class Program
             return ReportFailure(ex, parseResult);
         }
     }
+
+    /// <summary>Commands that hold a session and handle Ctrl+C themselves.</summary>
+    private static readonly HashSet<string> HandleCtrlC = new(StringComparer.Ordinal) { "interactive", "ui" };
+
+    /// <summary>
+    /// How long the library waits after Ctrl+C before ending the process with 130: two seconds, or
+    /// never for a command that handles Ctrl+C itself. Every Ctrl+C handler in a process runs, so
+    /// with the library's on, a Ctrl+C that <c>tx interactive</c> meant for its running command
+    /// would also cancel the session and end it two seconds later, unsaved changes and all.
+    /// </summary>
+    internal static TimeSpan? TerminationTimeout(ParseResult parseResult)
+        => HandleCtrlC.Contains(parseResult.CommandResult.Command.Name) ? null : TimeSpan.FromSeconds(2);
 
     /// <summary>
     /// Maps an exception that escaped a command to its diagnostic and exit code: shared by the
