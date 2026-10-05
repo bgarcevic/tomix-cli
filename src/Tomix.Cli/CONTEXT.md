@@ -38,7 +38,7 @@ CLI entry point for `tx`.
   (`SessionScope.TryResolveModel`). A module that can run in a session takes an optional
   `SessionScope`; one that needs more than the model stays out of the session tree.
 - `Serve/` - the session protocol (docs/protocol.md) for `tx serve` (stdio) and the shared
-  localhost endpoint. `ProtocolServer` owns the lifecycle, validation, cancellation and error
+  localhost endpoint of `tx ui`. `ProtocolServer` owns the lifecycle, validation, cancellation and error
   answers over an `IMessageChannel` (`StreamChannel` frames on stdio, `WebSocketChannel`).
   `SessionHost` owns the one live session of the process, hands out client IDs, broadcasts every
   event and keeps the `/status` JSON; each connection is a `ServeSession`, which answers the
@@ -47,7 +47,10 @@ CLI entry point for `tx`.
   command-line arguments. `ConsoleRouting` gives each running command its own captured console
   (async-local), so clients' requests run side by side and stdout carries only frames.
   `WebEndpoint` puts a host on `Tomix.Ui`; `LiveRegistry` writes `~/.tomix/live/*.json` so other
-  processes find it.
+  processes find it. `ServeRelay` lets `tx serve` join a session `tx ui` holds instead of
+  opening a second one. `UiLifetime` decides when `tx ui` stops: never with changes unsaved.
+  `tx ui` handles Ctrl+C itself, so `Program.Invoke` turns off the library's termination
+  timeout for it.
 - `Output/` - shared output wiring used by every command. See `Output/CONTEXT.md` for details.
   - `OutputFormats` - the canonical `--format` option, aliases, and allowed values.
   - `JsonOutput` - the single JSON serializer (the `--format json` contract).

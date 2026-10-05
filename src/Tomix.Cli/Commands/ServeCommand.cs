@@ -1,9 +1,11 @@
 using System.CommandLine;
+using System.Net.WebSockets;
 using Tomix.App.Models;
 using Tomix.App.State;
 using Tomix.Cli.Interactive;
 using Tomix.Cli.Output;
 using Tomix.Cli.Serve;
+using Tomix.Core.Diagnostics;
 using Tomix.Core.Models;
 
 namespace Tomix.Cli.Commands;
@@ -22,20 +24,24 @@ internal sealed class ServeCommand : ICommandModule
     private readonly StagingStore _staging;
     private readonly string _version;
     private readonly Func<SessionScope?, IEnumerable<Command>, RootCommand> _buildSessionRoot;
+    private readonly LiveRegistry _registry;
 
     /// <param name="buildSessionRoot">Builds the command tree the session's methods run, as for <c>tx interactive</c>.</param>
+    /// <param name="registry">Where <c>tx ui</c> records live sessions; the user's by default.</param>
     public ServeCommand(
         IReadOnlyList<IModelProvider> providers,
         CliStateStore state,
         StagingStore staging,
         string version,
-        Func<SessionScope?, IEnumerable<Command>, RootCommand> buildSessionRoot)
+        Func<SessionScope?, IEnumerable<Command>, RootCommand> buildSessionRoot,
+        LiveRegistry? registry = null)
     {
         _providers = providers;
         _state = state;
         _staging = staging;
         _version = version;
         _buildSessionRoot = buildSessionRoot;
+        _registry = registry ?? LiveRegistry.Default;
     }
 
     public Command Build()
@@ -60,18 +66,22 @@ internal sealed class ServeCommand : ICommandModule
         command.SetAction(async (parseResult, cancellationToken) =>
         {
             var opener = new SessionOpener(_providers, _state, _staging);
-            ILiveModelSession? session = null;
-            if ((GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument)) is { Length: > 0 } model)
-            {
-                (session, var openExit) = await opener.OpenAsync(parseResult, opener.Resolve(model, null, null), cancellationToken);
-                if (session is null)
-                    return openExit;
-            }
-
             var logPath = parseResult.GetValue(logOption);
             await using var logFile = logPath is null ? null : new StreamWriter(logPath, append: true) { AutoFlush = true };
             var log = TextWriter.Synchronized(logFile ?? Console.Error);
             var streams = TestStreams.Value ?? (Console.OpenStandardInput(), Console.OpenStandardOutput());
+
+            ILiveModelSession? session = null;
+            if ((GlobalOptions.ModelValue(parseResult) ?? parseResult.GetValue(modelArgument)) is { Length: > 0 } model)
+            {
+                var reference = opener.Resolve(model, null, null);
+                if (_registry.Find(reference.Value) is { } running)
+                    return await JoinAsync(running, streams, log, parseResult, cancellationToken);
+
+                (session, var openExit) = await opener.OpenAsync(parseResult, reference, cancellationToken);
+                if (session is null)
+                    return openExit;
+            }
 
             // stdout carries only frames: anything else written to the console goes to the log,
             // and nothing reads the console's stdin, which is the protocol's.
@@ -90,5 +100,33 @@ internal sealed class ServeCommand : ICommandModule
         });
 
         return command;
+    }
+
+    /// <summary>Relays to the session a running <c>tx ui</c> holds, so both work on one model.</summary>
+    private static async Task<int> JoinAsync(
+        LiveEntry running, (Stream Input, Stream Output) streams, TextWriter log, ParseResult parseResult, CancellationToken cancellationToken)
+    {
+        WebSocket socket;
+        try
+        {
+            socket = await ServeRelay.ConnectAsync(running, cancellationToken);
+        }
+        catch (WebSocketException ex)
+        {
+            ErrorOutput.Write(
+                [new TomixDiagnostic(
+                    "TOMIX_UI_UNREACHABLE",
+                    DiagnosticSeverity.Error,
+                    $"{running.Model} is open in tx ui (process {running.ProcessId}), but its session cannot be reached: {ex.Message}",
+                    "Stop that tx ui, or wait for it to start, then try again.")],
+                GlobalOptions.ErrorFormatValue(parseResult));
+            return 2;
+        }
+
+        using (socket)
+        {
+            log.WriteLine($"[tx serve] joining the session tx ui holds on {running.Model} (process {running.ProcessId})");
+            return await ServeRelay.RunAsync(new StreamChannel(streams.Input, streams.Output), new WebSocketChannel(socket), cancellationToken);
+        }
     }
 }

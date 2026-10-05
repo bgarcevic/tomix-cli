@@ -119,7 +119,14 @@ internal static class Program
     {
         try
         {
-            return parseResult.Invoke(new InvocationConfiguration { EnableDefaultExceptionHandler = false });
+            // 'tx ui' handles Ctrl+C itself, asking twice before it discards unsaved changes; the
+            // library's handling would end the process two seconds after the first press.
+            var ownsCtrlC = parseResult.CommandResult.Command.Name == "ui";
+            return parseResult.Invoke(new InvocationConfiguration
+            {
+                EnableDefaultExceptionHandler = false,
+                ProcessTerminationTimeout = ownsCtrlC ? null : TimeSpan.FromSeconds(2)
+            });
         }
         catch (Exception ex)
         {
@@ -251,6 +258,13 @@ internal static class Program
             new SummaryCommand(providers, services.State),
             new StageCommand(providers, services.State, services.Staging, services.ConfigStore.ValidateOnSaveEnabled),
             new TestCommand(providers, loadCurrentSession),
+            new UiCommand(
+                providers,
+                services.State,
+                services.Staging,
+                version,
+                (session, sessionCommands) => BuildSessionRootCommand(
+                    session, sessionCommands, providers, formatter, services, httpClient, workspaceCatalog, cachedUsername)),
             new UpdateCommand(version, releaseSource ?? UnavailableReleaseSource.Instance, services.UpdateCheck),
             new ValidateCommand(providers, services.State),
             new VertipaqCommand(providers, analyzer, services.State, mutations)

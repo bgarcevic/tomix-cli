@@ -597,6 +597,51 @@ tx serve --log serve.log
 
 `tx serve` opens TMDL folders and `.bim` files, as `tx interactive` does.
 
+When `tx ui` already holds the model, `tx serve ./model` joins that session
+instead of opening a second one: it passes its client's messages to it, so the
+client is one more client of the shared session. Leaving (the end of stdin, or
+`exit`) then detaches the client and leaves the session and its unsaved changes
+to `tx ui`.
+
+## `ui` — share a session with the browser and agents
+
+```
+tx ui [model] [options]
+```
+
+Holds a model session like `tx serve`, and shares it on `127.0.0.1` so a
+browser page and agents work on the same open model at the same time: the agent
+edits through `tx serve` (or `tx mcp`), and you watch, undo and save in the
+page. Every client sees every change as it happens.
+
+Without a model argument it opens the active connection's model. It prints the
+page's URL, which carries the session's token, on stdout, and records the
+session in `~/.tomix/live/` so other `tx` processes find it. A second `tx ui`
+on the same model prints the running session's URL instead of opening another.
+
+| Option | Description |
+|--------|-------------|
+| `--port <port>` | Listen on this port. Default: a free one. |
+| `--open` | Open the page in the default browser. Without one, open the printed URL yourself. |
+| `--grace <seconds>` | Keep running this long after the last client leaves. Default: 30. |
+| `--log <file>` | Append the session's request log to this file. |
+
+`tx ui` stops on Ctrl+C, or once no client has been connected for `--grace`
+seconds. It never discards unsaved changes on its own: with changes unsaved,
+the grace period passes without stopping, and Ctrl+C asks to be pressed again.
+Before the first client connects, it waits.
+
+```sh
+tx ui ./model --open
+tx ui ./model --port 7411 --grace 300
+tx ui ./model --output-format json            # {"data": {"url", "port", "model", "processId", "joined"}}
+```
+
+The page is a small companion view for now: the model, its unsaved state, who
+else is connected, an activity feed of every client's changes, and Undo, Redo
+and Save. The full tomix UI replaces it. In the Claude desktop app, open the
+URL in the built-in browser pane to keep the page next to the agent.
+
 ## Refresh policies
 
 Policies are table child objects, inspected and edited with `get`, `set`, and `rm`:
