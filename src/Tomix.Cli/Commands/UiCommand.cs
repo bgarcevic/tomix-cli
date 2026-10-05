@@ -164,16 +164,12 @@ internal sealed class UiCommand : ICommandModule
                     TimeSpan.FromSeconds(grace),
                     stderr.WriteLine);
                 host.ClientsChanged += (_, _) => lifetime.ClientsChanged();
-                ConsoleCancelEventHandler onCancel = (_, e) =>
+                using var signals = ConsoleSignals.Install(signal =>
                 {
-                    e.Cancel = true;
-                    lifetime.Interrupt();
-                };
-                Console.CancelKeyPress += onCancel;
-                using var terminate = PosixSignalRegistration.Create(PosixSignal.SIGTERM, signal =>
-                {
-                    signal.Cancel = true;
-                    lifetime.Stop();
+                    if (signal == PosixSignal.SIGTERM)
+                        lifetime.Stop();
+                    else
+                        lifetime.Interrupt();
                 });
                 try
                 {
@@ -183,7 +179,6 @@ internal sealed class UiCommand : ICommandModule
                 }
                 finally
                 {
-                    Console.CancelKeyPress -= onCancel;
                     await host.CloseAsync();
                 }
             }

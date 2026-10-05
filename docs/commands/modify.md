@@ -585,7 +585,8 @@ sends `session.open`. stdout carries only protocol frames. The server's log
 
 The server exits 0 after `shutdown` and `exit`, and 1 when `exit` comes
 without `shutdown`. When the client disconnects (the end of stdin), the server
-discards unsaved changes, says so in its log, and exits 0. Requests run one at
+discards unsaved changes, says so in its log, and exits 0. Ctrl+C (or SIGTERM)
+does the same and exits 130 (143), even while the client keeps stdin open. Requests run one at
 a time in arrival order; `$/cancelRequest` cancels one that is waiting or
 running. `initialize` lists the methods this version serves: `query.run`,
 `$/progress` and `diagnostics.updated` are in the spec but not served yet.

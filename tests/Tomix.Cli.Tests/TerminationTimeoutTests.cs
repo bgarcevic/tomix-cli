@@ -18,12 +18,12 @@ public sealed class TerminationTimeoutTests
     [Theory]
     [InlineData("interactive")]
     [InlineData("shell")]
+    [InlineData("serve")]
     [InlineData("ui")]
     public void SessionCommands_HandleCtrlCThemselves(string command)
         => Assert.Null(Program.TerminationTimeout(Parse(command)));
 
     [Theory]
-    [InlineData("serve")]
     [InlineData("query")]
     [InlineData("deploy")]
     [InlineData("refresh")]

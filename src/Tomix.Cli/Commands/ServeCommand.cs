@@ -65,6 +65,16 @@ internal sealed class ServeCommand : ICommandModule
 
         command.SetAction(async (parseResult, cancellationToken) =>
         {
+            // Ctrl+C or SIGTERM, or the caller's token: stop serving and close the session.
+            using var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            var stopCode = ConsoleSignals.InterruptExitCode;
+            using var signals = ConsoleSignals.Install(signal =>
+            {
+                stopCode = ConsoleSignals.ExitCode(signal);
+                stop.Cancel();
+            });
+            cancellationToken = stop.Token;
+
             var opener = new SessionOpener(_providers, _state, _staging);
             var logPath = parseResult.GetValue(logOption);
             await using var logFile = logPath is null ? null : new StreamWriter(logPath, append: true) { AutoFlush = true };
@@ -76,11 +86,21 @@ internal sealed class ServeCommand : ICommandModule
             {
                 var reference = opener.Resolve(model, null, null);
                 if (_registry.Find(reference.Value) is { } running)
-                    return await JoinAsync(running, streams, log, parseResult, cancellationToken);
+                {
+                    var joined = await JoinAsync(running, streams, log, parseResult, cancellationToken);
+                    return stop.IsCancellationRequested ? stopCode : joined;
+                }
 
-                (session, var openExit) = await opener.OpenAsync(parseResult, reference, cancellationToken);
-                if (session is null)
-                    return openExit;
+                try
+                {
+                    (session, var openExit) = await opener.OpenAsync(parseResult, reference, cancellationToken);
+                    if (session is null)
+                        return openExit;
+                }
+                catch (OperationCanceledException) when (stop.IsCancellationRequested)
+                {
+                    return stopCode;
+                }
             }
 
             // stdout carries only frames: anything else written to the console goes to the log,
@@ -91,7 +111,14 @@ internal sealed class ServeCommand : ICommandModule
             {
                 var server = new ProtocolServer(streams.Input, streams.Output, host.Connect(), _version, log);
                 log.WriteLine($"[tx serve] listening on stdio{(session is null ? "" : $" with {session.Reference.Value} open")}");
-                return await server.RunAsync(cancellationToken);
+                var serving = server.RunAsync(cancellationToken);
+
+                // A read on stdin may not cancel, so the server is not waited for once stopped.
+                var stopped = Task.Delay(Timeout.Infinite, cancellationToken);
+                if (await Task.WhenAny(serving, stopped) == serving)
+                    return await serving;
+                log.WriteLine(stopCode == ConsoleSignals.InterruptExitCode ? "[tx serve] interrupted (Ctrl+C)" : "[tx serve] terminated");
+                return stopCode;
             }
             finally
             {

@@ -132,7 +132,7 @@ internal static class Program
     }
 
     /// <summary>Commands that hold a session and handle Ctrl+C themselves.</summary>
-    private static readonly HashSet<string> HandleCtrlC = new(StringComparer.Ordinal) { "interactive", "ui" };
+    private static readonly HashSet<string> HandleCtrlC = new(StringComparer.Ordinal) { "interactive", "serve", "ui" };
 
     /// <summary>
     /// How long the library waits after Ctrl+C before ending the process with 130: two seconds, or
