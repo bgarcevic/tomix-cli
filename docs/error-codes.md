@@ -327,6 +327,7 @@ come from structural integrity checks.
 | `TOMIX_INTERACTIVE_REQUIRED` | 1 | An interactive-only flow (`connect --remote`, a valueless `-w`) was invoked without a TTY (e.g. `--non-interactive`, `--quiet`, redirected input, or json/csv output). Pass the workspace/model explicitly. |
 | `TOMIX_REMOTE_LIST_FAILED` | 1 | Listing workspaces or models failed (Power BI REST or XMLA error) during an interactive `connect` or `connect <server> --list`. |
 | `TOMIX_DATABASE_NOT_FOUND` | 1 | The database/model name was not found on the server. |
+| `TOMIX_DESKTOP_NOT_RUNNING` | 1 | Nothing listens on the `localhost:<port>` Power BI Desktop endpoint: the report was closed, or Desktop restarted on another port. Open it again, then run `tx connect --local` to pick its new port. |
 | `TOMIX_DATABASE_REQUIRED` | 2 | The endpoint hosts more than one database/model and none was named. List them with `tx connect <server> --list`, then pass one with `-d/--database`. |
 | `TOMIX_DEPS_PATH_REQUIRED` | 2 | `get --deps` (or `deps`) called without an object path. |
 | `TOMIX_SINGLE_OBJECT_REQUIRED` | 2 | `get --query` or `get --deps` was given a path that selects a set (a wildcard such as `Sa*`, a container such as `Sales/Measures`, or `--ls`/`--where`). Name one object. |

@@ -31,6 +31,10 @@ and the API surface that major versions protect.
   instead of failing with `TOMIX_SAVE_OUTPUT_REQUIRED`, and `save -o` naming the session's own
   files saves in place, so it no longer skips the check for changes made outside the session
   (#351).
+- A command on a Power BI Desktop that has closed fails at once with `TOMIX_DESKTOP_NOT_RUNNING`
+  and a hint to reopen it, instead of waiting about 4 seconds for a raw socket error.
+  Opening a session (`tx interactive`, `tx serve`, `tx ui`) there, or on a server it cannot
+  reach, reports the connection error instead of "Unexpected error" (#351).
 
 ## [0.9.0] - 2026-10-06
 

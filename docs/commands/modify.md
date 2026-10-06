@@ -552,6 +552,9 @@ need it fail with `TOMIX_SESSION_SOURCE_UNAVAILABLE`. The changes are still
 in the session: `save -o <folder>` writes them to files. With `-o`, `save`
 only writes a copy and never touches the server.
 
+A session cannot open on a Power BI Desktop that has already closed: it fails with
+`TOMIX_DESKTOP_NOT_RUNNING`. Open the report again and run `tx connect --local`.
+
 Leaving with unsaved changes (or an open transaction) asks first at a
 terminal. Anywhere else it fails with `TOMIX_SESSION_DIRTY` and exit code 1
 unless `--discard-on-exit` or `--yes` says to discard them.

@@ -14,6 +14,31 @@ public sealed class TomLiveModelSessionServerSourceTests
 {
     private static readonly LiveLeaseOptions Shell = new("shell");
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task Open_ClosedDesktop_FailsFastAsLocalInstanceGone(bool live)
+    {
+        // A port that was free a moment ago: nothing listens there, as after Desktop closes.
+        var listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+        listener.Stop();
+        var provider = new TomServerModelProvider(tokenProvider: null);
+        var reference = ModelReference.Remote($"localhost:{port}");
+
+        var error = await Assert.ThrowsAsync<ModelConnectionException>(async () =>
+        {
+            if (live)
+                await using (await provider.OpenLiveAsync(reference, CancellationToken.None)) { }
+            else
+                await using (await provider.OpenAsync(reference, CancellationToken.None)) { }
+        });
+
+        Assert.Equal(ModelConnectionFailureKind.LocalInstanceGone, error.Kind);
+        Assert.Contains($"localhost:{port}", error.Message);
+    }
+
     [Fact]
     public async Task AChangeOnTheServer_MakesTheSessionStale_AndASaveFailsWithoutReloadOffered()
     {

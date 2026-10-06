@@ -309,7 +309,7 @@ internal sealed class TomServerModelSource(TabularServer server, Database databa
                 : $"The server at {Reference.Value} cannot be reached: {inner?.Message}",
             inner);
 
-    private static bool IsPortListening(int port)
+    internal static bool IsPortListening(int port)
     {
         try
         {
