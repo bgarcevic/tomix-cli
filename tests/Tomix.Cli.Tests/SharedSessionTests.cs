@@ -122,13 +122,14 @@ public sealed class SharedSessionTests
         var after = await shared.StatusAsync();
 
         Assert.Equal(
-            ["protocolVersion", "model", "state", "dirty", "version", "undoSteps", "redoSteps", "transaction", "clients", "lastChange"],
+            ["protocolVersion", "model", "state", "dirty", "version", "undoSteps", "redoSteps", "canReload", "transaction", "clients", "lastChange"],
             after.Select(pair => pair.Key));
         Assert.Equal("clean", (string?)before["state"]);
         Assert.Null(before["lastChange"]);
         Assert.Equal("dirty", (string?)after["state"]);
         Assert.Equal(true, (bool?)after["dirty"]);
         Assert.Equal(1, (int?)after["undoSteps"]);
+        Assert.Equal(true, (bool?)after["canReload"]);
         Assert.Null(after["transaction"]);
         Assert.Equal("agent-1", (string?)after["lastChange"]!["client"]);
         Assert.Equal((long?)after["version"], (long?)after["lastChange"]!["version"]);

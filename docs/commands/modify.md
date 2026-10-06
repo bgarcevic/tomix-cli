@@ -538,6 +538,19 @@ the session says so before the next prompt, and `save` fails with
 
 `status` shows when the files changed.
 
+**A model on a server or in Power BI Desktop.** `save` sends the session's
+changes to the server. Every 15 seconds the session asks the server when the
+model last changed. When something else changed it (Power BI Desktop, another
+tool, or a refresh), the session says so and `save` fails with
+`TOMIX_SESSION_STALE`. The session cannot reload from a server: `save --force`
+writes the session's changes anyway, or close the session and connect again
+to take the server's version (unsaved changes are lost).
+
+If Power BI Desktop closes, or the server cannot be reached, commands that
+need it fail with `TOMIX_SESSION_SOURCE_UNAVAILABLE`. The changes are still
+in the session: `save -o <folder>` writes them to files. With `-o`, `save`
+only writes a copy and never touches the server.
+
 Leaving with unsaved changes (or an open transaction) asks first at a
 terminal. Anywhere else it fails with `TOMIX_SESSION_DIRTY` and exit code 1
 unless `--discard-on-exit` or `--yes` says to discard them.

@@ -9,6 +9,7 @@ namespace Tomix.App.Session;
 /// <param name="Dirty">True when the session has changes that are not saved.</param>
 /// <param name="Version">The version of the last committed transaction.</param>
 /// <param name="UndoSteps">How many steps <c>undo</c> can revert.</param>
+/// <param name="CanReload">Whether <c>reload</c> can read the source again: false for a model on a server.</param>
 /// <param name="RedoSteps">How many steps <c>redo</c> can reapply.</param>
 /// <param name="Transaction">The open transaction, if any.</param>
 public sealed record SessionStatusResult(
@@ -19,7 +20,8 @@ public sealed record SessionStatusResult(
     long Version,
     int UndoSteps,
     int RedoSteps,
-    SessionTransactionInfo? Transaction);
+    SessionTransactionInfo? Transaction,
+    bool CanReload = true);
 
 /// <summary>An open explicit transaction.</summary>
 /// <param name="Id">The transaction's ID, for example <c>t7</c>.</param>

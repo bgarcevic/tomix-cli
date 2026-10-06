@@ -18,6 +18,19 @@ and the API surface that major versions protect.
   that change. `reload` (protocol: `session.reload`) takes the files' version, and
   `save --force` (`session.save` with `force`) keeps the session's. The `tx ui` page offers
   both (#351).
+- A live session on a server or Power BI Desktop now notices when the model changes there
+  outside it (checked every 15 seconds): it turns `stale`, and `save` fails with
+  `TOMIX_SESSION_STALE` until `save --force`. `session.status` reports `canReload` (#351).
+- A live session whose Power BI Desktop has closed fails with
+  `TOMIX_SESSION_SOURCE_UNAVAILABLE` instead of a raw connection error; `save -o <folder>`
+  still writes its changes to files (#351).
+
+### Fixed
+
+- `save` in a live session on a server or Power BI Desktop sends the changes to the server
+  instead of failing with `TOMIX_SAVE_OUTPUT_REQUIRED`, and `save -o` naming the session's own
+  files saves in place, so it no longer skips the check for changes made outside the session
+  (#351).
 
 ## [0.9.0] - 2026-10-06
 

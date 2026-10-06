@@ -367,13 +367,15 @@ internal sealed class InteractiveLoop : IAsyncDisposable
     private void Error(string code, string message, string hint)
         => ErrorOutput.Write([new TomixDiagnostic(code, DiagnosticSeverity.Error, message, hint)], _options.ErrorFormat);
 
-    /// <summary>Says once, before the prompt, that the model's files changed outside the session (#351).</summary>
+    /// <summary>Says once, before the prompt, that the model's source changed outside the session (#351).</summary>
     private void NoticeStale()
     {
         var stale = _scope?.Session.State == SessionState.Stale;
         if (stale && !_staleNoticed)
             StdErr.MarkupLine(Styling.Warning(
-                "The model's files changed outside this session. Run 'reload' to take them (unsaved changes are lost), or 'save --force' to keep this session's version."));
+                _scope!.Session.CanReload
+                    ? "The model's files changed outside this session. Run 'reload' to take them (unsaved changes are lost), or 'save --force' to keep this session's version."
+                    : "The model changed on the server outside this session, for example in Power BI Desktop or by a refresh. Run 'save --force' to overwrite it with this session's version, or connect again to take the server's."));
         _staleNoticed = stale;
     }
 

@@ -24,6 +24,9 @@ internal abstract class TomModelSource : IAsyncDisposable
 
     public abstract string SourcePath { get; }
 
+    /// <summary>The source as messages name it.</summary>
+    public virtual string DisplayName => SourcePath;
+
     public abstract TomCheckpointRestore Restore { get; }
 
     public abstract Database Load();
@@ -122,14 +125,31 @@ internal abstract class TomModelSource : IAsyncDisposable
 /// <summary>
 /// A database on an XMLA server or in Power BI Desktop. The session owns the connection. The
 /// <see cref="Database"/> belongs to its <see cref="TabularServer"/> and cannot be swapped, so
-/// checkpoints restore with <c>CopyTo</c>.
+/// checkpoints restore with <c>CopyTo</c>, and a session cannot reload it.
 /// </summary>
+/// <remarks>
+/// The server's model is watched by polling when it was last modified (#351). Every call that
+/// reaches the server first checks that a Power BI Desktop instance is still listening, so a
+/// session that outlived Desktop fails with <see cref="ModelSourceUnavailableException"/>.
+/// </remarks>
 internal sealed class TomServerModelSource(TabularServer server, Database database, ModelReference reference, IAccessTokenProvider? tokenProvider)
     : TomModelSource(reference, tokenProvider)
 {
+    /// <summary>How often the session asks the server whether its model changed.</summary>
+    internal static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(15);
+
+    // ExecuteReader wraps the command in Execute/Command; a DMV query goes in a Statement there.
+    private const string CatalogsQuery =
+        "<Statement xmlns=\"urn:schemas-microsoft-com:xml-analysis\">SELECT [DATABASE_ID], [DATE_MODIFIED], [VERSION] FROM $SYSTEM.DBSCHEMA_CATALOGS</Statement>";
+
+    private const string CubesQuery =
+        "<Statement xmlns=\"urn:schemas-microsoft-com:xml-analysis\">SELECT [LAST_SCHEMA_UPDATE] FROM $SYSTEM.MDSCHEMA_CUBES</Statement>";
+
     public TabularServer Server => server;
 
     public override string SourcePath => "";
+
+    public override string DisplayName => $"'{ModelName(database)}' on {Reference.Value}";
 
     public override TomCheckpointRestore Restore => TomCheckpointRestore.CopyTo;
 
@@ -145,7 +165,51 @@ internal sealed class TomServerModelSource(TabularServer server, Database databa
         => TomModelExporter.ExportAsync(database, request, cancellationToken);
 
     public override Task<ModelExportResult> SaveAsync(Database database, string? outputPath, string serialization, bool overwrite, CancellationToken cancellationToken)
-        => TomServerModelSession.SaveAsync(database, ModelName(database), outputPath, serialization, overwrite, cancellationToken);
+        => Reach(() => TomServerModelSession.SaveAsync(database, ModelName(database), outputPath, serialization, overwrite, cancellationToken));
+
+    /// <summary>
+    /// When the server last changed the database (<c>DBSCHEMA_CATALOGS</c>) and its schema
+    /// (<c>MDSCHEMA_CUBES</c>); a refresh can move either. Callers serialize it with every other
+    /// use of <see cref="Server"/>.
+    /// </summary>
+    public override string? Fingerprint()
+        => Reach(() =>
+        {
+            var catalog = Read(CatalogsQuery, null, rows => FingerprintOf(rows, database.ID));
+            if (catalog == "missing")
+                return catalog;
+
+            var schema = Read(CubesQuery, new Dictionary<string, string> { ["Catalog"] = database.Name }, SchemaUpdateOf);
+            return $"{catalog}|{schema}";
+        });
+
+    private T Read<T>(string query, System.Collections.IDictionary? properties, Func<System.Data.IDataReader, T> read)
+    {
+        using var rows = server.ExecuteReader(query, out var results, properties, true)
+            ?? throw new InvalidOperationException(
+                $"The server did not say when {DisplayName} last changed: {XmlaMessages(results)}");
+        return read(rows);
+    }
+
+    public override IDisposable? Watch(Action changed)
+        => new Timer(_ => changed(), null, PollInterval, PollInterval);
+
+    /// <summary>Runs <paramref name="call"/> against the server, failing fast with
+    /// <see cref="ModelSourceUnavailableException"/> when it cannot be reached.</summary>
+    public T Reach<T>(Func<T> call)
+    {
+        if (LocalInstanceGone(Reference.Value, IsPortListening))
+            throw Unavailable(null);
+
+        try
+        {
+            return call();
+        }
+        catch (Microsoft.AnalysisServices.ConnectionException ex)
+        {
+            throw Unavailable(ex);
+        }
+    }
 
     public override ValueTask DisposeAsync()
     {
@@ -153,5 +217,76 @@ internal sealed class TomServerModelSource(TabularServer server, Database databa
             server.Disconnect();
         server.Dispose();
         return ValueTask.CompletedTask;
+    }
+
+    /// <summary>The fingerprint of <paramref name="databaseId"/> in a <c>DBSCHEMA_CATALOGS</c>
+    /// result, or <c>missing</c> when the server no longer has it.</summary>
+    internal static string FingerprintOf(System.Data.IDataReader rows, string databaseId)
+    {
+        while (rows.Read())
+        {
+            if (!string.Equals(Convert.ToString(rows["DATABASE_ID"], System.Globalization.CultureInfo.InvariantCulture), databaseId, StringComparison.OrdinalIgnoreCase))
+                continue;
+
+            var modified = rows["DATE_MODIFIED"] is DateTime at ? at.ToString("O", System.Globalization.CultureInfo.InvariantCulture) : "";
+            var version = Convert.ToString(rows["VERSION"], System.Globalization.CultureInfo.InvariantCulture);
+            return $"{modified}|{version}";
+        }
+
+        return "missing";
+    }
+
+    /// <summary>The latest <c>LAST_SCHEMA_UPDATE</c> in an <c>MDSCHEMA_CUBES</c> result.</summary>
+    internal static string SchemaUpdateOf(System.Data.IDataReader rows)
+    {
+        DateTime? latest = null;
+        while (rows.Read())
+        {
+            if (rows["LAST_SCHEMA_UPDATE"] is DateTime at && (latest is null || at > latest))
+                latest = at;
+        }
+
+        return latest?.ToString("O", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+    }
+
+    /// <summary>Whether <paramref name="endpoint"/> is a local instance (Power BI Desktop) that no
+    /// longer listens: nothing is left to answer, so a call would only fail or wait.</summary>
+    internal static bool LocalInstanceGone(string endpoint, Func<int, bool> isListening)
+    {
+        if (!ModelReference.IsLocalInstanceEndpoint(endpoint))
+            return false;
+
+        var separator = endpoint.LastIndexOf(':');
+        return int.TryParse(endpoint.AsSpan(separator + 1), out var port) && !isListening(port);
+    }
+
+    private static string XmlaMessages(Microsoft.AnalysisServices.XmlaResultCollection? results)
+    {
+        var messages = new List<string>();
+        if (results is not null)
+            XmlaResultHelper.ExtractMessages(results, messages);
+        return messages.Count > 0 ? string.Join("; ", messages) : "no rows.";
+    }
+
+    private ModelSourceUnavailableException Unavailable(Exception? inner)
+        => new(
+            DisplayName,
+            ModelReference.IsLocalInstanceEndpoint(Reference.Value)
+                ? $"The Power BI Desktop instance at {Reference.Value} is no longer running."
+                : $"The server at {Reference.Value} cannot be reached: {inner?.Message}",
+            inner);
+
+    private static bool IsPortListening(int port)
+    {
+        try
+        {
+            return System.Net.NetworkInformation.IPGlobalProperties.GetIPGlobalProperties()
+                .GetActiveTcpListeners().Any(listener => listener.Port == port);
+        }
+        catch (Exception ex) when (ex is System.Net.NetworkInformation.NetworkInformationException or PlatformNotSupportedException)
+        {
+            // Cannot tell: let the call find out.
+            return true;
+        }
     }
 }

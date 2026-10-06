@@ -43,7 +43,12 @@ save checks it first and throws `ModelSourceChangedException` rather than overwr
 saves share `_sourceLock`, so a check never reads files a save is writing. `KeepChanges` takes the
 files as they are as the new baseline (`save --force`); `ReloadAsync` loads them again through
 `TomChangeJournal.Reload`, which keeps the ID of every object whose kind and path survive.
-Server sources have no fingerprint yet, so they never turn stale.
+`TomServerModelSource` fingerprints the database's `DBSCHEMA_CATALOGS` row (`DATE_MODIFIED`,
+`VERSION`) and its `MDSCHEMA_CUBES` `LAST_SCHEMA_UPDATE` on the session's own connection, polled every `PollInterval`; every use of that
+connection holds `_sourceLock`. A refresh the session runs goes through `ChangeSourceAsync`, so it
+moves the baseline instead of making the session stale. `Reach` fails fast with
+`ModelSourceUnavailableException` when a Power BI Desktop port no longer listens. A server source
+cannot reload: its `Database` belongs to the connection.
 
 ## Cross-folder dependencies
 

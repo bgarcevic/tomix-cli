@@ -327,7 +327,7 @@ public sealed class TomLiveModelSession : ILiveModelSession
                 {
                     lock (_sync)
                         _sourceChanged = true;
-                    throw new ModelSourceChangedException(SourcePath);
+                    throw new ModelSourceChangedException(_source.DisplayName, _source.CanReload);
                 }
 
                 var result = await _source.SaveAsync(Journal.Database, outputPath, serialization, overwrite, cancellationToken).ConfigureAwait(false);
@@ -369,9 +369,41 @@ public sealed class TomLiveModelSession : ILiveModelSession
         UpdateState();
     }
 
+    /// <summary>
+    /// Runs <paramref name="action"/>, which changes the source itself (a refresh on the server),
+    /// without the session then taking that change for one made outside it: when the source
+    /// was as the session last saw it, what <paramref name="action"/> leaves becomes the baseline.
+    /// Callers hold a lease.
+    /// </summary>
+    internal async Task<T> ChangeSourceAsync<T>(Func<Task<T>> action, CancellationToken cancellationToken)
+    {
+        await _sourceLock.WaitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            var unchanged = _baseline is not null && _source.Fingerprint() == _baseline;
+            try
+            {
+                return await action().ConfigureAwait(false);
+            }
+            finally
+            {
+                if (unchanged)
+                    _baseline = _source.Fingerprint();
+            }
+        }
+        finally
+        {
+            _sourceLock.Release();
+        }
+    }
+
     /// <summary>A check the watcher starts: it reports through <see cref="StateChanged"/> and never throws.</summary>
     private async Task CheckQuietlyAsync()
     {
+        // A save or a refresh holds the source; it sets the baseline itself.
+        if (_sourceLock.CurrentCount == 0)
+            return;
+
         try
         {
             await CheckSourceAsync(CancellationToken.None).ConfigureAwait(false);
@@ -379,6 +411,10 @@ public sealed class TomLiveModelSession : ILiveModelSession
         catch (ObjectDisposedException)
         {
             // Closed while the source settled.
+        }
+        catch (ModelSourceUnavailableException)
+        {
+            // The server is gone; the next call that needs it says so.
         }
     }
 

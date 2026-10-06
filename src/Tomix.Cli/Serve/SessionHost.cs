@@ -205,6 +205,7 @@ internal sealed class SessionHost
                 ["version"] = session?.Version ?? 0,
                 ["undoSteps"] = session?.History.Count(step => !step.Undone) ?? 0,
                 ["redoSteps"] = session?.History.Count(step => step.Undone) ?? 0,
+                ["canReload"] = session?.CanReload ?? false,
                 ["transaction"] = _transaction?.DeepClone(),
                 ["clients"] = new JsonArray([.. _clients.Where(client => client.Id is not null).Select(client => (JsonNode)client.Id!)]),
                 ["lastChange"] = _lastChange?.DeepClone()
