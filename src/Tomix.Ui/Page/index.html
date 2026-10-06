@@ -5,18 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tomix</title>
 <style nonce="{{nonce}}">
-:root{--bg:#f7f7f5;--panel:#fff;--line:#e3e3df;--text:#1d1f23;--muted:#6b707a;--accent:#b07e2a;--ok:#408139;--warn:#b07e2a;--bad:#cc6766;--agent:#8572af;color-scheme:light}
-@media (prefers-color-scheme:dark){:root{--bg:#121418;--panel:#181b20;--line:#262a31;--text:#dde1e7;--muted:#a3aab5;--accent:#e3a857;--ok:#86c98a;--warn:#e3a857;--bad:#f2777a;--agent:#dcc0f7;color-scheme:dark}}
+/* The CLI's palette (Palette in src/Tomix.Cli/Output/Styling.cs), in the roles the CLI gives it.
+   Its colors keep their contrast on light and dark backgrounds, so both themes share them. */
+:root{--harbor:#4582ac;--lav:#8572af;--moss:#408139;--amber:#b07e2a;--rose:#cc6766;--slate:#757f88;
+  --accent:var(--harbor);--ok:var(--moss);--warn:var(--amber);--bad:var(--rose);--agent:var(--lav);
+  --bg:#f7f7f5;--panel:#fff;--line:#e3e3df;--text:#1d1f23;--muted:var(--slate);color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#121418;--panel:#181b20;--line:#262a31;--text:#dde1e7;color-scheme:dark}}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
 header{position:sticky;top:0;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
-.logo{width:22px;height:22px;border-radius:6px;background:var(--accent);color:var(--bg);display:grid;place-items:center;font-weight:700;font-size:12px}
+/* Shaded like the welcome banner's TX: harbor blue to lavender. */
+.logo{width:22px;height:22px;border-radius:6px;background:linear-gradient(90deg,var(--harbor),var(--lav));color:#fff;display:grid;place-items:center;font-weight:700;font-size:12px}
 .model{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
 .state{font-size:12px;color:var(--muted)}
 .state.dirty{color:var(--warn)}.state.off{color:var(--bad)}
 .actions{margin-left:auto;display:flex;gap:6px}
 button{font:inherit;font-size:13px;color:var(--text);background:transparent;border:1px solid var(--line);border-radius:6px;padding:4px 12px;cursor:pointer}
-button.primary{background:var(--accent);border-color:var(--accent);color:var(--bg);font-weight:600}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 button:disabled{opacity:.45;cursor:default}
 main{padding:12px 16px 32px;max-width:900px}
 .bar{display:flex;flex-wrap:wrap;gap:6px 14px;font-size:12.5px;color:var(--muted);margin-bottom:12px}
