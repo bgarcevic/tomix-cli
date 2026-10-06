@@ -539,7 +539,8 @@ internal sealed class ServeSession : IProtocolMethods
             ["undoSteps"] = status.UndoSteps,
             ["redoSteps"] = status.RedoSteps,
             ["transaction"] = null,
-            ["canReload"] = status.CanReload
+            ["canReload"] = status.CanReload,
+            ["sourceUnavailable"] = status.SourceUnavailable
         };
     }
 

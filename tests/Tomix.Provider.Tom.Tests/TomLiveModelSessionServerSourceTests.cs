@@ -103,15 +103,18 @@ public sealed class TomLiveModelSessionServerSourceTests
         var stale = new TaskCompletionSource<SessionState>(TaskCreationOptions.RunContinuationsAsynchronously);
         session.StateChanged += (_, change) => stale.TrySetResult(change.Current);
 
+        Assert.False(session.SourceUnavailable);
         server.Gone = true;
         server.Poll();
         await Task.Delay(TomLiveModelSession.SourceSettleDelay * 4);
         Assert.Equal(SessionState.Clean, session.State);
+        Assert.True(session.SourceUnavailable);
 
         server.Gone = false;
         server.CommitFromElsewhere();
         server.Poll();
         Assert.Equal(SessionState.Stale, await stale.Task.WaitAsync(TimeSpan.FromSeconds(10)));
+        Assert.False(session.SourceUnavailable);
     }
 
     [Fact]
@@ -123,6 +126,7 @@ public sealed class TomLiveModelSessionServerSourceTests
 
         var ex = await Assert.ThrowsAsync<ModelSourceUnavailableException>(() => EditAndSaveAsync(session));
         Assert.Contains("no longer running", ex.Message);
+        Assert.True(session.SourceUnavailable);
     }
 
     [Fact]

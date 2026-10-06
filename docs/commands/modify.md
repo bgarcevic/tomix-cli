@@ -548,8 +548,10 @@ writes the session's changes anyway, or close the session and connect again
 to take the server's version (unsaved changes are lost).
 
 If Power BI Desktop closes, or the server cannot be reached, commands that
-need it fail with `TOMIX_SESSION_SOURCE_UNAVAILABLE`. The changes are still
-in the session: `save -o <folder>` writes them to files. With `-o`, `save`
+need it fail with `TOMIX_SESSION_SOURCE_UNAVAILABLE`. Within one check the
+shell says so before the prompt, `status` shows it, and the `tx ui` page shows
+a banner. The changes are still in the session: `save -o <folder>` writes them
+to files. With `-o`, `save`
 only writes a copy and never touches the server.
 
 A session cannot open on a Power BI Desktop that has already closed: it fails with

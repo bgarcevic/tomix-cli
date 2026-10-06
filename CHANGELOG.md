@@ -23,7 +23,8 @@ and the API surface that major versions protect.
   `TOMIX_SESSION_STALE` until `save --force`. `session.status` reports `canReload` (#351).
 - A live session whose Power BI Desktop has closed fails with
   `TOMIX_SESSION_SOURCE_UNAVAILABLE` instead of a raw connection error; `save -o <folder>`
-  still writes its changes to files (#351).
+  still writes its changes to files. The shell, `status` (protocol: `sourceUnavailable`) and
+  the `tx ui` page say so as soon as a check finds it gone (#351).
 - `tx refresh` on a PBIP's files (the `.pbip`, its `.SemanticModel` folder, or anything in it)
   now refreshes the model in the Power BI Desktop that has that PBIP open, as Tabular Editor
   does, instead of failing with `TOMIX_REFRESH_NO_REMOTE_TARGET`. It says so with

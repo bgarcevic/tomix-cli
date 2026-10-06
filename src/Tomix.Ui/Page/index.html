@@ -61,6 +61,9 @@ footer{font-size:12px;color:var(--muted);margin-top:24px}
     <button id="reload">Reload from disk</button>
     <button id="keep">Keep this version</button>
   </div>
+  <div class="stale" id="gone" role="alert" hidden>
+    <span id="gone-text"></span>
+  </div>
   <div class="error" id="error" role="alert" hidden></div>
   <h2>Activity</h2>
   <ol id="feed" aria-live="polite"><li class="empty" id="nothing">No changes yet. Edits from any client appear here.</li></ol>
@@ -116,7 +119,11 @@ async function refresh() {
   $("steps").textContent = status.undoSteps + " undo · " + status.redoSteps + " redo";
   $("undo").disabled = !status.undoSteps;
   $("redo").disabled = !status.redoSteps;
-  $("save").disabled = !status.dirty;
+  const gone = status.sourceUnavailable === true;
+  $("gone").hidden = !gone;
+  $("gone-text").textContent = (/^(localhost|127\.0\.0\.1):/i.test(status.model || "") ? "Power BI Desktop is no longer running" : "The server cannot be reached")
+    + ", so this session cannot save to it. Its changes are still here: run 'save -o <folder>' in a shell on this session to write them to files.";
+  $("save").disabled = !status.dirty || gone;
   const txn = status.transaction;
   $("txn").hidden = !txn;
   if (txn) $("txn").textContent = txn.client + " is editing" + (txn.label ? ": “" + txn.label + "”" : "") + ". Its changes appear when it commits.";

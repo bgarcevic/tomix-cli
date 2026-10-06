@@ -89,6 +89,11 @@ internal static class SessionCommands
         AnsiConsole.MarkupLine(Styling.Success(line));
     }
 
+    /// <summary>What <c>status</c> says when the session cannot reach its server (#351).</summary>
+    internal static string Unreachable(string model)
+        => (ModelReference.IsLocalInstanceEndpoint(model) ? "Power BI Desktop is not running" : "cannot be reached")
+            + "; 'save -o <folder>' writes the changes to files";
+
     internal static void RenderStatus(SessionStatusResult status)
     {
         // A model on a server has no source path; name the endpoint instead.
@@ -98,6 +103,8 @@ internal static class SessionCommands
             AnsiConsole.MarkupLine(status.CanReload
                 ? Styling.KeyValue("Files:", "changed outside the session; run 'reload' or 'save --force'")
                 : Styling.KeyValue("Server:", "model changed outside the session; run 'save --force' or connect again"));
+        if (status.SourceUnavailable)
+            AnsiConsole.MarkupLine(Styling.KeyValue("Server:", Styling.Warning(Unreachable(status.Model))));
         AnsiConsole.MarkupLine(Styling.KeyValue("Undo steps:", Styling.Number(status.UndoSteps)));
         AnsiConsole.MarkupLine(Styling.KeyValue("Redo steps:", Styling.Number(status.RedoSteps)));
         AnsiConsole.MarkupLine(Styling.KeyValue("Transaction:", status.Transaction is { } open
