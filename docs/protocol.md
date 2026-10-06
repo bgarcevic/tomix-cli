@@ -1278,8 +1278,9 @@ content differs from what the session last opened, reloaded or saved, it turns
 separately), and back again if the files return to that content. `stale` ends
 with `session.reload` or a `session.save` with `force`.
 
-A session on a server or Power BI Desktop asks the server every 15 seconds
-when the model last changed, and turns `stale` when something else changed it
+A session on a server or Power BI Desktop asks the server whether any object
+in the model changed (every 10 seconds for Power BI Desktop, 30 for a remote
+server), and turns `stale` when something else changed it
 (including a refresh it did not run). It cannot reload: `session.status`
 reports `canReload: false`, and `stale` ends with a `session.save` with
 `force`. When the server cannot be reached (Power BI Desktop closed), requests

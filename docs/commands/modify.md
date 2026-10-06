@@ -539,8 +539,9 @@ the session says so before the next prompt, and `save` fails with
 `status` shows when the files changed.
 
 **A model on a server or in Power BI Desktop.** `save` sends the session's
-changes to the server. Every 15 seconds the session asks the server when the
-model last changed. When something else changed it (Power BI Desktop, another
+changes to the server. The session asks the server whether any object in the
+model changed (every 10 seconds for Power BI Desktop, every 30 for a remote
+server). When something else changed it (Power BI Desktop, another
 tool, or a refresh), the session says so and `save` fails with
 `TOMIX_SESSION_STALE`. The session cannot reload from a server: `save --force`
 writes the session's changes anyway, or close the session and connect again

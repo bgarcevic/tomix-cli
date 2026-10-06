@@ -100,36 +100,43 @@ public sealed class TomLiveModelSessionServerSourceTests
         Assert.Contains("no longer running", ex.Message);
     }
 
-    [Theory]
-    [InlineData("db-1", "2026-10-06T10:00:00.0000000|7")]
-    [InlineData("DB-1", "2026-10-06T10:00:00.0000000|7")]
-    [InlineData("db-2", "2026-10-06T11:00:00.0000000|")]
-    [InlineData("db-3", "missing")]
-    public void TheFingerprint_IsWhenTheServerLastChangedTheDatabase(string databaseId, string expected)
+    [Fact]
+    public void ATimedRowset_IsItsRowCountAndLatestChange()
     {
-        var catalogs = new DataTable();
-        catalogs.Columns.Add("DATABASE_ID", typeof(string));
-        catalogs.Columns.Add("DATE_MODIFIED", typeof(DateTime));
-        catalogs.Columns.Add("VERSION", typeof(long));
-        catalogs.Rows.Add("db-1", new DateTime(2026, 10, 6, 10, 0, 0), 7L);
-        catalogs.Rows.Add("db-2", new DateTime(2026, 10, 6, 11, 0, 0), DBNull.Value);
+        var measures = new DataTable();
+        measures.Columns.Add("ModifiedTime", typeof(DateTime));
+        measures.Rows.Add(new DateTime(2026, 10, 5, 4, 35, 7));
+        measures.Rows.Add(new DateTime(2026, 10, 6, 9, 0, 0));
+        measures.Rows.Add(DBNull.Value);
 
-        using var rows = catalogs.CreateDataReader();
-        Assert.Equal(expected, TomServerModelSource.FingerprintOf(rows, databaseId));
+        using var rows = measures.CreateDataReader();
+        Assert.Equal("3|2026-10-06T09:00:00.0000000", TomServerModelSource.TimedPartOf(rows));
     }
 
     [Fact]
-    public void TheSchemaPartOfTheFingerprint_IsTheLatestSchemaUpdate()
+    public void AnUntimedRowset_IsItsContent_InAnyRowOrder()
     {
-        var cubes = new DataTable();
-        cubes.Columns.Add("LAST_SCHEMA_UPDATE", typeof(DateTime));
-        cubes.Rows.Add(new DateTime(2026, 10, 5, 4, 35, 7));
-        cubes.Rows.Add(new DateTime(2026, 10, 6, 9, 0, 0));
-        cubes.Rows.Add(DBNull.Value);
+        static string Part(params (string Id, string Folder)[] groups)
+        {
+            var table = new DataTable();
+            table.Columns.Add("ID", typeof(string));
+            table.Columns.Add("Folder", typeof(string));
+            foreach (var (id, folder) in groups)
+                table.Rows.Add(id, folder);
+            using var rows = table.CreateDataReader();
+            return TomServerModelSource.ContentPartOf(rows);
+        }
 
-        using var rows = cubes.CreateDataReader();
-        Assert.Equal("2026-10-06T09:00:00.0000000", TomServerModelSource.SchemaUpdateOf(rows));
+        Assert.Equal(Part(("1", "Sales"), ("2", "Finance")), Part(("2", "Finance"), ("1", "Sales")));
+        Assert.NotEqual(Part(("1", "Sales"), ("2", "Finance")), Part(("1", "Sales"), ("2", "Budget")));
+        Assert.NotEqual(Part(("1", "Sales")), Part(("1", "Sales"), ("2", "Finance")));
     }
+
+    [Theory]
+    [InlineData("localhost:51234", 10)]
+    [InlineData("powerbi://api.powerbi.com/v1.0/myorg/Sales", 30)]
+    public void ALocalDesktop_IsPolledMoreOftenThanARemoteServer(string endpoint, int seconds)
+        => Assert.Equal(TimeSpan.FromSeconds(seconds), TomServerModelSource.PollInterval(new ModelReference(endpoint)));
 
     [Theory]
     [InlineData("localhost:51234", false, true)]

@@ -128,22 +128,39 @@ internal abstract class TomModelSource : IAsyncDisposable
 /// checkpoints restore with <c>CopyTo</c>, and a session cannot reload it.
 /// </summary>
 /// <remarks>
-/// The server's model is watched by polling when it was last modified (#351). Every call that
-/// reaches the server first checks that a Power BI Desktop instance is still listening, so a
-/// session that outlived Desktop fails with <see cref="ModelSourceUnavailableException"/>.
+/// The server's model is watched by polling its <c>TMSCHEMA_*</c> rowsets (#351): a model-level
+/// timestamp does not move when a child object such as an annotation or a measure changes.
+/// Every call that reaches the server first checks that a Power BI Desktop instance is still
+/// listening, so a session that outlived Desktop fails with <see cref="ModelSourceUnavailableException"/>.
 /// </remarks>
 internal sealed class TomServerModelSource(TabularServer server, Database database, ModelReference reference, IAccessTokenProvider? tokenProvider)
     : TomModelSource(reference, tokenProvider)
 {
-    /// <summary>How often the session asks the server whether its model changed.</summary>
-    internal static readonly TimeSpan PollInterval = TimeSpan.FromSeconds(15);
+    /// <summary>
+    /// The rowsets of objects with a <c>ModifiedTime</c>: a change to one moves its time, and
+    /// adding or removing one changes the row count.
+    /// </summary>
+    internal static readonly IReadOnlyList<string> TimedRowsets =
+    [
+        "MODEL", "DATA_SOURCES", "TABLES", "COLUMNS", "PARTITIONS", "RELATIONSHIPS", "MEASURES",
+        "HIERARCHIES", "LEVELS", "ANNOTATIONS", "KPIS", "CULTURES", "OBJECT_TRANSLATIONS",
+        "LINGUISTIC_METADATA", "PERSPECTIVES", "PERSPECTIVE_TABLES", "PERSPECTIVE_COLUMNS",
+        "PERSPECTIVE_HIERARCHIES", "PERSPECTIVE_MEASURES", "ROLES", "ROLE_MEMBERSHIPS",
+        "TABLE_PERMISSIONS", "COLUMN_PERMISSIONS", "EXPRESSIONS", "DETAIL_ROWS_DEFINITIONS",
+        "EXTENDED_PROPERTIES", "FORMAT_STRING_DEFINITIONS", "CALCULATION_GROUPS",
+        "CALCULATION_ITEMS", "DATA_COVERAGE_DEFINITIONS"
+    ];
 
-    // ExecuteReader wraps the command in Execute/Command; a DMV query goes in a Statement there.
-    private const string CatalogsQuery =
-        "<Statement xmlns=\"urn:schemas-microsoft-com:xml-analysis\">SELECT [DATABASE_ID], [DATE_MODIFIED], [VERSION] FROM $SYSTEM.DBSCHEMA_CATALOGS</Statement>";
+    /// <summary>The rowsets without a <c>ModifiedTime</c>, compared by content. They are small.</summary>
+    internal static readonly IReadOnlyList<string> UntimedRowsets =
+    [
+        "VARIATIONS", "QUERY_GROUPS", "REFRESH_POLICIES", "ALTERNATE_OF", "FUNCTIONS", "CALENDARS",
+        "CALENDAR_COLUMN_GROUPS", "CALENDAR_COLUMN_REFERENCES", "BINDING_INFOS"
+    ];
 
-    private const string CubesQuery =
-        "<Statement xmlns=\"urn:schemas-microsoft-com:xml-analysis\">SELECT [LAST_SCHEMA_UPDATE] FROM $SYSTEM.MDSCHEMA_CUBES</Statement>";
+    // The rowsets this server has, found on the first fingerprint: older servers and lower
+    // compatibility levels lack some, and they are skipped from then on.
+    private IReadOnlyList<(string Rowset, bool Timed)>? _rowsets;
 
     public TabularServer Server => server;
 
@@ -168,31 +185,47 @@ internal sealed class TomServerModelSource(TabularServer server, Database databa
         => Reach(() => TomServerModelSession.SaveAsync(database, ModelName(database), outputPath, serialization, overwrite, cancellationToken));
 
     /// <summary>
-    /// When the server last changed the database (<c>DBSCHEMA_CATALOGS</c>) and its schema
-    /// (<c>MDSCHEMA_CUBES</c>); a refresh can move either. Callers serialize it with every other
-    /// use of <see cref="Server"/>.
+    /// A hash of every rowset's row count and latest <c>ModifiedTime</c> (or content, for the
+    /// rowsets without one). A refresh can move it. Callers serialize it with every other use of
+    /// <see cref="Server"/>.
     /// </summary>
     public override string? Fingerprint()
         => Reach(() =>
         {
-            var catalog = Read(CatalogsQuery, null, rows => FingerprintOf(rows, database.ID));
-            if (catalog == "missing")
-                return catalog;
+            var probing = _rowsets is null;
+            var rowsets = _rowsets ?? [.. TimedRowsets.Select(r => (r, true)), .. UntimedRowsets.Select(r => (r, false))];
+            var found = new List<(string, bool)>();
+            var properties = new Dictionary<string, string> { ["Catalog"] = database.Name };
+            using var hash = System.Security.Cryptography.IncrementalHash.CreateHash(System.Security.Cryptography.HashAlgorithmName.SHA256);
+            foreach (var (rowset, timed) in rowsets)
+            {
+                var query = $"<Statement xmlns=\"urn:schemas-microsoft-com:xml-analysis\">SELECT {(timed ? "[ModifiedTime]" : "*")} FROM $SYSTEM.TMSCHEMA_{rowset}</Statement>";
+                using var rows = server.ExecuteReader(query, out var results, properties, true);
+                if (rows is null)
+                {
+                    if (probing)
+                        continue;
+                    throw new InvalidOperationException($"The server did not say whether {DisplayName} changed: {XmlaMessages(results)}");
+                }
 
-            var schema = Read(CubesQuery, new Dictionary<string, string> { ["Catalog"] = database.Name }, SchemaUpdateOf);
-            return $"{catalog}|{schema}";
+                found.Add((rowset, timed));
+                hash.AppendData(System.Text.Encoding.UTF8.GetBytes($"{rowset}:{(timed ? TimedPartOf(rows) : ContentPartOf(rows))}\n"));
+            }
+
+            _rowsets ??= found;
+            return Convert.ToHexString(hash.GetHashAndReset());
         });
 
-    private T Read<T>(string query, System.Collections.IDictionary? properties, Func<System.Data.IDataReader, T> read)
+    public override IDisposable? Watch(Action changed)
     {
-        using var rows = server.ExecuteReader(query, out var results, properties, true)
-            ?? throw new InvalidOperationException(
-                $"The server did not say when {DisplayName} last changed: {XmlaMessages(results)}");
-        return read(rows);
+        var every = PollInterval(Reference);
+        return new Timer(_ => changed(), null, every, every);
     }
 
-    public override IDisposable? Watch(Action changed)
-        => new Timer(_ => changed(), null, PollInterval, PollInterval);
+    /// <summary>How often the session asks the server whether its model changed: often for a
+    /// local Power BI Desktop, less for a remote server, which answers each poll with ~40 queries.</summary>
+    internal static TimeSpan PollInterval(ModelReference reference)
+        => reference.IsLocalInstance ? TimeSpan.FromSeconds(10) : TimeSpan.FromSeconds(30);
 
     /// <summary>Runs <paramref name="call"/> against the server, failing fast with
     /// <see cref="ModelSourceUnavailableException"/> when it cannot be reached.</summary>
@@ -219,34 +252,34 @@ internal sealed class TomServerModelSource(TabularServer server, Database databa
         return ValueTask.CompletedTask;
     }
 
-    /// <summary>The fingerprint of <paramref name="databaseId"/> in a <c>DBSCHEMA_CATALOGS</c>
-    /// result, or <c>missing</c> when the server no longer has it.</summary>
-    internal static string FingerprintOf(System.Data.IDataReader rows, string databaseId)
+    /// <summary>A rowset of timed objects as its row count and latest <c>ModifiedTime</c>.</summary>
+    internal static string TimedPartOf(System.Data.IDataReader rows)
     {
-        while (rows.Read())
-        {
-            if (!string.Equals(Convert.ToString(rows["DATABASE_ID"], System.Globalization.CultureInfo.InvariantCulture), databaseId, StringComparison.OrdinalIgnoreCase))
-                continue;
-
-            var modified = rows["DATE_MODIFIED"] is DateTime at ? at.ToString("O", System.Globalization.CultureInfo.InvariantCulture) : "";
-            var version = Convert.ToString(rows["VERSION"], System.Globalization.CultureInfo.InvariantCulture);
-            return $"{modified}|{version}";
-        }
-
-        return "missing";
-    }
-
-    /// <summary>The latest <c>LAST_SCHEMA_UPDATE</c> in an <c>MDSCHEMA_CUBES</c> result.</summary>
-    internal static string SchemaUpdateOf(System.Data.IDataReader rows)
-    {
+        var count = 0;
         DateTime? latest = null;
         while (rows.Read())
         {
-            if (rows["LAST_SCHEMA_UPDATE"] is DateTime at && (latest is null || at > latest))
+            count++;
+            if (rows["ModifiedTime"] is DateTime at && (latest is null || at > latest))
                 latest = at;
         }
 
-        return latest?.ToString("O", System.Globalization.CultureInfo.InvariantCulture) ?? "";
+        return $"{count}|{latest?.ToString("O", System.Globalization.CultureInfo.InvariantCulture)}";
+    }
+
+    /// <summary>A rowset as its rows' values, in an order that does not depend on the server's.</summary>
+    internal static string ContentPartOf(System.Data.IDataReader rows)
+    {
+        var lines = new List<string>();
+        var values = new object[rows.FieldCount];
+        while (rows.Read())
+        {
+            rows.GetValues(values);
+            lines.Add(string.Join("\u001f", values.Select(value => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture))));
+        }
+
+        lines.Sort(StringComparer.Ordinal);
+        return string.Join("\u001e", lines);
     }
 
     /// <summary>Whether <paramref name="endpoint"/> is a local instance (Power BI Desktop) that no

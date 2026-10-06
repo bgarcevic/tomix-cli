@@ -412,9 +412,10 @@ public sealed class TomLiveModelSession : ILiveModelSession
         {
             // Closed while the source settled.
         }
-        catch (ModelSourceUnavailableException)
+        catch (Exception ex) when (ex is ModelSourceUnavailableException or InvalidOperationException or Microsoft.AnalysisServices.AmoException)
         {
-            // The server is gone; the next call that needs it says so.
+            // The server is gone or did not answer; the next poll asks again, and the next call
+            // that needs the server says so.
         }
     }
 
