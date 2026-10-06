@@ -12,6 +12,11 @@ and the API surface that major versions protect.
 
 ## [0.9.0] - 2026-10-06
 
+The live session (`tx interactive`, `tx serve`, `tx ui`) is a preview: its protocol and options
+may still change. A live session does not yet notice when other tools change its model's files
+(for example a `git checkout` or an edit in Power BI Desktop), and saving from it overwrites
+those changes; save or close the session before changing the files another way (#351).
+
 ### Added
 
 - `tx interactive` (alias `tx shell`) opens a model once and keeps it in memory: commands such
