@@ -137,18 +137,25 @@ function describe(change) {
   }
 }
 
-// A Map, not an object: a method name the server sends must not reach the prototype's members.
-const events = new Map(Object.entries({
-  "model.changed": p => {
-    const lines = (p.changes || []).slice(0, 20).map(c => ({ kind: c.change, text: describe(c) }));
-    if ((p.changes || []).length > 20) lines.push({ text: "and " + (p.changes.length - 20) + " more" });
-    const via = p.origin && p.origin.kind !== "apply" ? " (" + p.origin.kind + ")" : "";
-    if (via) lines.unshift({ text: p.origin.kind === "undo" ? "Undid a step" : p.origin.kind === "redo" ? "Redid a step" : "Reloaded" });
-    add(p.origin && p.origin.client, lines);
-  },
-  "session.saved": p => add(null, [{ text: "Saved to " + p.savedTo }]),
-  "transaction.closed": p => { if (p.outcome !== "committed") add(p.client, [{ text: "Rolled back its open changes" }]); }
-}));
+// A switch, not a lookup by name: a method name the server sends picks no function itself.
+function onEvent(method, p) {
+  switch (method) {
+    case "model.changed": {
+      const lines = (p.changes || []).slice(0, 20).map(c => ({ kind: c.change, text: describe(c) }));
+      if ((p.changes || []).length > 20) lines.push({ text: "and " + (p.changes.length - 20) + " more" });
+      const via = p.origin && p.origin.kind !== "apply" ? " (" + p.origin.kind + ")" : "";
+      if (via) lines.unshift({ text: p.origin.kind === "undo" ? "Undid a step" : p.origin.kind === "redo" ? "Redid a step" : "Reloaded" });
+      add(p.origin && p.origin.client, lines);
+      break;
+    }
+    case "session.saved":
+      add(null, [{ text: "Saved to " + p.savedTo }]);
+      break;
+    case "transaction.closed":
+      if (p.outcome !== "committed") add(p.client, [{ text: "Rolled back its open changes" }]);
+      break;
+  }
+}
 
 function connect() {
   socket = new WebSocket("ws://" + location.host + "/ws?token=" + encodeURIComponent(token));
@@ -169,8 +176,7 @@ function connect() {
       else waiter.resolve(data.result);
       return;
     }
-    const handle = events.get(data.method);
-    if (handle) handle(data.params || {});
+    onEvent(data.method, data.params || {});
     refresh();
   };
   socket.onclose = () => {
