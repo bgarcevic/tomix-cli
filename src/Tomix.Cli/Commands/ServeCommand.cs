@@ -113,9 +113,11 @@ internal sealed class ServeCommand : ICommandModule
                 log.WriteLine($"[tx serve] listening on stdio{(session is null ? "" : $" with {session.Reference.Value} open")}");
                 var serving = server.RunAsync(cancellationToken);
 
-                // A read on stdin may not cancel, so the server is not waited for once stopped.
+                // A read on stdin may not cancel, so the server is not waited for once stopped. When
+                // the read does cancel, the server ends as well: being stopped decides the exit code.
                 var stopped = Task.Delay(Timeout.Infinite, cancellationToken);
-                if (await Task.WhenAny(serving, stopped) == serving)
+                await Task.WhenAny(serving, stopped);
+                if (!stop.IsCancellationRequested)
                     return await serving;
                 log.WriteLine(stopCode == ConsoleSignals.InterruptExitCode ? "[tx serve] interrupted (Ctrl+C)" : "[tx serve] terminated");
                 return stopCode;

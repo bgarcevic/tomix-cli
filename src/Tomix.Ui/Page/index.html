@@ -137,7 +137,8 @@ function describe(change) {
   }
 }
 
-const events = {
+// A Map, not an object: a method name the server sends must not reach the prototype's members.
+const events = new Map(Object.entries({
   "model.changed": p => {
     const lines = (p.changes || []).slice(0, 20).map(c => ({ kind: c.change, text: describe(c) }));
     if ((p.changes || []).length > 20) lines.push({ text: "and " + (p.changes.length - 20) + " more" });
@@ -147,7 +148,7 @@ const events = {
   },
   "session.saved": p => add(null, [{ text: "Saved to " + p.savedTo }]),
   "transaction.closed": p => { if (p.outcome !== "committed") add(p.client, [{ text: "Rolled back its open changes" }]); }
-};
+}));
 
 function connect() {
   socket = new WebSocket("ws://" + location.host + "/ws?token=" + encodeURIComponent(token));
@@ -168,7 +169,8 @@ function connect() {
       else waiter.resolve(data.result);
       return;
     }
-    if (events[data.method]) events[data.method](data.params || {});
+    const handle = events.get(data.method);
+    if (handle) handle(data.params || {});
     refresh();
   };
   socket.onclose = () => {
