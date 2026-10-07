@@ -50,8 +50,8 @@ and the API surface that major versions protect.
   themes. Color is kept for status (red, yellow, green) and DAX and M highlighting; names,
   paths and values print plain, options bold, and secondary text dimmed. DAX keywords are
   magenta, functions bright blue, measure references cyan, and literals green; tables,
-  columns and variables are no longer colored. The `tx ui` page moves to warm neutrals with a
-  single persimmon accent.
+  columns and variables are no longer colored. Help section headings are bold and
+  uppercase (`USAGE`, `DISCOVER`), and the command and option names under them regular weight. The `tx ui` page moves to warm neutrals with a single persimmon accent.
 
 ### Fixed
 
