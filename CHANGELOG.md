@@ -12,6 +12,14 @@ and the API surface that major versions protect.
 
 ### Added
 
+- `tx mcp` serves a model session to AI agents (Claude Code, Codex, Cursor and others) as Model
+  Context Protocol tools on stdio: `claude mcp add tomix -- tx mcp`. Each tool calls the session
+  protocol method of the same name, so an agent's edit is one undo step, and
+  `transaction_begin`/`transaction_commit` group several under a label. When `tx ui` holds the
+  model, `tx mcp` joins that session, so you watch, undo and save the agent's work in the page.
+  Every tool says whether it writes (`readOnlyHint`, `destructiveHint`), and `--read-only` lists
+  only the ones that change nothing (#354).
+
 - A client of a live session (`tx serve`, `tx ui`) can ask in `initialize` for
   `capabilities.diagnostics`. The host then recomputes dependencies, DAX diagnostics and,
   with `{ "bpa": true }`, BPA findings 250 ms after the last change and sends
