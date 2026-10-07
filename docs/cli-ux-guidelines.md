@@ -48,9 +48,11 @@ the bottom for where each concern lives.
   and names the globals on one line instead of repeating them.
 - Group subcommands into sections in root help (Discover / Modify / Connect /
   Validate / Manage). A flat list of 30+ commands is unusable.
-- Group a long option list with `HelpGroups` tags (`Save options:`, `Rule
-  options:`, ...). The mutation lifecycle flags are tagged by `LifecycleOptions`;
-  compatibility forms go in `Compatibility options:`, last.
+- Section headings are bold and uppercase on their own line (`USAGE`, `DISCOVER`,
+  `GLOBAL OPTIONS`); the command and option names under them stay regular weight.
+- Group a long option list with `HelpGroups` tags (`Save options`, `Rule
+  options`, ...). The mutation lifecycle flags are tagged by `LifecycleOptions`;
+  compatibility forms go in `Compatibility options`, last.
 - Help wraps to the terminal width (capped at 100) with hanging indents, and is
   not wrapped when redirected. Every page must fit in 80 columns
   (`HelpLayoutTests`).

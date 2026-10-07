@@ -60,6 +60,7 @@ The most common forms of color blindness (deuteranopia and protanopia) merge red
 |--------------------|-----------------------------------------------|--------------------------------------------------|
 | Banner             | `[bold]` on title                             | `[bold]tx doctor[/]`                            |
 | Section header     | `[bold]` label                                | `[bold]Tables[/] (4)`                            |
+| Help               | `[bold]` headings, plain command and option names | `[bold]Discover:[/]` then `summary  ...`     |
 | Status progress    | Info                                          | spinner frame in cyan, label plain               |
 | Success            | Success                                       | `Saved: model.tmdl` in green                     |
 | Warning            | Warning                                       | `Changes not saved.` in yellow                   |
