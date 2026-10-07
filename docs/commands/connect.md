@@ -194,7 +194,15 @@ tx refresh [options]
 ```sh
 tx refresh --refresh-type full
 tx refresh --table Sales --table Customers
+tx refresh --model "Sales.SemanticModel" --table Sales   # the PBIP open in Power BI Desktop
 ```
+
+Files cannot be refreshed, so the target is a deployed model: the connection's server, or its
+workspace-mode secondary. When the model is a PBIP's files (the `.pbip`, its `.SemanticModel`
+folder, or anything in it) and no remote target is set, `refresh` runs in the Power BI Desktop
+that has that PBIP open, and says so. Save in Desktop to keep the data. Desktop is found from the
+file it was started with, so a project opened from Desktop's File menu is not matched: pass
+`--server localhost:<port>` (`tx connect --local --list` shows it) instead.
 
 While it runs, a live panel shows the elapsed time, how many tables are done and in progress,
 and the rows loaded so far, then one line per in-progress table — oldest first, capped at six —
@@ -255,6 +263,7 @@ tx save [model] [options]
 | `--supporting-files` | Write a `{modelName}.SemanticModel/` folder (with `.platform` and `definition.pbism`) around the output. |
 | `--fix-bpa` / `--bpa-rules <file>` | Apply BPA rule fixes before saving, optionally with specific rule files. |
 | `--overwrite` | Replace an existing output file or directory. |
+| `-f, --force` | In a live session (`tx interactive`, `tx ui`), write over changes made to the model's files outside it, instead of failing with `TOMIX_SESSION_STALE`. |
 
 ```sh
 tx save -s MyWorkspace -d Sales -o ./sales.tmdl          # download a deployed model

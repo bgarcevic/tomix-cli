@@ -479,6 +479,222 @@ A piped expression is read only when nothing else names what to format: with a
 model, `--path`, `--save`, `--save-to`, `--stage`, or `--revert`, `format` leaves
 stdin alone and formats the model. Pass `-e -` to read stdin anyway.
 
+## `interactive` — edit in a session
+
+```
+tx interactive [model] [options]
+```
+
+Alias: `tx shell`. Opens the model once and keeps it in memory, then reads
+commands until `exit` or the end of input. With no model argument it opens the
+active connection's model, or starts with no model open when there is none. Every command works as it does on
+the command line, with its usual flags, and runs against the in-memory model;
+leave out the model argument and it uses the session's. Commands that need
+something other than the model (`deploy`, `refresh`, `query`, `test`, `stage`,
+...) are not available inside a session and say so.
+
+`connect` works inside a session exactly as it does outside, `--recent`,
+`--local` and `--remote` included: it sets the active connection, and the
+session then opens that model in place of the one it has open. Unsaved changes
+are handled as on `exit` (asked about at a terminal, refused in a script unless
+`--discard-on-exit` or `--yes`), and a model that fails to open leaves the
+current one and its changes as they were. `connect` with no arguments,
+`--list` and `--clear` only show or change the connection.
+
+Edits are kept, not previewed: `set`, `add`, `rm` and the other modify commands
+change the session's model, and nothing is written until you run `save`. The
+prompt marks unsaved changes with `*`, for example `basic-tmdl* >`. `save` is
+`tx save` on the session: with no `-o` it writes back to the source and clears
+the mark, and `-o`, `--serialization` and `--fix-bpa` work as usual.
+`--save` on a modify command applies the change and saves at once.
+`--stage` and `--revert` are rejected (`TOMIX_SESSION_STAGE_UNSUPPORTED`):
+undo and transactions take their place.
+
+Inside a session these commands also work:
+
+| Command | Description |
+|---------|-------------|
+| `undo` | Revert the last change as one step. A command that changed several objects (a rename and its reference fixups, a `replace`) undoes as one step. |
+| `redo` | Reapply the last undone change. A new change clears the redo steps. |
+| `begin [name]` | Group the following commands into one undo step. |
+| `commit` | Keep the open transaction's changes as one step. |
+| `rollback` | Discard the open transaction's changes. |
+| `status` | The model, unsaved changes, undo and redo steps, and the open transaction. |
+| `history` | The changes undo can revert and redo can reapply, labelled with the command that made them. |
+| `reload [--discard]` | Read the model's files again after they changed outside the session. Clears undo history; with unsaved changes it needs `--discard`. |
+| `exit`, `quit` | Leave the session. |
+| `help` | List the commands that work in the session. |
+
+The session keeps the last 50 undo steps. A command that fails changes nothing.
+
+**Files changed outside the session.** The session watches the model's files.
+When something else changes them (a `git checkout`, a pull, another editor),
+the session says so before the next prompt, and `save` fails with
+`TOMIX_SESSION_STALE` instead of overwriting that change. Then either:
+
+- `reload` takes the files' version. It discards unsaved changes (pass
+  `--discard` when there are some) and the undo history.
+- `save --force` keeps the session's version and writes it over the files.
+
+`status` shows when the files changed.
+
+**A model on a server or in Power BI Desktop.** `save` sends the session's
+changes to the server. The session asks the server whether any object in the
+model changed (every 10 seconds for Power BI Desktop, every 30 for a remote
+server). When something else changed it (Power BI Desktop, another
+tool, or a refresh), the session says so and `save` fails with
+`TOMIX_SESSION_STALE`. The session cannot reload from a server: `save --force`
+writes the session's changes anyway, or close the session and connect again
+to take the server's version (unsaved changes are lost).
+
+If Power BI Desktop closes, or the server cannot be reached, commands that
+need it fail with `TOMIX_SESSION_SOURCE_UNAVAILABLE`. Within one check the
+shell says so before the prompt, `status` shows it, and the `tx ui` page shows
+a banner. The changes are still in the session: `save -o <folder>` writes them
+to files. With `-o`, `save`
+only writes a copy and never touches the server.
+
+A session cannot open on a Power BI Desktop that has already closed: it fails with
+`TOMIX_DESKTOP_NOT_RUNNING`. Open the report again and run `tx connect --local`.
+
+Leaving with unsaved changes (or an open transaction) asks first at a
+terminal. Anywhere else it fails with `TOMIX_SESSION_DIRTY` and exit code 1
+unless `--discard-on-exit` or `--yes` says to discard them.
+
+**Scripts.** Piped or redirected input runs as a script: no prompts, one
+command per line, blank lines and lines starting with `#` skipped. The script
+stops at the first failing command and exits with its code; `--no-batch` runs
+past failures and exits with the first failure's code. Global options given to
+`tx interactive` apply to every line that does not set them, so
+`--output-format json` gives one JSON result per command.
+
+| Option | Description |
+|--------|-------------|
+| `--autosave` | Save after every command that changes the model. |
+| `--discard-on-exit` | Leave without asking, discarding unsaved changes. `--yes` does the same. |
+| `--echo` | Print each command (to stderr) before it runs. |
+| `--no-batch` | Keep running a script after a command fails. |
+| `--no-banner` | Start without the welcome lines. |
+
+At a terminal the session starts with a welcome screen: the open model's name,
+compatibility level, object counts and where it saves (or how to open one),
+the keys to know, and a tip. `--no-banner` skips it. The prompt names the
+model, `tx [basic-tmdl]>`, adds `*` for unsaved changes, and is `tx>` with no
+model open. It has line editing, Up/Down history and Tab completion. Ctrl-C
+cancels the running command, not the session, and Ctrl-D (or Ctrl-Z on
+Windows) on an empty line leaves.
+
+```sh
+tx interactive ./model
+tx shell                                      # the active connection's model
+tx interactive ./model --echo < edits.txt     # run a script; stops at the first failure
+```
+
+An interactive session opens TMDL folders and `.bim` files.
+
+## `serve` — serve a session to other programs
+
+```
+tx serve [model] [options]
+```
+
+Holds a model session like `tx interactive`, but for programs instead of a
+person: editors, the tomix UI and agents send requests on stdin and read
+answers and change events on stdout, in the [session protocol](../protocol.md)
+(JSON-RPC 2.0 with `Content-Length` framing). Each request runs the matching
+command on the session, so its result is that command's `--output-format json`
+payload; edits stay in memory until `session.save`, and undo, redo and
+transactions work as in `tx interactive`.
+
+With a model argument the session opens it at start; without one the client
+sends `session.open`. stdout carries only protocol frames. The server's log
+(one line per request) goes to stderr, or to a file with `--log`.
+
+| Option | Description |
+|--------|-------------|
+| `--log <file>` | Append the server's log to this file instead of writing it to stderr. |
+
+The server exits 0 after `shutdown` and `exit`, and 1 when `exit` comes
+without `shutdown`. When the client disconnects (the end of stdin), the server
+discards unsaved changes, says so in its log, and exits 0. Ctrl+C (or SIGTERM)
+does the same and exits 130 (143), even while the client keeps stdin open. Requests run one at
+a time in arrival order; `$/cancelRequest` cancels one that is waiting or
+running. `initialize` lists the methods this version serves: `query.run`,
+`$/progress` and `diagnostics.updated` are in the spec but not served yet.
+
+```sh
+tx serve ./model
+tx serve --log serve.log
+```
+
+`tx serve` opens TMDL folders and `.bim` files, as `tx interactive` does.
+
+When `tx ui` already holds the model, `tx serve ./model` joins that session
+instead of opening a second one: it passes its client's messages to it, so the
+client is one more client of the shared session. Leaving (the end of stdin, or
+`exit`) then detaches the client and leaves the session and its unsaved changes
+to `tx ui`.
+
+## `ui` — share a session with the browser and agents
+
+```
+tx ui [model] [options]
+```
+
+Holds a model session like `tx serve`, and shares it on `127.0.0.1` so a
+browser page and agents work on the same open model at the same time: the agent
+edits through `tx serve` (or `tx mcp`), and you watch, undo and save in the
+page. Every client sees every change as it happens.
+
+Without a model argument it opens the active connection's model. It prints the
+page's URL, which carries the session's token, on stdout, and records the
+session in `~/.tomix/live/` so other `tx` processes find it. A second `tx ui`
+on the same model prints the running session's URL instead of opening another.
+
+| Option | Description |
+|--------|-------------|
+| `--port <port>` | Listen on this port. Default: a free one. |
+| `--open` | Open the page in the default browser. Without one, open the printed URL yourself. |
+| `--grace <seconds>` | Keep running this long after the last client leaves. Default: 30. |
+| `--log <file>` | Append the session's request log to this file. |
+
+`tx ui` stops on Ctrl+C, or once no client has been connected for `--grace`
+seconds. It never discards unsaved changes on its own: with changes unsaved,
+the grace period passes without stopping, and Ctrl+C asks to be pressed again.
+Before the first client connects, it waits.
+
+```sh
+tx ui ./model --open
+tx ui ./model --port 7411 --grace 300
+tx ui ./model --output-format json            # {"data": {"url", "port", "model", "processId", "joined"}}
+```
+
+While `tx ui` holds a model, the one-shot commands that work on it (`add`,
+`bpa run`, `deps`, `find`, `format`, `get`, `ls`, `mv`, `replace`, `rm`,
+`save`, `set`, `summary` and `validate`) run in its session instead of on the
+files, so `tx set` from an agent or another terminal shows up in the page and
+can be undone there. They see the session's unsaved edits; their own edits stay
+unsaved until `tx save` (or `--save`), as in `tx interactive`. A command that
+would prompt fails and names the flag to pass instead, and `--stage` is refused,
+since the session already holds the edits. `--recent` and the other commands
+still work on the files.
+
+```sh
+tx ui ./model &
+tx set Sales/Revenue ./model -p FormatString='#,0'   # one undo step in the session
+tx save ./model                                      # writes the session
+```
+
+When the model's files change outside the session, the page says so and
+offers to reload them or keep the session's version, and `tx save` from any
+client fails with `TOMIX_SESSION_STALE` until one of the two is chosen
+(`tx save --force` keeps the session's version), as in `tx interactive`.
+
+The page is a small companion view for now: the model, its unsaved state, who
+else is connected, an activity feed of every client's changes, and Undo, Redo
+and Save. The full tomix UI replaces it. In the Claude desktop app, open the
+URL in the built-in browser pane to keep the page next to the agent.
+
 ## Refresh policies
 
 Policies are table child objects, inspected and edited with `get`, `set`, and `rm`:

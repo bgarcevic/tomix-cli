@@ -109,11 +109,48 @@ Emitted by `get`, `deps`, and `format --path` when a model object path fails to 
 | `TOMIX_STAGE_SOURCE_DRIFT` | 1 | The staged model source has changed since staging. |
 | `TOMIX_STAGE_COMMIT_REMOTE_FAILED` | 1 | Failed to deploy staged changes to the remote endpoint. |
 | `TOMIX_STAGE_COMMIT_LOCAL_FAILED` | 1 | Failed to apply staged changes locally. |
+| `TOMIX_STAGE_PENDING` | 2 | `tx interactive` on a model with staged changes. A session does not pick them up; run `tx stage commit` or `tx stage discard` first. |
 | `TOMIX_STAGE_MATERIALIZE_FAILED` | 1 | Failed to materialize the working copy. |
 | `TOMIX_STAGE_OPTIONS_CONFLICT` | 2 | Conflicting stage options (`--revert` combined with `--save`, `--save-to`, or `--stage`). |
 | `TOMIX_STAGE_SAVE_CONFLICT` | 2 | Conflicting save options (e.g. `--save` and `--stage` together). |
 | `TOMIX_STAGE_NOTHING_STAGED` | 1 | `--revert` called with no staged mutation for the model. |
 | `TOMIX_STAGE_MANIFEST_CORRUPT` | 2 | A staged manifest exists but no longer parses (torn write, manual edit). Run `tx stage discard` to reset staging for the model. |
+
+## Live Session Codes (`TOMIX_SESSION_*`)
+
+Raised when a command runs against an open live session (`tx shell` and the other session front ends) instead of opening the model itself.
+
+| Code | Exit | Trigger |
+|------|------|---------|
+| `TOMIX_SESSION_STAGE_UNSUPPORTED` | 2 | `--stage` or `--revert` on a live session. Its edits already stay in the session until it saves. |
+| `TOMIX_SESSION_MODEL_MISMATCH` | 2 | The command names a different model from the one the live session holds. |
+| `TOMIX_SESSION_DIRTY` | 1 | `tx interactive` reached `exit` or the end of its input with unsaved changes or an open transaction, and could not ask. Run `save`, or pass `--discard-on-exit` or `--yes`. `reload` would discard unsaved changes; pass `--discard`. From `tx serve`: `session.open`, `session.close` or `session.reload` would discard unsaved changes; save first or pass `"discard": true`. |
+| `TOMIX_SESSION_NO_MODEL` | 2 | `tx interactive` has no model open for the command. Run `connect <path>` first. From `tx serve`: send `session.open` first. |
+| `TOMIX_SESSION_COMMAND_UNAVAILABLE` | 2 | The command does not run inside an interactive session. Run it outside. |
+| `TOMIX_SESSION_SOURCE_UNSUPPORTED` | 2 | `tx interactive` cannot open this model yet; it opens TMDL folders and `.bim` files. Also `reload` on a session that cannot read its source again (a server-backed model). |
+| `TOMIX_SESSION_NOTHING_TO_UNDO` | 1 | `undo` with no change to revert. |
+| `TOMIX_SESSION_NOTHING_TO_REDO` | 1 | `redo` with no undone change to reapply. |
+| `TOMIX_SESSION_IN_TRANSACTION` | 2 | `undo` or `redo` while a transaction is open. Run `commit` or `rollback` first. |
+| `TOMIX_SESSION_TRANSACTION_OPEN` | 2 | `begin` while a transaction is open; transactions do not nest. |
+| `TOMIX_SESSION_NO_TRANSACTION` | 2 | `commit` or `rollback` with no open transaction. |
+| `TOMIX_SESSION_TRANSACTION_ENDED` | 1 | The transaction was rolled back because it sat idle for 15 minutes. |
+| `TOMIX_SESSION_STALE` | 1 | A live session would save over changes made to the model outside it since it opened, reloaded or last saved: to its files (a `git checkout`, another editor), or to its server model (Power BI Desktop, another tool, a refresh). Nothing was written. Run `reload` to take the files' version (unsaved changes are lost), or `save --force` to overwrite them with the session's. A session on a server cannot reload: connect again to take the server's version. From `tx serve`: `session.reload`, or `session.save` with `"force": true`. |
+| `TOMIX_SESSION_SOURCE_UNAVAILABLE` | 1 | A live session on a server cannot reach it, for example because the Power BI Desktop instance it was opened from has closed. The session's changes are still in memory: write them to files with `save -o <folder>`. |
+| `TOMIX_SESSION_IN_USE` | 1 | A session client sent `session.open` or `session.close` while other clients are connected to the same session. Disconnect them first, or start another session for the other model. |
+| `TOMIX_PROTOCOL_VERSION` | 2 | A `tx serve` client asked for a session protocol version the server does not speak. `data.supported` lists the versions it does ([session protocol](protocol.md)). |
+
+## Local Endpoint Codes (`TOMIX_UI_*`)
+
+Answered by the localhost endpoint of a shared session ([session protocol](protocol.md#websocket)) as an HTTP status with a JSON body `{"code": "...", "error": "..."}`. They have no exit code, except the last two, which `tx ui` and `tx serve` report themselves.
+
+| Code | Exit | Trigger |
+|------|------|---------|
+| `TOMIX_UI_UNAUTHORIZED` | — | HTTP 401: the request carries no session token, or the wrong one. Read it from the session's file in `~/.tomix/live/`. |
+| `TOMIX_UI_FORBIDDEN` | — | HTTP 403: the `Host` header names another server, or `Origin` is another web origin. Only the session's own page and non-browser tools on this machine may connect. |
+| `TOMIX_UI_NOT_WEBSOCKET` | — | HTTP 400: a plain HTTP request to `/ws`, which takes WebSocket upgrades only. |
+| `TOMIX_UI_NOT_FOUND` | — | HTTP 404: nothing is served at that path. |
+| `TOMIX_UI_PORT_IN_USE` | 2 | `tx ui --port` names a port another program listens on. Pick another, or leave `--port` out to use a free one. |
+| `TOMIX_UI_UNREACHABLE` | 2 | `tx serve <model>`, or a command run on a model `tx ui` holds, found the model open in `tx ui` but could not connect to it. Stop that `tx ui`, or wait for it to start, and try again. |
 
 ## Save Codes (`TOMIX_SAVE_*`)
 
@@ -142,7 +179,8 @@ Emitted by `get`, `deps`, and `format --path` when a model object path fails to 
 
 | Code | Exit | Trigger |
 |------|------|---------|
-| `TOMIX_REFRESH_NO_REMOTE_TARGET` | 2 | `refresh` could not resolve a remote endpoint (default connection is local and no remote workspace-mode secondary is set). |
+| `TOMIX_REFRESH_NO_REMOTE_TARGET` | 2 | `refresh` could not resolve a remote endpoint: the model is files, no remote workspace-mode secondary is set, and no running Power BI Desktop has the files open. |
+| `TOMIX_REFRESH_IN_DESKTOP` | 0 | Info: the model was a PBIP's files, so `refresh` ran in the Power BI Desktop that has the PBIP open. Save in Desktop to keep the data. |
 | `TOMIX_REFRESH_UNSUPPORTED` | 2 | The provider session does not implement `IModelRefreshSession` (e.g. a local TMDL/BIM model). |
 | `TOMIX_REFRESH_BAD_TYPE` | 2 | `--type` was not one of `full`, `dataonly`, `automatic`, `calculate`, `clearvalues`, `defragment`, `add`. |
 | `TOMIX_REFRESH_TABLE_PARTITION_CONFLICT` | 2 | `--table` and `--partition` were passed together; choose one. |
@@ -290,6 +328,7 @@ come from structural integrity checks.
 | `TOMIX_INTERACTIVE_REQUIRED` | 1 | An interactive-only flow (`connect --remote`, a valueless `-w`) was invoked without a TTY (e.g. `--non-interactive`, `--quiet`, redirected input, or json/csv output). Pass the workspace/model explicitly. |
 | `TOMIX_REMOTE_LIST_FAILED` | 1 | Listing workspaces or models failed (Power BI REST or XMLA error) during an interactive `connect` or `connect <server> --list`. |
 | `TOMIX_DATABASE_NOT_FOUND` | 1 | The database/model name was not found on the server. |
+| `TOMIX_DESKTOP_NOT_RUNNING` | 1 | Nothing listens on the `localhost:<port>` Power BI Desktop endpoint: the report was closed, or Desktop restarted on another port. Open it again, then run `tx connect --local` to pick its new port. |
 | `TOMIX_DATABASE_REQUIRED` | 2 | The endpoint hosts more than one database/model and none was named. List them with `tx connect <server> --list`, then pass one with `-d/--database`. |
 | `TOMIX_DEPS_PATH_REQUIRED` | 2 | `get --deps` (or `deps`) called without an object path. |
 | `TOMIX_SINGLE_OBJECT_REQUIRED` | 2 | `get --query` or `get --deps` was given a path that selects a set (a wildcard such as `Sa*`, a container such as `Sales/Measures`, or `--ls`/`--where`). Name one object. |

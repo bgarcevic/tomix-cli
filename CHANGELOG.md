@@ -18,13 +18,73 @@ and the API surface that major versions protect.
   matches the installed `tx`. `status` reports copies from another version as outdated, and copies
   that were edited or not written by tx are left alone unless you pass `--force`
   (`TOMIX_SKILL_CONFLICT`). A new guide, "Using tomix from your agent", covers setup.
+- A client of a live session (`tx serve`, `tx ui`) can ask in `initialize` for
+  `capabilities.diagnostics`. The host then recomputes dependencies, DAX diagnostics and,
+  with `{ "bpa": true }`, BPA findings 250 ms after the last change and sends
+  `diagnostics.updated`; `dax.check` and `bpa.run` answer from those results. `deps.get`,
+  `dax.check` and `bpa.run` now read the last committed version instead of waiting for
+  another client's transaction (#350).
+
+- A live session (`tx interactive`, `tx serve`, `tx ui`) on a TMDL folder or `.bim` file now
+  notices when the files change outside it, for example by a `git checkout` or another editor.
+  The session turns `stale`, and saving fails with `TOMIX_SESSION_STALE` instead of overwriting
+  that change. `reload` (protocol: `session.reload`) takes the files' version, and
+  `save --force` (`session.save` with `force`) keeps the session's. The `tx ui` page offers
+  both (#351).
+- A live session on a server or Power BI Desktop now notices when the model changes there
+  outside it (checked every 10 seconds for Desktop, 30 for a remote server): it turns `stale`, and `save` fails with
+  `TOMIX_SESSION_STALE` until `save --force`. `session.status` reports `canReload` (#351).
+- A live session whose Power BI Desktop has closed fails with
+  `TOMIX_SESSION_SOURCE_UNAVAILABLE` instead of a raw connection error; `save -o <folder>`
+  still writes its changes to files. The shell, `status` (protocol: `sourceUnavailable`) and
+  the `tx ui` page say so as soon as a check finds it gone (#351).
+- `tx refresh` on a PBIP's files (the `.pbip`, its `.SemanticModel` folder, or anything in it)
+  now refreshes the model in the Power BI Desktop that has that PBIP open, as Tabular Editor
+  does, instead of failing with `TOMIX_REFRESH_NO_REMOTE_TARGET`. It says so with
+  `TOMIX_REFRESH_IN_DESKTOP`.
 
 ### Fixed
 
+- `save` in a live session on a server or Power BI Desktop sends the changes to the server
+  instead of failing with `TOMIX_SAVE_OUTPUT_REQUIRED`, and `save -o` naming the session's own
+  files saves in place, so it no longer skips the check for changes made outside the session
+  (#351).
+- A command on a Power BI Desktop that has closed fails at once with `TOMIX_DESKTOP_NOT_RUNNING`
+  and a hint to reopen it, instead of waiting about 4 seconds for a raw socket error.
+  Opening a session (`tx interactive`, `tx serve`, `tx ui`) there, or on a server it cannot
+  reach, reports the connection error instead of "Unexpected error" (#351).
 - Tables written to a pipe or a file no longer wrap at 80 columns, and use ASCII borders
   (`+`, `-`, `|`) instead of box-drawing characters, as do `tx deps --deep` trees. A DAX
   expression or format string in `tx ls` output stays on one row, so it can be grepped or read
   by an agent, and borders no longer turn into mojibake in Windows PowerShell 5.1 or `more`.
+
+## [0.9.0] - 2026-10-06
+
+The live session (`tx interactive`, `tx serve`, `tx ui`) is a preview: its protocol and options
+may still change. A live session does not yet notice when other tools change its model's files
+(for example a `git checkout` or an edit in Power BI Desktop), and saving from it overwrites
+those changes; save or close the session before changing the files another way (#351).
+
+### Added
+
+- `tx interactive` (alias `tx shell`) opens a model once and keeps it in memory: commands such
+  as `get`, `set`, `add`, `rm` and `bpa run` work on the open model, `undo` and `redo` step
+  through every change, `begin` … `commit` groups edits into one undo step, `history` lists
+  them, and `save` writes the model. It asks before discarding unsaved changes (#347).
+- `tx serve` holds a live session for editors and agents and speaks the tomix session protocol
+  (JSON-RPC over stdio, specified in `docs/protocol.md`): open, read, edit, undo, transactions,
+  save, and change events for every client (#348, #349).
+- `tx ui [model]` shares a live session on `127.0.0.1` with a browser page and agents at the
+  same time: the page shows who is connected and every client's changes as they happen, with
+  Undo, Redo and Save. `--open` opens the page; `--port`, `--grace` and `--log` tune it. Every
+  request needs the session's token. `tx serve` on a model `tx ui` holds joins that session
+  instead of opening a second one (#369).
+- While `tx ui` holds a model, `add`, `bpa run`, `deps`, `find`, `format`, `get`, `ls`, `mv`,
+  `replace`, `rm`, `save`, `set`, `summary` and `validate` on it run in its session instead of
+  on the files: edits become undo steps there and show up on the page, reads see unsaved
+  edits, and edits stay unsaved until `tx save` (#400).
+- New error codes `TOMIX_SESSION_IN_USE`, `TOMIX_UI_UNAUTHORIZED`, `TOMIX_UI_FORBIDDEN`,
+  `TOMIX_UI_PORT_IN_USE` and `TOMIX_UI_UNREACHABLE` (#369).
 
 ## [0.8.0] - 2026-10-01
 
@@ -1141,7 +1201,8 @@ development that are worth knowing about if you followed `main`.
   nonexistent option; `ls --type` help lists `calculatedcolumn`; the `--output-format`
   description typo "tTomix" is `tmdl` again.
 
-[Unreleased]: https://github.com/bgarcevic/tomix-cli/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/bgarcevic/tomix-cli/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.5.0...v0.6.0

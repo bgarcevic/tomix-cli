@@ -31,6 +31,7 @@ nav = [
   ] },
   { "Reference" = [
     { "Error & exit codes" = "error-codes.md" },
+    { "Session protocol" = "protocol.md" },
   ] },
   { "Contributing" = [
     { "How to contribute" = "contributing.md" },
@@ -40,6 +41,8 @@ nav = [
     { "Design decisions" = [
       { "Overview" = "design/index.md" },
       { "ADR 0001: Live model session" = "design/adr-0001-live-model-session.md" },
+      { "ADR 0002: Lease gate and journal first" = "design/adr-0002-live-session-lease-gate-and-journal-first.md" },
+      { "ADR 0003: Checkpoint rollback" = "design/adr-0003-live-session-checkpoint-rollback.md" },
     ] },
   ] },
 ]

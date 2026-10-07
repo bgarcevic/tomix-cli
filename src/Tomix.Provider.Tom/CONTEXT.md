@@ -27,22 +27,32 @@ Adapter around Microsoft Tabular Object Model.
 - `TomMutationPaths` — shared path/name/type normalization and the mutation-path regexes.
 - `TomRemoveCascade` — cascade collection for removals (remove dispatch stays on the facade).
 
-## Live session (planned)
+**Every TOM write in these collaborators goes through `TomWriter`**: `w.Set(obj, o => o.Prop, value)`
+for properties, `Attach`/`Detach` for collection adds and removes, and `Rebind` before attaching a
+replacement instance (TOM cannot re-attach a removed object, so moves and role-member edits swap
+instances). Objects still being built and not yet attached may be written directly. The public
+constructor uses `TomWriter.Untracked`, so one-shot sessions record nothing; a live session passes
+its journal's writer through the internal constructor. `BannedSymbols.txt` rejects direct TOM
+collection `Add`/`Remove` at build time.
 
-[ADR 0001](../../docs/design/adr-0001-live-model-session.md) adds `TomLiveModelSession`, used for
-TMDL, `.bim` and XMLA sources (`Tomix.Provider.Tmdl` reuses it):
-
-- One actor thread owns the TOM `Database`. No other thread touches TOM. Snapshot reads are
-  served from an immutable, versioned `ModelSnapshot`.
-- `TomChangeJournal` records every TOM write as a primitive (`SetProperty`, `Attach`, `Detach`,
-  `Rebind`). Undo, redo, rollback and change events all come from it. **Every TOM write in the
-  mutator collaborators must go through the journal**. A direct write leaves undo silently
-  incomplete, and the apply-then-undo golden tests are there to catch it.
-  Entries also carry the object's ID, path and `LineageTag` plus a provider-neutral form of the
-  operation, so unsaved transactions can be replayed onto a reloaded model (merge, #374).
-- `TomObjectIdMap` maps TOM instances to session `ObjectId`s. TOM cannot re-attach a removed
-  object, so any operation that replaces an instance (move, undo of a remove) must `Rebind` the
-  new instance to the old ID.
+**A live session on files watches them** (#351). `TomModelSource` gives each source a
+`Fingerprint` (for files, `SourceFingerprint`: a hash of the `.bim`, or of a folder's `.tmdl` files by
+relative path and content) and a `Watch`. `TomLiveModelSession` keeps the fingerprint it last
+opened, reloaded or saved; a watcher event checks it after `SourceSettleDelay`, and an in-place
+save checks it first and throws `ModelSourceChangedException` rather than overwrite. Checks and
+saves share `_sourceLock`, so a check never reads files a save is writing. `KeepChanges` takes the
+files as they are as the new baseline (`save --force`); `ReloadAsync` loads them again through
+`TomChangeJournal.Reload`, which keeps the ID of every object whose kind and path survive.
+`TomServerModelSource` fingerprints the model from its `TMSCHEMA_*` rowsets on the session's own
+connection: row count and latest `ModifiedTime` per rowset, or the content of the few rowsets
+without one. Model-level timestamps (`DBSCHEMA_CATALOGS.DATE_MODIFIED`, `MDSCHEMA_CUBES`) do not
+move when an annotation or a measure changes, and `DATE_MODIFIED` never moves in the Power BI
+service. Rowsets the server lacks are dropped on the first fingerprint. It is polled every
+`PollInterval` (10 s for Desktop, 30 s remote); every use of that connection holds `_sourceLock`.
+A refresh the session runs goes through `ChangeSourceAsync`, so it moves the baseline instead of
+making the session stale. `Reach` fails fast with `ModelSourceUnavailableException` when a Power BI
+Desktop port no longer listens. A server source cannot reload: its `Database` belongs to the
+connection.
 
 ## Cross-folder dependencies
 

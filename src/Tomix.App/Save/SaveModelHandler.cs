@@ -10,38 +10,50 @@ namespace Tomix.App.Save;
 
 public sealed class SaveModelHandler
 {
-    private readonly IReadOnlyList<IModelProvider> _providers;
+    private readonly IModelSessionSource _sessions;
     private readonly HttpClient? _httpClient;
 
     public SaveModelHandler(IEnumerable<IModelProvider> providers, HttpClient? httpClient = null)
+        : this(new OneShotSessionSource(providers), httpClient)
     {
-        _providers = providers.ToList();
+    }
+
+    /// <summary>
+    /// Saves the model <paramref name="sessions"/> leases. In a live session, writing back to the
+    /// source makes the current state the save point, and <c>--fix-bpa</c> fixes become one undo step.
+    /// </summary>
+    public SaveModelHandler(IModelSessionSource sessions, HttpClient? httpClient = null)
+    {
+        _sessions = sessions;
         _httpClient = httpClient;
     }
 
-    public async Task<TomixResult<SaveModelResult>> HandleAsync(
+    public Task<TomixResult<SaveModelResult>> HandleAsync(
+        SaveModelRequest request,
+        CancellationToken cancellationToken)
+        => ModelSessionRunner.RunAsync(
+            _sessions, request.Model, session => SaveAsync(session, request, cancellationToken), cancellationToken);
+
+    private async Task<TomixResult<SaveModelResult>> SaveAsync(
+        IModelSession session,
         SaveModelRequest request,
         CancellationToken cancellationToken)
     {
-        var provider = _providers.ResolveSingleProvider(request.Model);
-        if (provider is null)
-            return TomixResult<SaveModelResult>.Fail(
-                code: "TOMIX_NO_PROVIDER",
-                message: $"No provider can open model: {request.Model.Value}",
-                exitCode: 2,
-                hint: "Supported formats: TMDL folder, .bim file. For remote models, use --server and --database.");
-
         var serialization = string.IsNullOrWhiteSpace(request.Serialization)
             ? InferSerialization(request.Model.Value)
             : request.Serialization;
 
-        await using var session = await provider.OpenAsync(request.Model, cancellationToken);
-
+        // A live session saves in place through its own save, which records the save point and
+        // refuses to overwrite changes made outside it. Naming its own files is saving in place.
+        var inPlace = string.IsNullOrWhiteSpace(request.OutputPath)
+            || (_sessions.IsLive && SamePath(request.OutputPath, session.SourcePath));
         var outputPath = request.OutputPath;
         if (string.IsNullOrWhiteSpace(outputPath))
             outputPath = session.SourcePath;
 
-        if (string.IsNullOrWhiteSpace(outputPath))
+        // A live session on a server saves to the server (#351); -o only writes a copy.
+        var toServer = _sessions.IsLive && inPlace && request.Model.IsRemote;
+        if (string.IsNullOrWhiteSpace(outputPath) && !toServer)
             return TomixResult<SaveModelResult>.Fail(
                 code: "TOMIX_SAVE_OUTPUT_REQUIRED",
                 message: "An output path is required when no model source is active.",
@@ -68,9 +80,15 @@ public sealed class SaveModelHandler
 
         try
         {
-            var export = await exporter.ExportAsync(
-                new ModelExportRequest(outputPath, serialization, request.Overwrite, request.SupportingFiles),
-                cancellationToken);
+            // Keep the session's model over changes made to the files outside it (#351).
+            if (request.Force && _sessions.IsLive && inPlace && session is IExternalChangeSession external)
+                external.KeepChanges();
+
+            var export = _sessions.IsLive && inPlace && session is IModelMutationSession live
+                ? await live.SaveAsync(null, serialization, overwrite: true, cancellationToken)
+                : await exporter.ExportAsync(
+                    new ModelExportRequest(outputPath, serialization, request.Overwrite, request.SupportingFiles),
+                    cancellationToken);
 
             var sync = await WorkspaceSync.SyncAsync(
                 session, request.SyncTarget, request.Overwrite,
@@ -80,11 +98,15 @@ public sealed class SaveModelHandler
 
             // A failed workspace sync leaves the mirror behind the source; render the saved
             // result but exit non-zero so CI catches the drift.
-            var (savedTo, persistence) = MutationLifecycle.Describe(request.Model, outputPath, export.SavedPath);
+            var (savedTo, persistence) = MutationLifecycle.Describe(request.Model, toServer ? null : outputPath, export.SavedPath);
             var outcome = new MutationOutcome(MutationStatus.Saved, savedTo, persistence, sync);
             return TomixResult<SaveModelResult>.Ok(
                 new SaveModelResult(export.Format) { Outcome = outcome },
                 outcome.SyncFailed ? 1 : 0);
+        }
+        catch (ModelSourceChangedException ex)
+        {
+            return Session.SourceChangedFailure.Result<SaveModelResult>(ex);
         }
         catch (NotSupportedException ex)
         {
@@ -154,6 +176,24 @@ public sealed class SaveModelHandler
         }
 
         return null;
+    }
+
+    private static bool SamePath(string a, string b)
+    {
+        if (string.IsNullOrWhiteSpace(b))
+            return false;
+
+        try
+        {
+            return string.Equals(
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(a)),
+                Path.TrimEndingDirectorySeparator(Path.GetFullPath(b)),
+                StringComparison.OrdinalIgnoreCase);
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            return false;
+        }
     }
 
     private static string InferSerialization(string modelPath)

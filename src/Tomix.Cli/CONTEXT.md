@@ -14,6 +14,8 @@ CLI entry point for `tx`.
 - Depends on `/src/Tomix.App` for command behavior.
 - Depends on `/src/Tomix.Core` for shared result and diagnostic types.
 - Renders output in `Output/` (see Structure below).
+- Depends on `/src/Tomix.Ui` for the localhost web endpoint of a shared session; `Serve/` plugs
+  the session into it, so `Tomix.Ui` itself knows nothing of sessions.
 - References `/src/Tomix.Provider.*` projects only so `Program` (the composition root) can
   construct providers and pass them to commands as `IModelProvider` lists. Feature logic must
   go through App/Core abstractions — never use provider-specific types in command modules.
@@ -29,6 +31,33 @@ CLI entry point for `tx`.
   factory for the shared mutation lifecycle flags (`--save`, `--save-to`, `--serialization`,
   `--stage`, `--revert`, `--no-sync`). Mutating commands must take these from the factory rather
   than declaring their own copies, so descriptions stay uniform.
+- `Interactive/` - `tx interactive` (alias `shell`): the read-run loop, the session-only commands
+  (undo, redo, begin/commit/rollback, status, history, exit), and the line editor. A session runs
+  the ordinary command modules, built by `Program.BuildSessionRootCommand` with a `SessionScope` so
+  they lease the live session (`SessionScope.SourceFor`) and default to its model
+  (`SessionScope.TryResolveModel`). A module that can run in a session takes an optional
+  `SessionScope`; one that needs more than the model stays out of the session tree.
+- `Serve/` - the session protocol (docs/protocol.md) for `tx serve` (stdio) and the shared
+  localhost endpoint of `tx ui`. `ProtocolServer` owns the lifecycle, validation, cancellation and error
+  answers over an `IMessageChannel` (`StreamChannel` frames on stdio, `WebSocketChannel`).
+  `SessionHost` owns the one live session of the process, hands out client IDs, broadcasts every
+  event and keeps the `/status` JSON; its `DerivedState` recomputes `dax.check`, the dependency
+  graph and (when asked) `bpa.run` from the published snapshot after changes, for the clients
+  that sent `capabilities.diagnostics`; each connection is a `ServeSession`, which answers the
+  methods, most by running the session command tree (the one `tx interactive` uses) with JSON
+  output captured, so `data` is the command's own JSON. `ProtocolRoutes` maps parameters to
+  command-line arguments. `ConsoleRouting` gives each running command its own captured console
+  (async-local), so clients' requests run side by side and stdout carries only frames.
+  `WebEndpoint` puts a host on `Tomix.Ui`; `LiveRegistry` writes `~/.tomix/live/*.json` so other
+  processes find it. `ServeRelay` lets `tx serve` join a session `tx ui` holds instead of
+  opening a second one. `LiveCommandRoute` runs a one-shot command on a model `tx ui`
+  holds in that session (`command.run`, #400): `Program.Run` asks it before invoking, and it
+  makes the command's paths absolute and sends its stdin, colors and width along.
+  `UiLifetime` decides when `tx ui` stops: never with changes unsaved.
+  `tx interactive`, `tx serve` and `tx ui` handle Ctrl+C themselves (the last two through
+  `ConsoleSignals`), so `Program.TerminationTimeout` turns off the library's handling for them:
+  every Ctrl+C handler in a process runs, and the library's would end the process two seconds
+  later, before the session is closed or after a Ctrl+C meant for one command.
 - `Output/` - shared output wiring used by every command. See `Output/CONTEXT.md` for details.
   - `OutputFormats` - the canonical `--format` option, aliases, and allowed values.
   - `JsonOutput` - the single JSON serializer (the `--format json` contract).

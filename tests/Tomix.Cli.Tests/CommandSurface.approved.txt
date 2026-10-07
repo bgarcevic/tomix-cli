@@ -338,6 +338,15 @@ Start a new empty semantic model
   opt --serialization <format>  How the new model is written: tmdl, bim, or pbip (default: tmdl)
   opt --overwrite  Overwrite anything already at the target path
 
+# tx interactive (aliases: shell)
+Edit a model in a session with undo, then save
+  arg [model]  Model to open: a TMDL folder or .bim file; defaults to the active connection, else none
+  opt --autosave  Save after every command that changes the model, instead of only when you run 'save'
+  opt --discard-on-exit  Leave without asking, discarding unsaved changes (so does --yes)
+  opt --echo  Print each command before it runs, so a log of a scripted session reads in order
+  opt --no-batch  Keep running a script after a command fails (by default piped input stops at the first failure)
+  opt --no-banner  Start without the welcome lines
+
 # tx ls (aliases: list)
 List model objects
   arg [path-filter]  Which objects to list: a name ('Sales'), a container ('Sales/Measures'), or a wildcard ('Sa*'); quote names with spaces ("'Net Sales'")
@@ -452,6 +461,12 @@ Write a model to disk in a chosen format
   opt --bpa-rules <file>  Additional BPA rule files to enforce for this save, alongside the built-in ruleset
   opt --supporting-files  Write a {modelName}.SemanticModel/ folder (with .platform and definition.pbism) around the output. Only applies to tmdl/bim written to a bare target.
   opt --no-sync  Skip workspace sync when workspace mode is active
+  opt --force, -f  In a live session (tx interactive, tx ui), overwrite changes made to the model's files or server model outside it
+
+# tx serve
+Serve a model session to editors and agents over stdio
+  arg [model]  Model to open at start: a TMDL folder or .bim file (default: none; the client sends session.open)
+  opt --log <file>  Append the server's log to this file instead of writing it to stderr
 
 # tx set
 Change a property on a model object
@@ -518,6 +533,14 @@ Run DAX regression tests against a live model
   opt --max-rows <n>  Per-query row cap; a query exceeding it fails as an error (default: 10000)
   opt --ci <system>  Print CI log-group commands to stderr for the given system: vsts or github
   opt --trx <file>  Write results to a .trx test-run file at this path
+
+# tx ui
+Share a model session with a browser and agents
+  arg [model]  Model to open: a TMDL folder or .bim file (default: the active connection's)
+  opt --port <port>  Port on 127.0.0.1 (default: a free one)
+  opt --open  Open the page in the default browser
+  opt --grace <seconds>  Seconds to keep running after the last client leaves (default: 30)
+  opt --log <file>  Append the session's request log to this file
 
 # tx update
 Update tx to the latest release

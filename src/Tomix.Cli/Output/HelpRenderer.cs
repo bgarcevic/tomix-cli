@@ -28,7 +28,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
     internal static readonly (string Heading, string[] Commands)[] RootSections =
     [
         ("Discover", ["summary", "ls", "get", "find", "deps", "query"]),
-        ("Modify", ["add", "set", "mv", "rm", "replace", "format"]),
+        ("Modify", ["add", "set", "mv", "rm", "replace", "format", "interactive", "serve", "ui"]),
         ("Connect", ["connect", "deploy", "refresh", "save", "auth"]),
         ("Validate", ["bpa", "validate", "test", "vertipaq", "diff", "doctor"]),
         ("Manage", ["config", "profile", "init", "completion", "skills", "stage", "update"]),
@@ -49,9 +49,12 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["diff"] = "Exit codes: 0 = identical, 1 = differences found, 2 = error.",
         ["get"] = "One object shows its properties; a wildcard or container path lists every match. --ls, --where, --deps and --unused select and analyze. get returns objects; tx find searches property text and returns match sites (name filtering deliberately overlaps).",
         ["format"] = "Formats an inline expression (--expression), one object (--path), or every expression in the model.",
+        ["interactive"] = "Alias: shell. Edits stay in memory until 'save'. Inside the session, 'connect' switches models and 'undo', 'redo', 'begin', 'commit', 'rollback', 'status', 'history' and 'exit' also work. Piped input runs as a script that stops at the first failure.",
         ["ls"] = "A shortcut for tx get --ls; both run the same read pipeline.",
         ["query"] = "The query comes from the positional argument, --query, --file, or stdin.",
         ["refresh"] = "Runs an automatic refresh unless --refresh-type says otherwise.",
+        ["serve"] = "Speaks the tomix session protocol (JSON-RPC 2.0, Content-Length framing) on stdin and stdout; see docs/protocol.md. Without a model, the client opens one with session.open. The log goes to stderr unless --log names a file. When tx ui holds the model, it joins that session instead of opening another.",
+        ["ui"] = "Prints the page's URL, with the session token, on stdout; agents join the same session through tx serve. Stops on Ctrl+C (asking again when changes are unsaved), or --grace seconds after the last client leaves, unless changes are unsaved.",
         ["test"] = "--update records snapshots; --trx and --ci produce pipeline output.",
         ["skills"] = "Writes the skill to .claude/skills/tomix (Claude Code) and .agents/skills/tomix (Codex and other Agent Skills harnesses). Copies you edited are left alone unless you pass --force.",
         ["validate"] = "--ci prints CI log groups; --trx writes a test-results file.",
@@ -234,6 +237,19 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
             "tx skills install",
             "tx skills install --agent codex --user",
             "tx skills status",
+        ],
+        ["interactive"] = [
+            "tx interactive ./model",
+            "tx shell",
+            "tx interactive ./model --echo --discard-on-exit",
+        ],
+        ["serve"] = [
+            "tx serve ./model",
+            "tx serve --log serve.log",
+        ],
+        ["ui"] = [
+            "tx ui ./model --open",
+            "tx ui ./model --port 7411 --grace 300",
         ],
         ["init"] = [
             "tx init",

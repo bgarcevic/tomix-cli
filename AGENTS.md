@@ -19,6 +19,7 @@ Open-source CLI for inspecting, validating, querying, testing, and deploying tab
 - `/src/Tomix.Platform` - Dependency-free filesystem and operating-system primitives shared by outer projects
 - `/src/Tomix.Provider.*` - Model providers for TOM, TMDL, and VPAX
 - `/src/Tomix.Auth` - Authentication and credential caching
+- `/src/Tomix.Ui` - Localhost web endpoint (ASP.NET Core/Kestrel) of a shared live session (`tx ui`): the page, `/ws` and `/status`
 - `/tests` - Unit, handler, CLI, golden, provider, and integration tests
 - `/engines/powerquery` - npm project that builds the offline Power Query (M) engine bundle embedded in `Tomix.App` (dev-only; users need no Node)
 - `/samples` - Sample models used by tests and documentation
@@ -33,7 +34,7 @@ Open-source CLI for inspecting, validating, querying, testing, and deploying tab
 | Add domain types, diagnostics, or result models | `/src/Tomix.Core` | `CONTEXT.md` | Core must stay dependency-light and infrastructure-free |
 | Add shared local paths or filesystem primitives | `/src/Tomix.Platform` | `CONTEXT.md` | BCL-only; no feature stores or external adapters |
 | Add TMDL, TOM, or VPAX support | `/src/Tomix.Provider.*` | Provider `CONTEXT.md` files | Do not leak provider-specific types |
-| Work on the live model session (`tx shell`, `tx serve`, `tx mcp`, `tx ui`, undo, change events) | `/src/Tomix.Core`, `/src/Tomix.App`, `/src/Tomix.Provider.Tom` | `docs/design/adr-0001-live-model-session.md`, then `CONTEXT.md` in each folder | One actor owns TOM; every TOM write goes through the change journal; handlers stay session-agnostic via `IModelSessionSource`. Change a decision with a new ADR, not by editing an accepted one |
+| Work on the live model session (`tx shell`, `tx serve`, `tx mcp`, `tx ui`, undo, change events) | `/src/Tomix.Core`, `/src/Tomix.App`, `/src/Tomix.Provider.Tom` | `docs/design/adr-0001-live-model-session.md`, `adr-0002-live-session-lease-gate-and-journal-first.md` and `adr-0003-live-session-checkpoint-rollback.md`, then `CONTEXT.md` in each folder | TOM is touched only under a session lease (one at a time; a lease is a transaction); every TOM write goes through the change journal; rollback and undo restore checkpoints; handlers stay session-agnostic via `IModelSessionSource`. Change a decision with a new ADR, not by editing an accepted one |
 | Add or change tests | `/tests` | `CONTEXT.md` (`Writing and maintaining tests`) | Prefer fast deterministic tests. Reuse the shared helpers, prefer `[Theory]` for input matrices, and prove a new test can fail before committing it |
 | Add documentation or samples | `/docs`, `/samples` | `CONTEXT.md` in each folder | Keep examples copy-pasteable |
 | Change the docs site (pages, nav, theme) | `/docs`, `zensical.toml` | `docs/contributing.md` | Built with Zensical via uv; verify with `uv run zensical build --clean --strict` |
@@ -59,7 +60,7 @@ Open-source CLI for inspecting, validating, querying, testing, and deploying tab
 
 ## Development Commands
 
-- Dev tasks (work from any directory): `./scripts/dev.sh <task>` (`.\scripts\dev.ps1 <task>` on Windows) — tasks: `build`, `test`, `format`, `snapshot` (regenerate `CommandSurface.approved.txt`), `docs` (strict docs build); extra args pass through to the underlying command
+- Dev tasks (work from any directory): `./scripts/dev.sh <task>` (`.\scripts\dev.ps1 <task>` on Windows) — tasks: `build`, `test`, `format`, `snapshot` (regenerate `CommandSurface.approved.txt` and the `tx serve` snapshots), `docs` (strict docs build); extra args pass through to the underlying command
 - Build: `dotnet build`
 - Test: `dotnet test`
 - Format (required CI gate, checked on the Linux leg): `dotnet format` applies fixes; CI runs `dotnet format --verify-no-changes`, so run it before pushing
