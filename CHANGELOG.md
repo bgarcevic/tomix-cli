@@ -50,6 +50,16 @@ and the API surface that major versions protect.
   does, instead of failing with `TOMIX_REFRESH_NO_REMOTE_TARGET`. It says so with
   `TOMIX_REFRESH_IN_DESKTOP`.
 
+### Changed
+
+- `tx` now colors its output with your terminal theme's own ANSI colors instead of a fixed
+  RGB palette, so it matches Campbell, Dark+, Solarized, high-contrast and color-blind-friendly
+  themes. Color is kept for status (red, yellow, green) and DAX and M highlighting; names,
+  paths and values print plain, options bold, and secondary text dimmed. DAX keywords are
+  magenta, functions bright blue, measure references cyan, and literals green; tables,
+  columns and variables are no longer colored. The `tx ui` page moves to warm neutrals with a
+  single persimmon accent.
+
 ### Fixed
 
 - `save` in a live session on a server or Power BI Desktop sends the changes to the server

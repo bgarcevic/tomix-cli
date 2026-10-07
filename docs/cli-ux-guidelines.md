@@ -82,7 +82,7 @@ the bottom for where each concern lives.
 - If you change state, say exactly what changed and what the new state is
   (model object counts, target workspace, file written). Make current state easy
   to inspect (`session`, `stage`, `doctor` are our `git status` equivalents).
-- Suggest the next command after workflow steps (Slate `Guidance`), and give every
+- Suggest the next command after workflow steps (dim `Guidance`), and give every
   empty result a message plus a hint — never print nothing.
 - Crossing the program boundary (network calls, writing files not named by the
   user) should be visible: name the server/file on stderr as it happens. A command
