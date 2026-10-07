@@ -52,6 +52,7 @@ internal static class Program
         var noColorCfg = config.TryGetValue(ConfigKeys.NoColor, out var noColor) && bool.TryParse(noColor, out var noColorEnabled) && noColorEnabled;
         if (noColorEnv || noColorCfg)
             AnsiConsole.Profile.Capabilities.ColorSystem = ColorSystem.NoColors;
+        StdOut.PlainWhenRedirected(AnsiConsole.Console);
 
         config.TryGetValue(ConfigKeys.DefaultFormat, out var defaultOutputFormat);
         GlobalOptions.ConfigureDefaultOutputFormat(defaultOutputFormat);

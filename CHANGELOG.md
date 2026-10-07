@@ -19,6 +19,13 @@ and the API surface that major versions protect.
   that were edited or not written by tx are left alone unless you pass `--force`
   (`TOMIX_SKILL_CONFLICT`). A new guide, "Using tomix from your agent", covers setup.
 
+### Fixed
+
+- Tables written to a pipe or a file no longer wrap at 80 columns, and use ASCII borders
+  (`+`, `-`, `|`) instead of box-drawing characters, as do `tx deps --deep` trees. A DAX
+  expression or format string in `tx ls` output stays on one row, so it can be grepped or read
+  by an agent, and borders no longer turn into mojibake in Windows PowerShell 5.1 or `more`.
+
 ## [0.8.0] - 2026-10-01
 
 ### Added
