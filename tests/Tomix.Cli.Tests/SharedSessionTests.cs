@@ -1,3 +1,4 @@
+using System.CommandLine;
 using System.Net;
 using System.Net.WebSockets;
 using System.Text;
@@ -134,6 +135,69 @@ public sealed class SharedSessionTests
         Assert.Null(after["transaction"]);
         Assert.Equal("agent-1", (string?)after["lastChange"]!["client"]);
         Assert.Equal((long?)after["version"], (long?)after["lastChange"]!["version"]);
+    }
+
+    [Fact]
+    public async Task Status_FollowsTheServerGoingAway_ThoughNoSessionStateChanges()
+    {
+        var model = SampleModel.CopyToTemp();
+        try
+        {
+            var services = TestServices.Create();
+            var opener = new SessionOpener(Providers, services.State, services.Staging);
+            var (opened, failure) = await opener.TryOpenAsync(opener.Resolve(model.Path, null, null), showSpinner: false, CancellationToken.None);
+            Assert.True(opened is not null, failure?.Message);
+            await using var session = new UnreachableSession(opened);
+            var host = new SessionHost((_, _) => new RootCommand(), opener, TextWriter.Null, session);
+
+            Assert.Equal(false, (bool?)JsonNode.Parse(host.Status)!["sourceUnavailable"]);
+            session.SourceUnavailable = true;
+            Assert.Equal(true, (bool?)JsonNode.Parse(host.Status)!["sourceUnavailable"]);
+            session.SourceUnavailable = false;
+            Assert.Equal(false, (bool?)JsonNode.Parse(host.Status)!["sourceUnavailable"]);
+        }
+        finally
+        {
+            model.Dispose();
+        }
+    }
+
+    /// <summary>A real session whose <see cref="ILiveModelSession.SourceUnavailable"/> the test sets.</summary>
+    private sealed class UnreachableSession(ILiveModelSession inner) : ILiveModelSession
+    {
+        public bool SourceUnavailable { get; set; }
+        public ModelReference Reference => inner.Reference;
+        public SessionState State => inner.State;
+        public bool IsDirty => inner.IsDirty;
+        public long Version => inner.Version;
+        public bool CanUndo => inner.CanUndo;
+        public bool CanRedo => inner.CanRedo;
+        public IReadOnlyList<LiveHistoryStep> History => inner.History;
+        public bool CanReload => inner.CanReload;
+        public string SourcePath => inner.SourcePath;
+
+        public event EventHandler<ModelChangeBatch>? Changed
+        {
+            add => inner.Changed += value;
+            remove => inner.Changed -= value;
+        }
+
+        public event EventHandler<SessionStateChange>? StateChanged
+        {
+            add => inner.StateChanged += value;
+            remove => inner.StateChanged -= value;
+        }
+
+        public Task<LiveModelSnapshot> GetLiveSnapshotAsync(CancellationToken cancellationToken) => inner.GetLiveSnapshotAsync(cancellationToken);
+        public Task<ILiveSessionLease> LeaseAsync(LiveLeaseOptions options, CancellationToken cancellationToken) => inner.LeaseAsync(options, cancellationToken);
+        public Task<ILiveSessionLease> BeginTransactionAsync(LiveLeaseOptions options, CancellationToken cancellationToken) => inner.BeginTransactionAsync(options, cancellationToken);
+        public Task<ModelChangeBatch?> UndoAsync(string? client, CancellationToken cancellationToken) => inner.UndoAsync(client, cancellationToken);
+        public Task<ModelChangeBatch?> RedoAsync(string? client, CancellationToken cancellationToken) => inner.RedoAsync(client, cancellationToken);
+        public Task<bool> CheckSourceAsync(CancellationToken cancellationToken) => inner.CheckSourceAsync(cancellationToken);
+        public Task<ModelChangeBatch> ReloadAsync(string? client, CancellationToken cancellationToken) => inner.ReloadAsync(client, cancellationToken);
+        public Task<ModelSummary> GetSummaryAsync(CancellationToken cancellationToken) => inner.GetSummaryAsync(cancellationToken);
+        public Task<ModelSnapshot> GetSnapshotAsync(CancellationToken cancellationToken) => inner.GetSnapshotAsync(cancellationToken);
+        public ValueTask DisposeAsync() => inner.DisposeAsync();
     }
 
     [Theory]

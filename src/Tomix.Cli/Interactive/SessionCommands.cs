@@ -104,7 +104,7 @@ internal static class SessionCommands
                 ? Styling.KeyValue("Files:", "changed outside the session; run 'reload' or 'save --force'")
                 : Styling.KeyValue("Server:", "model changed outside the session; run 'save --force' or connect again"));
         if (status.SourceUnavailable)
-            AnsiConsole.MarkupLine(Styling.KeyValue("Server:", Styling.Warning(Unreachable(status.Model))));
+            AnsiConsole.MarkupLine(Styling.KeyValue("Server:", Unreachable(status.Model)));
         AnsiConsole.MarkupLine(Styling.KeyValue("Undo steps:", Styling.Number(status.UndoSteps)));
         AnsiConsole.MarkupLine(Styling.KeyValue("Redo steps:", Styling.Number(status.RedoSteps)));
         AnsiConsole.MarkupLine(Styling.KeyValue("Transaction:", status.Transaction is { } open
