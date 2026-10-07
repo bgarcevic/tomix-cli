@@ -54,7 +54,7 @@ See [`/docs/cli-color-strategy.md`](../../docs/cli-color-strategy.md) for the fu
 Key rules:
 
 - Use `Styling` helpers and `Palette` constants. Do not hard-code Spectre markup strings or raw ANSI escape codes.
-- Tables use `Styling.NewTable()` (rounded border, dim border; ASCII when redirected). A table or tree built directly takes `Styling.Border` / `Styling.TreeGuide`.
+- Tables use `Styling.NewTable()` (rounded border, Slate border color; ASCII when redirected). A table or tree built directly takes `Styling.Border` / `Styling.TreeGuide`.
 - Escape model-derived text exactly once at a Spectre markup boundary. Use `Styling.MarkupEscape()`
   when inserting raw text into markup; pass raw text to `Styling` helpers, which already escape it.
   Literal `WriteLine` and JSON/CSV/TMDL/BIM output do not use Spectre escaping.

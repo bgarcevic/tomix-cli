@@ -44,7 +44,7 @@ internal static class BpaRunRenderer
             // A Rule spans the console width, which is unbounded when stdout is redirected.
             var ruleWidth = Math.Min(MaxTextWidth, AnsiConsole.Profile.Width);
             var ruleGlyph = AnsiConsole.Profile.Capabilities.Unicode ? '─' : '-';
-            AnsiConsole.Write(new Text(new string(ruleGlyph, ruleWidth) + "\n", Palette.Muted));
+            AnsiConsole.Write(new Text(new string(ruleGlyph, ruleWidth) + "\n", new Style(Palette.Slate)));
         }
 
         RenderSummary(result, groups.Count, view);
