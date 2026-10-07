@@ -31,7 +31,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ("Modify", ["add", "set", "mv", "rm", "replace", "format"]),
         ("Connect", ["connect", "deploy", "refresh", "save", "auth"]),
         ("Validate", ["bpa", "validate", "test", "vertipaq", "diff", "doctor"]),
-        ("Manage", ["config", "profile", "init", "completion", "stage", "update"]),
+        ("Manage", ["config", "profile", "init", "completion", "skills", "stage", "update"]),
     ];
 
     /// <summary>
@@ -53,6 +53,7 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["query"] = "The query comes from the positional argument, --query, --file, or stdin.",
         ["refresh"] = "Runs an automatic refresh unless --refresh-type says otherwise.",
         ["test"] = "--update records snapshots; --trx and --ci produce pipeline output.",
+        ["skills"] = "Writes the skill to .claude/skills/tomix (Claude Code) and .agents/skills/tomix (Codex and other Agent Skills harnesses). Copies you edited are left alone unless you pass --force.",
         ["validate"] = "--ci prints CI log groups; --trx writes a test-results file.",
     };
 
@@ -228,6 +229,11 @@ internal sealed class SpectreHelpAction : SynchronousCommandLineAction
         ["profile set"] = [
             "tx profile set dev -s MyWorkspace -d Sales",
             "tx profile set dev --from-active",
+        ],
+        ["skills"] = [
+            "tx skills install",
+            "tx skills install --agent codex --user",
+            "tx skills status",
         ],
         ["init"] = [
             "tx init",

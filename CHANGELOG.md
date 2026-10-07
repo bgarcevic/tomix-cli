@@ -10,6 +10,15 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
+### Added
+
+- `tx skills install`, `status`, and `uninstall` install the tomix agent skill for Claude Code
+  (`.claude/skills/tomix`) and Codex and other Agent Skills harnesses (`.agents/skills/tomix`),
+  in the repository or with `--user` in your home folder. The skill ships inside the binary, so it
+  matches the installed `tx`. `status` reports copies from another version as outdated, and copies
+  that were edited or not written by tx are left alone unless you pass `--force`
+  (`TOMIX_SKILL_CONFLICT`). A new guide, "Using tomix from your agent", covers setup.
+
 ## [0.8.0] - 2026-10-01
 
 ### Added

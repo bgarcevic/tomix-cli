@@ -226,6 +226,7 @@ internal static class Program
             new RmCommand(providers, services.State, mutations),
             new SaveCommand(providers, services.State, httpClient),
             new SetCommand(providers, services.State, mutations),
+            new SkillsCommand(version),
             new SummaryCommand(providers, services.State),
             new StageCommand(providers, services.State, services.Staging, services.ConfigStore.ValidateOnSaveEnabled),
             new TestCommand(providers, loadCurrentSession),
