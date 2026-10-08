@@ -10,6 +10,12 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
+### Fixed
+
+- Reference tracking (`deps`, `validate`, rename and remove guards, BPA) now reads DAX with the
+  same lexer as `tx format` and `dax check`, so a date literal (`dt"2024-01-01"`) or a query
+  parameter (`@Risk`) is no longer taken for a table named `dt` or `Risk` (#204).
+
 ## [0.10.0] - 2026-10-08
 
 ### Added
