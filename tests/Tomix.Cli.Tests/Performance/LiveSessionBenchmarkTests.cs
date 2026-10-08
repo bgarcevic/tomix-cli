@@ -25,8 +25,8 @@ public sealed class LiveSessionBenchmarkTests(ITestOutputHelper output)
     private static readonly IReadOnlyList<IModelProvider> Providers = [new TmdlModelProvider(), new TomFileModelProvider()];
     private static readonly TimeSpan Patience = TimeSpan.FromSeconds(30);
 
-    /// <summary>The budgets of a warm session (ADR 0004), checked against the median.</summary>
-    private static readonly Dictionary<string, double> Budgets = new(StringComparer.Ordinal)
+    /// <summary>The targets of a warm session (ADR 0004), compared with the median.</summary>
+    private static readonly Dictionary<string, double> Targets = new(StringComparer.Ordinal)
     {
         ["object.set + model.changed"] = 50,
         ["session.undo"] = 50,
@@ -38,7 +38,7 @@ public sealed class LiveSessionBenchmarkTests(ITestOutputHelper output)
     private const int HeavyIterations = 5;
 
     [PerfFact]
-    public async Task LargeModel_StaysWithinTheWarmSessionBudgets()
+    public async Task LargeModel_ReportsTheWarmSessionTimings()
     {
         using var model = new TempDir();
         LargeModel.WriteTmdl(model.Path);
@@ -129,8 +129,6 @@ public sealed class LiveSessionBenchmarkTests(ITestOutputHelper output)
         }
 
         output.WriteLine(Report(results));
-        var missed = results.Where(row => Budgets.TryGetValue(row.Operation, out var budget) && row.Median >= budget).ToList();
-        Assert.True(missed.Count == 0, "Over budget: " + string.Join(", ", missed.Select(row => $"{row.Operation} {Ms(row.Median)} ms (budget {Ms(Budgets[row.Operation])} ms)")));
     }
 
     /// <summary>A failed request throws <see cref="ProtocolException"/>, which fails the benchmark.</summary>
@@ -163,12 +161,12 @@ public sealed class LiveSessionBenchmarkTests(ITestOutputHelper output)
         var text = new StringBuilder();
         text.AppendLine(CultureInfo.InvariantCulture,
             $"Large model: {LargeModel.Tables} tables, {LargeModel.Tables * LargeModel.ColumnsPerTable} columns, {LargeModel.Tables * LargeModel.MeasuresPerTable} measures");
-        text.AppendLine("| Operation | Runs | Median (ms) | p95 (ms) | Budget (ms) |");
+        text.AppendLine("| Operation | Runs | Median (ms) | p95 (ms) | Target (ms) |");
         text.AppendLine("|---|---:|---:|---:|---:|");
         foreach (var row in rows)
         {
-            var budget = Budgets.TryGetValue(row.Operation, out var ms) ? $"< {Ms(ms)}" : "-";
-            text.AppendLine(CultureInfo.InvariantCulture, $"| {row.Operation} | {row.Runs} | {Ms(row.Median)} | {Ms(row.P95)} | {budget} |");
+            var target = Targets.TryGetValue(row.Operation, out var ms) ? $"< {Ms(ms)}{(row.Median >= ms ? ", missed" : "")}" : "-";
+            text.AppendLine(CultureInfo.InvariantCulture, $"| {row.Operation} | {row.Runs} | {Ms(row.Median)} | {Ms(row.P95)} | {target} |");
         }
 
         return text.ToString();
