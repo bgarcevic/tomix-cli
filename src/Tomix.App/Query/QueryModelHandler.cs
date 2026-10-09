@@ -73,24 +73,25 @@ public sealed class QueryModelHandler
 
         try
         {
-            await using var session = await provider.OpenAsync(target, cancellationToken).ConfigureAwait(false);
-            if (session is not IModelQuerySession querySession)
+            await using var connection = await QueryConnection.OpenAsync(provider, target, cancellationToken).ConfigureAwait(false);
+            if (connection is null)
                 return TomixResult<QueryModelResult>.Fail(
                     "TOMIX_QUERY_UNSUPPORTED",
                     $"Provider session does not support queries: {target.Value}",
                     exitCode: 2,
                     hint: "Queries are only supported on live models connected via XMLA (-s <workspace> -d <model>).");
 
-            IReadOnlyList<TomixDiagnostic> warnings = [];
-            if (!request.NoValidate)
+            // With read access only there is no metadata, so the query is sent unchecked.
+            var warnings = new List<TomixDiagnostic>();
+            if (!request.NoValidate && connection.Session is { } session)
             {
                 var preflight = await PreflightAsync(session, request.Query, cancellationToken).ConfigureAwait(false);
                 if (preflight.Misses.Count > 0)
                     return Blocked(preflight.Misses);
-                warnings = preflight.Warnings;
+                warnings.AddRange(preflight.Warnings);
             }
 
-            var result = await querySession.ExecuteQueryAsync(
+            var result = await connection.Queries.ExecuteQueryAsync(
                 new ModelQueryRequest(
                     request.Query,
                     request.Parameters,
@@ -100,6 +101,20 @@ public sealed class QueryModelHandler
                     Runs: request.Runs < 1 ? 1 : request.Runs),
                 traceWriter,
                 cancellationToken).ConfigureAwait(false);
+
+            if (result.CacheClearError is { } clearError)
+                warnings.Add(new TomixDiagnostic(
+                    Code: "TOMIX_QUERY_COLD_UNAVAILABLE",
+                    Severity: DiagnosticSeverity.Warning,
+                    Message: $"--cold could not clear the cache, so every run was warm: {clearError}",
+                    Hint: "Clearing the cache needs write access to the model (workspace Admin, Member or Contributor)."));
+
+            if (result.TraceError is { } traceError)
+                warnings.Add(new TomixDiagnostic(
+                    Code: "TOMIX_QUERY_TRACE_UNAVAILABLE",
+                    Severity: DiagnosticSeverity.Warning,
+                    Message: $"--trace could not capture server timings: {traceError}",
+                    Hint: "Tracing needs write access to the model (workspace Admin, Member or Contributor) and is unavailable on shared capacity."));
 
             return TomixResult<QueryModelResult>.Ok(new QueryModelResult(
                 result.Server,
