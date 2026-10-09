@@ -10,6 +10,8 @@ and the API surface that major versions protect.
 
 ## [Unreleased]
 
+## [0.10.1] - 2026-10-09
+
 ### Changed
 
 - Edits and undo in a live session (`tx shell`, `tx serve`, `tx mcp`, `tx ui`) are faster on
@@ -1253,7 +1255,8 @@ development that are worth knowing about if you followed `main`.
   nonexistent option; `ls --type` help lists `calculatedcolumn`; the `--output-format`
   description typo "tTomix" is `tmdl` again.
 
-[Unreleased]: https://github.com/bgarcevic/tomix-cli/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/bgarcevic/tomix-cli/compare/v0.10.1...HEAD
+[0.10.1]: https://github.com/bgarcevic/tomix-cli/compare/v0.10.0...v0.10.1
 [0.10.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/bgarcevic/tomix-cli/compare/v0.7.0...v0.8.0
